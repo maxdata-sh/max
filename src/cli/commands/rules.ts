@@ -1,119 +1,125 @@
-import { Command } from 'commander';
+import { object, or } from '@optique/core/constructs';
+import { argument, command, constant } from '@optique/core/primitives';
+import { string } from '@optique/core/valueparser';
+import { message } from '@optique/core/message';
+import { print, printError } from '@optique/run';
 import { ConfigManager } from '../../core/config-manager.js';
 import { PermissionsEngine } from '../../core/permissions-engine.js';
-import { renderRules, renderSuccess, renderError, type OutputFormat } from '../output.js';
+import { renderRules, type OutputFormat } from '../output.js';
+import { outputOption } from '../parsers.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
-export const rulesCommand = new Command('rules')
-  .description('Manage permission rules');
+const rulesListCommand = object({
+  cmd: constant('rules' as const),
+  subcmd: constant('list' as const),
+  output: outputOption,
+});
 
-rulesCommand
-  .command('list')
-  .description('List all loaded rules')
-  .option('-o, --output <format>', 'Output format (text, json)', 'text')
-  .action(async (options: { output: string }) => {
-    try {
-      const config = ConfigManager.find();
-      if (!config) {
-        console.error(renderError('Not in a Max project. Run "max init" first.'));
-        process.exit(1);
-      }
+const rulesApplyCommand = object({
+  cmd: constant('rules' as const),
+  subcmd: constant('apply' as const),
+  file: argument(string({ metavar: 'FILE' }), { description: message`Rules file to apply` }),
+});
 
-      const permissionsEngine = new PermissionsEngine();
-      await permissionsEngine.loadRulesFromConfig(config);
+const rulesRemoveCommand = object({
+  cmd: constant('rules' as const),
+  subcmd: constant('remove' as const),
+  name: argument(string({ metavar: 'NAME' }), { description: message`Rule name to remove` }),
+});
 
-      const rules = permissionsEngine.getRules();
-      console.log(renderRules(rules, options.output as OutputFormat));
-    } catch (error) {
-      console.error(renderError(error instanceof Error ? error.message : 'Failed to list rules'));
-      process.exit(1);
-    }
-  });
+export const rulesCommand = or(
+  command('list', rulesListCommand, { description: message`List all loaded rules` }),
+  command('apply', rulesApplyCommand, { description: message`Apply a rules file` }),
+  command('remove', rulesRemoveCommand, { description: message`Remove a rule by name` }),
+);
 
-rulesCommand
-  .command('apply <file>')
-  .description('Apply a rules file')
-  .action(async (file: string) => {
-    try {
-      const config = ConfigManager.find();
-      if (!config) {
-        console.error(renderError('Not in a Max project. Run "max init" first.'));
-        process.exit(1);
-      }
+type RulesResult =
+  | { cmd: 'rules'; subcmd: 'list'; output?: 'text' | 'json' }
+  | { cmd: 'rules'; subcmd: 'apply'; file: string }
+  | { cmd: 'rules'; subcmd: 'remove'; name: string };
 
-      // Check if file exists
-      const filePath = path.isAbsolute(file) ? file : path.join(process.cwd(), file);
-      if (!fs.existsSync(filePath)) {
-        console.error(renderError(`File not found: ${file}`));
-        process.exit(1);
-      }
+export async function handleRules(opts: RulesResult) {
+  switch (opts.subcmd) {
+    case 'list':
+      return handleRulesList(opts);
+    case 'apply':
+      return handleRulesApply(opts);
+    case 'remove':
+      return handleRulesRemove(opts);
+  }
+}
 
-      // Copy file to .max/rules/ directory
-      const rulesDir = config.getRulesDir();
-      const destPath = path.join(rulesDir, path.basename(file));
-      fs.copyFileSync(filePath, destPath);
+async function handleRulesList(opts: { output?: 'text' | 'json' }) {
+  const config = ConfigManager.find();
+  if (!config) {
+    printError(message`Not in a Max project. Run "max init" first.`, { exitCode: 1 });
+  }
 
-      // Validate the rules
-      const permissionsEngine = new PermissionsEngine();
-      await permissionsEngine.loadRules(destPath);
+  const permissionsEngine = new PermissionsEngine();
+  await permissionsEngine.loadRulesFromConfig(config);
 
-      const rules = permissionsEngine.getRules();
-      console.log(renderSuccess(`Applied ${rules.length} rule${rules.length !== 1 ? 's' : ''} from ${file}`));
+  const rules = permissionsEngine.getRules();
+  console.log(renderRules(rules, (opts.output ?? 'text') as OutputFormat));
+}
 
-      for (const rule of rules) {
-        console.log(`  - ${rule.name} (${rule.type})`);
-      }
-    } catch (error) {
-      console.error(renderError(error instanceof Error ? error.message : 'Failed to apply rules'));
-      process.exit(1);
-    }
-  });
+async function handleRulesApply(opts: { file: string }) {
+  const config = ConfigManager.find();
+  if (!config) {
+    printError(message`Not in a Max project. Run "max init" first.`, { exitCode: 1 });
+  }
 
-rulesCommand
-  .command('remove <name>')
-  .description('Remove a rule by name')
-  .action(async (name: string) => {
-    try {
-      const config = ConfigManager.find();
-      if (!config) {
-        console.error(renderError('Not in a Max project. Run "max init" first.'));
-        process.exit(1);
-      }
+  const filePath = path.isAbsolute(opts.file) ? opts.file : path.join(process.cwd(), opts.file);
+  if (!fs.existsSync(filePath)) {
+    printError(message`File not found: ${opts.file}`, { exitCode: 1 });
+  }
 
-      const rulesDir = config.getRulesDir();
-      const files = fs.readdirSync(rulesDir).filter(f => f.endsWith('.yaml') || f.endsWith('.yml'));
+  const rulesDir = config.getRulesDir();
+  const destPath = path.join(rulesDir, path.basename(opts.file));
+  fs.copyFileSync(filePath, destPath);
 
-      let removed = false;
-      for (const file of files) {
-        const filePath = path.join(rulesDir, file);
-        const permissionsEngine = new PermissionsEngine();
-        await permissionsEngine.loadRules(filePath);
+  const permissionsEngine = new PermissionsEngine();
+  await permissionsEngine.loadRules(destPath);
 
-        const rules = permissionsEngine.getRules();
-        const hasRule = rules.some(r => r.name === name);
+  const rules = permissionsEngine.getRules();
+  print(message`✓ Applied ${rules.length.toString()} rule${rules.length !== 1 ? 's' : ''} from ${opts.file}`);
 
-        if (hasRule) {
-          // For simplicity, if the file contains only rules with this name, delete it
-          // Otherwise, we'd need to parse and rewrite the YAML
-          if (rules.length === 1 || rules.every(r => r.name === name)) {
-            fs.unlinkSync(filePath);
-            removed = true;
-          } else {
-            console.error(renderError(`Rule "${name}" is in file ${file} with other rules. Please edit the file manually.`));
-            process.exit(1);
-          }
-        }
-      }
+  for (const rule of rules) {
+    print(message`  - ${rule.name} (${rule.type})`);
+  }
+}
 
-      if (removed) {
-        console.log(renderSuccess(`Removed rule: ${name}`));
+async function handleRulesRemove(opts: { name: string }) {
+  const config = ConfigManager.find();
+  if (!config) {
+    printError(message`Not in a Max project. Run "max init" first.`, { exitCode: 1 });
+  }
+
+  const rulesDir = config.getRulesDir();
+  const files = fs.readdirSync(rulesDir).filter(f => f.endsWith('.yaml') || f.endsWith('.yml'));
+
+  let removed = false;
+  for (const file of files) {
+    const filePath = path.join(rulesDir, file);
+    const permissionsEngine = new PermissionsEngine();
+    await permissionsEngine.loadRules(filePath);
+
+    const rules = permissionsEngine.getRules();
+    const hasRule = rules.some(r => r.name === opts.name);
+
+    if (hasRule) {
+      if (rules.length === 1 || rules.every(r => r.name === opts.name)) {
+        fs.unlinkSync(filePath);
+        removed = true;
       } else {
-        console.error(renderError(`Rule not found: ${name}`));
-        process.exit(1);
+        printError(message`Rule "${opts.name}" is in file ${file} with other rules. Please edit the file manually.`, { exitCode: 1 });
       }
-    } catch (error) {
-      console.error(renderError(error instanceof Error ? error.message : 'Failed to remove rule'));
-      process.exit(1);
     }
-  });
+  }
+
+  if (removed) {
+    print(message`✓ Removed rule: ${opts.name}`);
+  } else {
+    printError(message`Rule not found: ${opts.name}`, { exitCode: 1 });
+  }
+}

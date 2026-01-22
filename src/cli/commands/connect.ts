@@ -1,38 +1,38 @@
-import { Command } from 'commander';
+import { object } from '@optique/core/constructs';
+import { argument, constant } from '@optique/core/primitives';
+import { message } from '@optique/core/message';
+import { print, printError } from '@optique/run';
 import { ConfigManager } from '../../core/config-manager.js';
 import { ConnectorRegistry } from '../../core/connector-registry.js';
-import { renderSuccess, renderError, renderProgress } from '../output.js';
+import { sourceArg } from '../parsers.js';
 
-export const connectCommand = new Command('connect')
-  .description('Configure and authenticate a connector')
-  .argument('<source>', 'Source to connect (e.g., gdrive)')
-  .action(async (source: string) => {
-    try {
-      const config = ConfigManager.find();
-      if (!config) {
-        console.error(renderError('Not in a Max project. Run "max init" first.'));
-        process.exit(1);
-      }
+export const connectCommand = object({
+  cmd: constant('connect' as const),
+  source: argument(sourceArg, { description: message`Source to connect (e.g., gdrive)` }),
+});
 
-      const registry = new ConnectorRegistry(config);
-      const connector = registry.get(source);
+export async function handleConnect(opts: { source: string }) {
+  const config = ConfigManager.find();
+  if (!config) {
+    printError(message`Not in a Max project. Run "max init" first.`, { exitCode: 1 });
+  }
 
-      if (!connector) {
-        console.error(renderError(`Unknown source: ${source}. Available sources: ${registry.list().join(', ')}`));
-        process.exit(1);
-      }
+  const registry = new ConnectorRegistry(config);
+  const connector = registry.get(opts.source);
 
-      console.log(renderProgress(`Connecting to ${source}...`));
-      const credentials = await connector.authenticate();
-      await config.saveCredentials(source, credentials);
-      await config.markSourceConfigured(source);
+  if (!connector) {
+    const available = registry.list().join(', ');
+    printError(message`Unknown source: ${opts.source}. Available sources: ${available}`, { exitCode: 1 });
+  }
 
-      console.log(renderSuccess(`Connected to ${source}`));
-      console.log('\nNext step:');
-      console.log(`  max sync ${source}    Sync data from ${source}`);
-      process.exit(0);
-    } catch (error) {
-      console.error(renderError(error instanceof Error ? error.message : 'Failed to connect'));
-      process.exit(1);
-    }
-  });
+  print(message`→ Connecting to ${opts.source}...`);
+  const credentials = await connector.authenticate();
+  await config.saveCredentials(opts.source, credentials);
+  await config.markSourceConfigured(opts.source);
+
+  print(message`✓ Connected to ${opts.source}`);
+  print(message`
+Next step:
+  max sync ${opts.source}    Sync data from ${opts.source}`);
+  process.exit(0);
+}

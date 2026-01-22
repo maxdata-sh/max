@@ -1,31 +1,30 @@
-import { Command } from 'commander';
+import { object } from '@optique/core/constructs';
+import { argument, constant } from '@optique/core/primitives';
+import { message } from '@optique/core/message';
+import { printError } from '@optique/run';
 import { ConfigManager } from '../../core/config-manager.js';
 import { ConnectorRegistry } from '../../core/connector-registry.js';
-import { renderSchema, renderError, type OutputFormat } from '../output.js';
+import { renderSchema, type OutputFormat } from '../output.js';
+import { sourceArg, outputOption } from '../parsers.js';
 
-export const schemaCommand = new Command('schema')
-  .description('Display the entity schema for a source')
-  .argument('<source>', 'Source to show schema for (e.g., gdrive)')
-  .option('-o, --output <format>', 'Output format (text, json)', 'text')
-  .action(async (source: string, options: { output: string }) => {
-    try {
-      const config = ConfigManager.find();
-      if (!config) {
-        console.error(renderError('Not in a Max project. Run "max init" first.'));
-        process.exit(1);
-      }
+export const schemaCommand = object({
+  cmd: constant('schema' as const),
+  source: argument(sourceArg, { description: message`Source to show schema for` }),
+  output: outputOption,
+});
 
-      const registry = new ConnectorRegistry(config);
-      const connector = registry.get(source);
+export async function handleSchema(opts: { source: string; output?: 'text' | 'json' }) {
+  const config = ConfigManager.find();
+  if (!config) {
+    printError(message`Not in a Max project. Run "max init" first.`, { exitCode: 1 });
+  }
 
-      if (!connector) {
-        console.error(renderError(`Unknown source: ${source}`));
-        process.exit(1);
-      }
+  const registry = new ConnectorRegistry(config);
+  const connector = registry.get(opts.source);
 
-      console.log(renderSchema(connector.schema, options.output as OutputFormat));
-    } catch (error) {
-      console.error(renderError(error instanceof Error ? error.message : 'Failed to get schema'));
-      process.exit(1);
-    }
-  });
+  if (!connector) {
+    printError(message`Unknown source: ${opts.source}`, { exitCode: 1 });
+  }
+
+  console.log(renderSchema(connector.schema, (opts.output ?? 'text') as OutputFormat));
+}

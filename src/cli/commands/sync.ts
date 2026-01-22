@@ -1,119 +1,110 @@
-import { Command } from 'commander';
+import { object } from '@optique/core/constructs';
+import { argument, option, constant } from '@optique/core/primitives';
+import { message } from '@optique/core/message';
+import { print, printError } from '@optique/run';
 import { ConfigManager } from '../../core/config-manager.js';
 import { ConnectorRegistry } from '../../core/connector-registry.js';
 import { EntityStore } from '../../core/entity-store.js';
 import { PermissionsEngine } from '../../core/permissions-engine.js';
-import { renderSuccess, renderError, renderProgress } from '../output.js';
+import { sourceArg } from '../parsers.js';
 
-export const syncCommand = new Command('sync')
-  .description('Sync data from a source')
-  .argument('<source>', 'Source to sync (e.g., gdrive)')
-  .option('--include-content', 'Also download and extract file content')
-  .action(async (source: string, options: { includeContent?: boolean }) => {
-    try {
-      const config = ConfigManager.find();
-      if (!config) {
-        console.error(renderError('Not in a Max project. Run "max init" first.'));
-        process.exit(1);
-      }
+export const syncCommand = object({
+  cmd: constant('sync' as const),
+  source: argument(sourceArg, { description: message`Source to sync (e.g., gdrive)` }),
+  includeContent: option('--include-content', { description: message`Also download and extract file content` }),
+});
 
-      const registry = new ConnectorRegistry(config);
-      const connector = registry.get(source);
+export async function handleSync(opts: { source: string; includeContent: boolean }) {
+  const config = ConfigManager.find();
+  if (!config) {
+    printError(message`Not in a Max project. Run "max init" first.`, { exitCode: 1 });
+  }
 
-      if (!connector) {
-        console.error(renderError(`Unknown source: ${source}`));
-        process.exit(1);
-      }
+  const registry = new ConnectorRegistry(config);
+  const connector = registry.get(opts.source);
 
-      if (!registry.isReady(source)) {
-        console.error(renderError(`Source ${source} is not configured. Run "max connect ${source}" first.`));
-        process.exit(1);
-      }
+  if (!connector) {
+    printError(message`Unknown source: ${opts.source}`, { exitCode: 1 });
+  }
 
-      const store = new EntityStore(config);
-      await store.initialize();
-      await store.setSchema(connector.schema);
+  if (!registry.isReady(opts.source)) {
+    printError(message`Source ${opts.source} is not configured. Run "max connect ${opts.source}" first.`, { exitCode: 1 });
+  }
 
-      const permissionsEngine = new PermissionsEngine();
+  const store = new EntityStore(config);
+  await store.initialize();
+  await store.setSchema(connector.schema);
 
-      console.log(renderProgress(`Syncing metadata from ${source}...`));
+  const permissionsEngine = new PermissionsEngine();
 
-      let fileCount = 0;
-      let folderCount = 0;
+  print(message`→ Syncing metadata from ${opts.source}...`);
 
-      // First pass: sync all metadata
-      for await (const rawEntity of connector.sync()) {
-        // Normalize permissions
-        const normalizedPerms = permissionsEngine.normalize(source, rawEntity.permissions);
+  let fileCount = 0;
+  let folderCount = 0;
 
-        // Store entity
-        await store.upsert({
-          source,
-          id: rawEntity.id,
-          type: rawEntity.type,
-          properties: rawEntity.properties,
-          permissions: normalizedPerms,
-          syncedAt: new Date(),
-        });
+  for await (const rawEntity of connector.sync()) {
+    const normalizedPerms = permissionsEngine.normalize(opts.source, rawEntity.permissions);
+    await store.upsert({
+      source: opts.source,
+      id: rawEntity.id,
+      type: rawEntity.type,
+      properties: rawEntity.properties,
+      permissions: normalizedPerms,
+      syncedAt: new Date(),
+    });
 
-        if (rawEntity.type === 'folder') {
-          folderCount++;
-        } else {
-          fileCount++;
-        }
-
-        // Progress update every 100 items
-        if ((fileCount + folderCount) % 100 === 0) {
-          console.log(renderProgress(`Processed ${fileCount} files, ${folderCount} folders...`));
-        }
-      }
-
-      console.log(renderSuccess(`Metadata sync complete`));
-      console.log(`  Files: ${fileCount}`);
-      console.log(`  Folders: ${folderCount}`);
-
-      // Second pass: extract content (if requested)
-      let contentCount = 0;
-      if (options.includeContent) {
-        console.log(renderProgress(`Extracting content...`));
-
-        const PAGE_SIZE = 1000;
-        let offset = 0;
-        let processed = 0;
-        let hasMore = true;
-
-        while (hasMore) {
-          const { entities, total } = await store.query({
-            source,
-            type: 'file',
-            limit: PAGE_SIZE,
-            offset,
-          });
-
-          for (const entity of entities) {
-            const content = await connector.getContent(entity.id);
-            if (content) {
-              await store.storeContent(source, entity.id, content);
-              contentCount++;
-            }
-            processed++;
-
-            if (processed % 50 === 0) {
-              console.log(renderProgress(`Extracted ${contentCount} of ${processed}/${total} files...`));
-            }
-          }
-
-          offset += PAGE_SIZE;
-          hasMore = entities.length === PAGE_SIZE;
-        }
-
-        console.log(renderSuccess(`Content extraction complete`));
-        console.log(`  Content extracted: ${contentCount}`);
-      }
-
-      await config.updateLastSync(source);
-    } catch (error) {
-      console.error(renderError(error instanceof Error ? error.message : 'Sync failed'));
-      process.exit(1);
+    if (rawEntity.type === 'folder') {
+      folderCount++;
+    } else {
+      fileCount++;
     }
-  });
+
+    if ((fileCount + folderCount) % 100 === 0) {
+      print(message`→ Processed ${fileCount.toString()} files, ${folderCount.toString()} folders...`);
+    }
+  }
+
+  print(message`✓ Metadata sync complete`);
+  print(message`  Files: ${fileCount.toString()}`);
+  print(message`  Folders: ${folderCount.toString()}`);
+
+  let contentCount = 0;
+  if (opts.includeContent) {
+    print(message`→ Extracting content...`);
+
+    const PAGE_SIZE = 1000;
+    let offset = 0;
+    let processed = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { entities, total } = await store.query({
+        source: opts.source,
+        type: 'file',
+        limit: PAGE_SIZE,
+        offset,
+      });
+
+      for (const entity of entities) {
+        const content = await connector.getContent(entity.id);
+        if (content) {
+          await store.storeContent(opts.source, entity.id, content);
+          contentCount++;
+        }
+        processed++;
+
+        if (processed % 50 === 0) {
+          print(message`→ Extracted ${contentCount.toString()} of ${processed.toString()}/${total.toString()} files...`);
+        }
+      }
+
+      offset += PAGE_SIZE;
+      hasMore = entities.length === PAGE_SIZE;
+    }
+
+    print(message`✓ Content extraction complete`);
+    print(message`  Content extracted: ${contentCount.toString()}`);
+  }
+
+  await config.updateLastSync(opts.source);
+}

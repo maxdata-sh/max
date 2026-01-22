@@ -1,20 +1,24 @@
-import { Command } from 'commander';
+import { object } from '@optique/core/constructs';
+import { withDefault } from '@optique/core/modifiers';
+import { argument, constant } from '@optique/core/primitives';
+import { string } from '@optique/core/valueparser';
+import { message } from '@optique/core/message';
+import { print, printError } from '@optique/run';
 import { ConfigManager } from '../../core/config-manager.js';
-import { renderSuccess, renderError } from '../output.js';
 
-export const initCommand = new Command('init')
-  .description('Initialize a new Max project')
-  .argument('[directory]', 'Directory to initialize', '.')
-  .action(async (directory: string) => {
-    try {
-      const config = new ConfigManager(directory);
-      await config.initialize();
-      console.log(renderSuccess(`Initialized Max project in ${directory === '.' ? 'current directory' : directory}`));
-      console.log('\nNext steps:');
-      console.log('  max connect gdrive    Connect your Google Drive');
-      console.log('  max sync gdrive       Sync data from Google Drive');
-    } catch (error) {
-      console.error(renderError(error instanceof Error ? error.message : 'Failed to initialize project'));
-      process.exit(1);
-    }
-  });
+export const initCommand = object({
+  cmd: constant('init' as const),
+  directory: withDefault(argument(string(), { description: message`Directory to initialize` }), '.'),
+});
+
+export async function handleInit(opts: { directory: string }) {
+  const config = new ConfigManager(opts.directory);
+  await config.initialize();
+
+  const location = opts.directory === '.' ? 'current directory' : opts.directory;
+  print(message`✓ Initialized Max project in ${location}`);
+  print(message`
+Next steps:
+  max connect gdrive    Connect your Google Drive
+  max sync gdrive       Sync data from Google Drive`);
+}

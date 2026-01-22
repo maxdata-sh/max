@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "commander": "^12.1.0",
+    "@optique/core": "^0.9.1",
+    "@optique/run": "^0.9.1",
     "googleapis": "^144.0.0",
     "minimatch": "^10.0.1",
     "yaml": "^2.7.0"

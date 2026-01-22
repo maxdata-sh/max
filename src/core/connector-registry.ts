@@ -1,6 +1,5 @@
 import type { ConfigManager } from './config-manager.js';
 import type { Connector, Credentials } from '../types/connector.js';
-import { GoogleDriveConnector } from '../connectors/gdrive/index.js';
 
 export type ConnectorType = 'gdrive';
 
@@ -20,20 +19,22 @@ export class ConnectorRegistry {
   }
 
   /**
-   * Get a connector instance
+   * Get a connector instance (lazy-loaded)
    */
-  get(type: string): Connector | null {
+  async get(type: string): Promise<Connector | null> {
     // Return cached instance if available
     if (this.connectors.has(type)) {
       return this.connectors.get(type)!;
     }
 
-    // Create new instance
+    // Dynamically load connector
     switch (type) {
-      case 'gdrive':
+      case 'gdrive': {
+        const { GoogleDriveConnector } = await import('../connectors/gdrive/index.js');
         const connector = new GoogleDriveConnector(this.config);
         this.connectors.set(type, connector);
         return connector;
+      }
       default:
         return null;
     }

@@ -20,7 +20,7 @@ export async function handleSchema(opts: { source: string; output?: 'text' | 'js
   }
 
   const registry = new ConnectorRegistry(config);
-  const connector = registry.get(opts.source);
+  const connector = await registry.get(opts.source);
 
   if (!connector) {
     printError(message`Unknown source: ${opts.source}`, { exitCode: 1 });

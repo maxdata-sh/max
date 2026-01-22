@@ -18,7 +18,7 @@ export async function handleConnect(opts: { source: string }) {
   }
 
   const registry = new ConnectorRegistry(config);
-  const connector = registry.get(opts.source);
+  const connector = await registry.get(opts.source);
 
   if (!connector) {
     const available = registry.list().join(', ');

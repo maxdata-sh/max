@@ -4,6 +4,7 @@ import { choice } from '@optique/core/valueparser';
 import type { ValueParser, ValueParserResult } from '@optique/core/valueparser';
 import type { Suggestion } from '@optique/core/parser';
 import { message } from '@optique/core/message';
+import { getSources, getAllEntityTypes, getAllFilterableFields } from '../core/schema-registry.js';
 
 // Custom value parser for source argument with completions
 export const sourceArg: ValueParser<'sync', string> = {
@@ -16,8 +17,9 @@ export const sourceArg: ValueParser<'sync', string> = {
     return value;
   },
   *suggest(): Generator<Suggestion> {
-    yield { kind: 'literal', text: 'gdrive', description: message`Google Drive` };
-    yield { kind: 'literal', text: 'linear', description: message`Linear` };
+    for (const source of getSources()) {
+      yield { kind: 'literal', text: source, description: message`${source}` };
+    }
   },
 };
 
@@ -33,16 +35,36 @@ export const entityTypeArg: ValueParser<'sync', string> = {
     return value;
   },
   *suggest(): Generator<Suggestion> {
-    // gdrive types
-    yield { kind: 'literal', text: 'file', description: message`Any file (gdrive)` };
-    yield { kind: 'literal', text: 'folder', description: message`Folders (gdrive)` };
-    yield { kind: 'literal', text: 'document', description: message`Google Docs` };
-    yield { kind: 'literal', text: 'spreadsheet', description: message`Google Sheets` };
-    yield { kind: 'literal', text: 'presentation', description: message`Google Slides` };
-    // linear types
-    yield { kind: 'literal', text: 'issue', description: message`Linear issues` };
-    yield { kind: 'literal', text: 'project', description: message`Linear projects` };
-    yield { kind: 'literal', text: 'cycle', description: message`Linear cycles` };
+    for (const { source, type } of getAllEntityTypes()) {
+      yield { kind: 'literal', text: type, description: message`${type} (${source})` };
+    }
+  },
+};
+
+// Filter value parser - accepts field=value syntax
+export const filterArg: ValueParser<'sync', { field: string; value: string }> = {
+  $mode: 'sync',
+  metavar: 'FIELD=VALUE',
+  parse(input: string): ValueParserResult<{ field: string; value: string }> {
+    const eqIndex = input.indexOf('=');
+    if (eqIndex === -1) {
+      return { success: false, error: message`Filter must be in field=value format` };
+    }
+    const field = input.substring(0, eqIndex);
+    const value = input.substring(eqIndex + 1);
+    if (!field) {
+      return { success: false, error: message`Filter field cannot be empty` };
+    }
+    return { success: true, value: { field, value } };
+  },
+  format(value: { field: string; value: string }): string {
+    return `${value.field}=${value.value}`;
+  },
+  *suggest(): Generator<Suggestion> {
+    for (const { source, field } of getAllFilterableFields()) {
+      const desc = field.description ? `${field.description} (${source})` : `${source}`;
+      yield { kind: 'literal', text: `${field.name}=`, description: message`${desc}` };
+    }
   },
 };
 

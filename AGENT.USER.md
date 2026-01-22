@@ -26,23 +26,24 @@ max search <source> [options]
 
 Options:
 - `-t, --type <type>` - Filter by entity type (e.g., `issue`, `document`, `folder`)
-- `--owner <email>` - Filter by owner
-- `--name <pattern>` - Filter by name (glob pattern)
-- `--path <pattern>` - Filter by path (glob pattern, gdrive)
+- `-f, --filter <field=value>` - Filter by field (repeatable)
 - `--limit <n>` - Max results (default: 50)
 - `--offset <n>` - Skip first n results
 - `-o, --output json` - Output as JSON for parsing
 
 Examples:
 ```bash
-# Find Linear issues
-max search linear --type=issue --limit=10
+# Find Linear issues in a specific state
+max search linear --type=issue --filter state="In Review"
 
-# Find Google Docs
-max search gdrive --type=document --limit=5
+# Filter by multiple fields
+max search linear --type=issue --filter assignee="alice@example.com" --filter state="In Progress"
+
+# Find Google Docs by owner
+max search gdrive --type=document --filter owner="alice@example.com"
 
 # Search by name pattern
-max search gdrive --name="*quarterly*" --type=spreadsheet
+max search gdrive --filter name="quarterly"
 
 # Get JSON for parsing
 max search linear --type=issue --limit=5 -o json
@@ -66,6 +67,7 @@ max get gdrive 1BxiMVs0XRA5nFMdKvBd -o json
 
 ## Tips
 
-1. Always check `max schema <source>` first to see available entity types
+1. Always check `max schema <source>` first to see available filterable fields
 2. Use `-o json` when you need to parse the output programmatically
 3. Entity types vary by source - Linear has `issue`, `project`, `comment`; gdrive has `file`, `folder`
+4. Filter fields are validated against the schema - use `max schema` to see what's available

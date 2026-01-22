@@ -15,6 +15,7 @@ import {
   authenticate,
   getOAuthConfig,
   createAuthenticatedClient,
+  type GDriveCredentials,
 } from './auth.js';
 import { canExtractContent, extractContent } from './content.js';
 
@@ -57,21 +58,21 @@ export class GoogleDriveConnector implements Connector {
   private async initializeDrive(): Promise<drive_v3.Drive> {
     if (this.drive) return this.drive;
 
-    const credentials = this.config.loadCredentials(this.type);
-    if (!credentials) {
+    const creds = this.config.loadCredentials(this.type) as GDriveCredentials | null;
+    if (!creds) {
       throw new Error('Not authenticated. Run "max connect gdrive" first.');
     }
 
     const oauthConfig = getOAuthConfig(this.config);
-    const auth = createAuthenticatedClient(credentials, oauthConfig);
+    const auth = createAuthenticatedClient(creds, oauthConfig);
 
     // Handle token refresh
     auth.on('tokens', async (tokens) => {
       if (tokens.refresh_token || tokens.access_token) {
-        const newCredentials: Credentials = {
-          accessToken: tokens.access_token || credentials.accessToken,
-          refreshToken: tokens.refresh_token || credentials.refreshToken,
-          expiryDate: tokens.expiry_date || credentials.expiryDate,
+        const newCredentials: GDriveCredentials = {
+          accessToken: tokens.access_token || creds.accessToken,
+          refreshToken: tokens.refresh_token || creds.refreshToken,
+          expiryDate: tokens.expiry_date || creds.expiryDate,
         };
         await this.config.saveCredentials(this.type, newCredentials);
       }

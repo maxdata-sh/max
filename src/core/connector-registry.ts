@@ -1,7 +1,7 @@
 import type { ConfigManager } from './config-manager.js';
 import type { Connector, Credentials } from '../types/connector.js';
 
-export type ConnectorType = 'gdrive';
+export type ConnectorType = 'gdrive' | 'linear';
 
 export class ConnectorRegistry {
   private config: ConfigManager;
@@ -15,7 +15,7 @@ export class ConnectorRegistry {
    * List available connector types
    */
   list(): ConnectorType[] {
-    return ['gdrive'];
+    return ['gdrive', 'linear'];
   }
 
   /**
@@ -32,6 +32,12 @@ export class ConnectorRegistry {
       case 'gdrive': {
         const { GoogleDriveConnector } = await import('../connectors/gdrive/index.js');
         const connector = new GoogleDriveConnector(this.config);
+        this.connectors.set(type, connector);
+        return connector;
+      }
+      case 'linear': {
+        const { LinearConnector } = await import('../connectors/linear/index.js');
+        const connector = new LinearConnector(this.config);
         this.connectors.set(type, connector);
         return connector;
       }

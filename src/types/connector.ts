@@ -50,10 +50,9 @@ export interface ContentBlob {
   extractedAt: Date;
 }
 
+// Flexible credentials - each connector defines its own shape
 export interface Credentials {
-  accessToken: string;
-  refreshToken: string;
-  expiryDate: number;
+  [key: string]: unknown
 }
 
 export interface Connector {

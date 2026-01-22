@@ -4,8 +4,8 @@ import * as url from 'url';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
-import type { Credentials } from '../../types/connector.js';
 import type { ConfigManager } from '../../core/config-manager.js';
+import {Credentials} from "../../types/index.js";
 
 const SCOPES = [
   'https://www.googleapis.com/auth/drive.readonly',
@@ -19,6 +19,12 @@ const REDIRECT_URI = `http://127.0.0.1:${REDIRECT_PORT}/oauth2callback`;
 export interface OAuthConfig {
   clientId: string;
   clientSecret: string;
+}
+
+export interface GDriveCredentials extends Credentials {
+  accessToken: string;
+  refreshToken: string;
+  expiryDate: number;
 }
 
 /**
@@ -125,7 +131,7 @@ export function createOAuth2Client(config: OAuthConfig) {
 /**
  * Perform OAuth flow and return credentials
  */
-export async function authenticate(configManager?: ConfigManager): Promise<Credentials> {
+export async function authenticate(configManager?: ConfigManager): Promise<GDriveCredentials> {
   let oauthConfig: OAuthConfig;
 
   try {
@@ -239,7 +245,7 @@ export async function authenticate(configManager?: ConfigManager): Promise<Crede
 /**
  * Create an authenticated OAuth2 client from stored credentials
  */
-export function createAuthenticatedClient(credentials: Credentials, config: OAuthConfig) {
+export function createAuthenticatedClient(credentials: GDriveCredentials, config: OAuthConfig) {
   const oauth2Client = createOAuth2Client(config);
   oauth2Client.setCredentials({
     access_token: credentials.accessToken,

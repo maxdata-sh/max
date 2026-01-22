@@ -2,7 +2,13 @@ import type { StoredEntity, EntitySchema, PermissionsSummary, Rule } from '../ty
 
 export type OutputFormat = 'text' | 'json';
 
-export function renderEntities(entities: StoredEntity[], format: OutputFormat, total?: number): string {
+export interface PaginationInfo {
+  offset: number;
+  limit: number;
+  total: number;
+}
+
+export function renderEntities(entities: StoredEntity[], format: OutputFormat, pagination?: PaginationInfo): string {
   if (format === 'json') {
     return JSON.stringify(entities, null, 2);
   }
@@ -12,8 +18,13 @@ export function renderEntities(entities: StoredEntity[], format: OutputFormat, t
   }
 
   const lines: string[] = [];
-  const displayTotal = total ?? entities.length;
-  lines.push(`${displayTotal} result${displayTotal !== 1 ? 's' : ''}:\n`);
+  if (pagination) {
+    const start = pagination.offset + 1;
+    const end = pagination.offset + entities.length;
+    lines.push(`Results ${start}-${end} of ${pagination.total}\n`);
+  } else {
+    lines.push(`${entities.length} result${entities.length !== 1 ? 's' : ''}:\n`);
+  }
 
   for (const entity of entities) {
     const props = entity.properties;

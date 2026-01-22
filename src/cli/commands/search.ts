@@ -93,8 +93,15 @@ export async function handleSearch(opts: {
   const filteredEntities = permissionsEngine.filter(result.entities, {});
   const filteredCount = result.entities.length - filteredEntities.length;
   const format = (opts.output ?? 'text') as OutputFormat;
+  const adjustedTotal = result.total - filteredCount;
 
-  console.log(renderEntities(filteredEntities, format, result.total - filteredCount));
+  const pagination = opts.limit ? {
+    offset: opts.offset ?? 0,
+    limit: opts.limit,
+    total: adjustedTotal,
+  } : undefined;
+
+  console.log(renderEntities(filteredEntities, format, pagination));
 
   if (filteredCount > 0 && format === 'text') {
     print(message`(${filteredCount.toString()} result${filteredCount !== 1 ? 's' : ''} filtered by rules)`);

@@ -8,7 +8,16 @@ export interface PaginationInfo {
   total: number;
 }
 
-export function renderEntities(entities: StoredEntity[], format: OutputFormat, pagination?: PaginationInfo): string {
+/**
+ * Render entities using a provided formatter function.
+ * The formatter is typically provided by the connector.
+ */
+export function renderEntities(
+  entities: StoredEntity[],
+  format: OutputFormat,
+  formatEntity: (entity: StoredEntity) => string,
+  pagination?: PaginationInfo
+): string {
   if (format === 'json') {
     return JSON.stringify(entities, null, 2);
   }
@@ -27,21 +36,7 @@ export function renderEntities(entities: StoredEntity[], format: OutputFormat, p
   }
 
   for (const entity of entities) {
-    const props = entity.properties;
-    lines.push(`${props.name || entity.id}`);
-    if (props.path) {
-      lines.push(`   Path: ${props.path}`);
-    }
-    if (props.owner) {
-      lines.push(`   Owner: ${props.owner}`);
-    }
-    if (props.modifiedAt) {
-      const date = new Date(props.modifiedAt as string);
-      lines.push(`   Modified: ${date.toISOString().split('T')[0]}`);
-    }
-    if (props.mimeType) {
-      lines.push(`   Type: ${formatMimeType(props.mimeType as string)}`);
-    }
+    lines.push(formatEntity(entity));
     lines.push('');
   }
 
@@ -153,18 +148,4 @@ export function renderError(message: string): string {
 
 export function renderProgress(message: string): string {
   return `→ ${message}`;
-}
-
-function formatMimeType(mimeType: string): string {
-  const mappings: Record<string, string> = {
-    'application/vnd.google-apps.document': 'Google Doc',
-    'application/vnd.google-apps.spreadsheet': 'Google Sheet',
-    'application/vnd.google-apps.presentation': 'Google Slides',
-    'application/vnd.google-apps.folder': 'Folder',
-    'application/pdf': 'PDF',
-    'text/plain': 'Text',
-    'text/markdown': 'Markdown',
-    'application/json': 'JSON',
-  };
-  return mappings[mimeType] || mimeType;
 }

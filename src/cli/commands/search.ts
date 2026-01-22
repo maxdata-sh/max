@@ -5,6 +5,7 @@ import { string, integer } from '@optique/core/valueparser';
 import { message } from '@optique/core/message';
 import { print, printError } from '@optique/run';
 import { ConfigManager } from '../../core/config-manager.js';
+import { ConnectorRegistry } from '../../core/connector-registry.js';
 import { EntityStore } from '../../core/entity-store.js';
 import { PermissionsEngine } from '../../core/permissions-engine.js';
 import { renderEntities, type OutputFormat } from '../output.js';
@@ -38,6 +39,13 @@ export async function handleSearch(opts: {
   const config = ConfigManager.find();
   if (!config) {
     printError(message`Not in a Max project. Run "max init" first.`, { exitCode: 1 });
+  }
+
+  // Get the connector for formatting
+  const registry = new ConnectorRegistry(config);
+  const connector = await registry.get(opts.source);
+  if (!connector) {
+    printError(message`Unknown source: ${opts.source}`, { exitCode: 1 });
   }
 
   const store = new EntityStore(config);
@@ -101,7 +109,7 @@ export async function handleSearch(opts: {
     total: adjustedTotal,
   } : undefined;
 
-  console.log(renderEntities(filteredEntities, format, pagination));
+  console.log(renderEntities(filteredEntities, format, connector.formatEntity.bind(connector), pagination));
 
   if (filteredCount > 0 && format === 'text') {
     print(message`(${filteredCount.toString()} result${filteredCount !== 1 ? 's' : ''} filtered by rules)`);

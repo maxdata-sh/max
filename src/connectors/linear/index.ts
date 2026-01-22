@@ -8,6 +8,7 @@ import type {
   SourcePermission,
   ContentBlob,
 } from '../../types/connector.js';
+import type { StoredEntity } from '../../types/entity.js';
 import { linearSchema } from './schema.js';
 import { promptForApiKey, validateApiKey } from './auth.js';
 
@@ -38,6 +39,77 @@ export class LinearConnector implements Connector {
 
     // Return credentials - connect handler saves them
     return { apiKey };
+  }
+
+  /**
+   * Format an entity for text display
+   */
+  formatEntity(entity: StoredEntity): string {
+    const props = entity.properties;
+    const lines: string[] = [];
+
+    switch (entity.type) {
+      case 'issue': {
+        const identifier = props.identifier || entity.id;
+        const title = props.title || '(untitled)';
+        const state = props.state || 'Unknown';
+        lines.push(`${identifier}  ${title}`);
+        lines.push(`   State: ${state}`);
+        if (props.assignee) {
+          lines.push(`   Assignee: ${props.assignee}`);
+        }
+        if (props.team) {
+          lines.push(`   Team: ${props.team}`);
+        }
+        if (props.labels && Array.isArray(props.labels) && props.labels.length > 0) {
+          lines.push(`   Labels: ${props.labels.join(', ')}`);
+        }
+        if (props.updatedAt) {
+          const date = new Date(props.updatedAt as string);
+          lines.push(`   Updated: ${date.toISOString().split('T')[0]}`);
+        }
+        break;
+      }
+      case 'project': {
+        const name = props.name || entity.id;
+        const state = props.state || '';
+        lines.push(`${name}${state ? ` [${state}]` : ''}`);
+        if (props.description) {
+          const desc = String(props.description).substring(0, 80);
+          lines.push(`   ${desc}${String(props.description).length > 80 ? '...' : ''}`);
+        }
+        if (props.lead) {
+          lines.push(`   Lead: ${props.lead}`);
+        }
+        if (props.targetDate) {
+          lines.push(`   Target: ${props.targetDate}`);
+        }
+        break;
+      }
+      case 'comment': {
+        const author = props.author || 'Unknown';
+        const issueId = props.issueIdentifier || props.issueId || '';
+        lines.push(`Comment on ${issueId} by ${author}`);
+        if (props.body) {
+          const body = String(props.body).substring(0, 100).replace(/\n/g, ' ');
+          lines.push(`   ${body}${String(props.body).length > 100 ? '...' : ''}`);
+        }
+        if (props.createdAt) {
+          const date = new Date(props.createdAt as string);
+          lines.push(`   Created: ${date.toISOString().split('T')[0]}`);
+        }
+        break;
+      }
+      default: {
+        lines.push(`${props.name || props.title || entity.id}`);
+        if (props.description) {
+          const desc = String(props.description).substring(0, 80);
+          lines.push(`   ${desc}${String(props.description).length > 80 ? '...' : ''}`);
+        }
+      }
+    }
+
+    return lines.join('\n');
   }
 
   /**

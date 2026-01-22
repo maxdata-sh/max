@@ -1,3 +1,5 @@
+import type { StoredEntity } from './entity.js';
+
 export interface EntitySchema {
   source: string;
   entities: EntityDefinition[];
@@ -63,4 +65,10 @@ export interface Connector {
   sync(options?: SyncOptions): AsyncIterable<RawEntity>;
   get(id: string): Promise<RawEntity | null>;
   getContent(id: string): Promise<ContentBlob | null>;
+
+  /**
+   * Format an entity for text display.
+   * Each connector knows best how to display its own entities.
+   */
+  formatEntity(entity: StoredEntity): string;
 }

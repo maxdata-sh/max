@@ -10,6 +10,7 @@ import type {
   SourcePermission,
   ContentBlob,
 } from '../../types/connector.js';
+import type { StoredEntity } from '../../types/entity.js';
 import { gdriveSchema } from './schema.js';
 import {
   authenticate,
@@ -245,6 +246,31 @@ export class GoogleDriveConnector implements Connector {
   }
 
   /**
+   * Format an entity for text display
+   */
+  formatEntity(entity: StoredEntity): string {
+    const props = entity.properties;
+    const lines: string[] = [];
+
+    lines.push(`${props.name || entity.id}`);
+    if (props.path) {
+      lines.push(`   Path: ${props.path}`);
+    }
+    if (props.owner) {
+      lines.push(`   Owner: ${props.owner}`);
+    }
+    if (props.modifiedAt) {
+      const date = new Date(props.modifiedAt as string);
+      lines.push(`   Modified: ${date.toISOString().split('T')[0]}`);
+    }
+    if (props.mimeType) {
+      lines.push(`   Type: ${formatMimeType(props.mimeType as string)}`);
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
    * Convert a Google Drive file to a RawEntity
    */
   private fileToEntity(file: drive_v3.Schema$File): RawEntity {
@@ -289,4 +315,18 @@ export class GoogleDriveConnector implements Connector {
       raw: file,
     };
   }
+}
+
+function formatMimeType(mimeType: string): string {
+  const mappings: Record<string, string> = {
+    'application/vnd.google-apps.document': 'Google Doc',
+    'application/vnd.google-apps.spreadsheet': 'Google Sheet',
+    'application/vnd.google-apps.presentation': 'Google Slides',
+    'application/vnd.google-apps.folder': 'Folder',
+    'application/pdf': 'PDF',
+    'text/plain': 'Text',
+    'text/markdown': 'Markdown',
+    'application/json': 'JSON',
+  };
+  return mappings[mimeType] || mimeType;
 }

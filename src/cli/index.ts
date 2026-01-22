@@ -12,6 +12,7 @@ import { searchCommand, handleSearch } from './commands/search.js';
 import { getCommand, handleGet } from './commands/get.js';
 import { permissionsCommand, handlePermissions } from './commands/permissions.js';
 import { rulesCommand, handleRules } from './commands/rules.js';
+import { llmBootstrapCommand, handleLlmBootstrap } from './commands/llm-bootstrap.js';
 
 // Main parser with all commands
 const parser = or(
@@ -23,6 +24,7 @@ const parser = or(
   command('get', getCommand, { description: message`Get a single entity with full details` }),
   command('permissions', permissionsCommand, { description: message`Show permissions for an entity` }),
   command('rules', rulesCommand, { description: message`Manage permission rules` }),
+  command('llm-bootstrap', llmBootstrapCommand, { description: message`Output agent usage guide` }),
 );
 
 type ParsedResult = InferValue<typeof parser>;
@@ -61,6 +63,9 @@ const result = run(parser, {
         break;
       case 'rules':
         await handleRules(result);
+        break;
+      case 'llm-bootstrap':
+        await handleLlmBootstrap();
         break;
     }
   } catch (err) {

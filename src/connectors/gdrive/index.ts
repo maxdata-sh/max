@@ -1,0 +1,271 @@
+import { google, drive_v3 } from 'googleapis';
+import type { ConfigManager } from '../../core/config-manager.js';
+import type {
+  Connector,
+  EntitySchema,
+  Credentials,
+  SyncOptions,
+  RawEntity,
+  SourcePermission,
+  ContentBlob,
+} from '../../types/connector.js';
+import { gdriveSchema } from './schema.js';
+import {
+  authenticate,
+  getOAuthConfig,
+  createAuthenticatedClient,
+} from './auth.js';
+import { canExtractContent, extractContent } from './content.js';
+
+const FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder';
+
+export class GoogleDriveConnector implements Connector {
+  readonly type = 'gdrive';
+  readonly schema: EntitySchema = gdriveSchema;
+
+  private config: ConfigManager;
+  private drive: drive_v3.Drive | null = null;
+  private folderPaths: Map<string, string> = new Map();
+
+  constructor(config: ConfigManager) {
+    this.config = config;
+  }
+
+  /**
+   * Authenticate with Google Drive
+   */
+  async authenticate(): Promise<Credentials> {
+    return authenticate();
+  }
+
+  /**
+   * Initialize the Drive API client
+   */
+  private async initializeDrive(): Promise<drive_v3.Drive> {
+    if (this.drive) return this.drive;
+
+    const credentials = this.config.loadCredentials(this.type);
+    if (!credentials) {
+      throw new Error('Not authenticated. Run "max connect gdrive" first.');
+    }
+
+    const oauthConfig = getOAuthConfig();
+    const auth = createAuthenticatedClient(credentials, oauthConfig);
+
+    // Handle token refresh
+    auth.on('tokens', async (tokens) => {
+      if (tokens.refresh_token || tokens.access_token) {
+        const newCredentials: Credentials = {
+          accessToken: tokens.access_token || credentials.accessToken,
+          refreshToken: tokens.refresh_token || credentials.refreshToken,
+          expiryDate: tokens.expiry_date || credentials.expiryDate,
+        };
+        await this.config.saveCredentials(this.type, newCredentials);
+      }
+    });
+
+    this.drive = google.drive({ version: 'v3', auth });
+    return this.drive;
+  }
+
+  /**
+   * Sync all files and folders from Google Drive
+   */
+  async *sync(options?: SyncOptions): AsyncIterable<RawEntity> {
+    const drive = await this.initializeDrive();
+
+    // First pass: build folder hierarchy
+    console.log('Building folder hierarchy...');
+    await this.buildFolderHierarchy(drive);
+
+    // Second pass: yield all files and folders
+    let pageToken: string | undefined;
+
+    do {
+      const response = await drive.files.list({
+        pageSize: 100,
+        pageToken,
+        fields: 'nextPageToken, files(id, name, mimeType, parents, owners, permissions, size, createdTime, modifiedTime)',
+        q: "trashed = false",
+      });
+
+      const files = response.data.files || [];
+
+      for (const file of files) {
+        const entity = this.fileToEntity(file);
+        yield entity;
+      }
+
+      pageToken = response.data.nextPageToken ?? undefined;
+    } while (pageToken);
+  }
+
+  /**
+   * Get a single file by ID
+   */
+  async get(id: string): Promise<RawEntity | null> {
+    const drive = await this.initializeDrive();
+
+    try {
+      const response = await drive.files.get({
+        fileId: id,
+        fields: 'id, name, mimeType, parents, owners, permissions, size, createdTime, modifiedTime',
+      });
+
+      // Ensure folder paths are loaded
+      if (this.folderPaths.size === 0) {
+        await this.buildFolderHierarchy(drive);
+      }
+
+      return this.fileToEntity(response.data);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Get content for a file
+   */
+  async getContent(id: string): Promise<ContentBlob | null> {
+    const drive = await this.initializeDrive();
+
+    try {
+      // Get file metadata first
+      const response = await drive.files.get({
+        fileId: id,
+        fields: 'mimeType',
+      });
+
+      const mimeType = response.data.mimeType;
+      if (!mimeType || !canExtractContent(mimeType)) {
+        return null;
+      }
+
+      return extractContent(drive, id, mimeType);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Build folder hierarchy for path resolution
+   */
+  private async buildFolderHierarchy(drive: drive_v3.Drive): Promise<void> {
+    this.folderPaths.clear();
+    const folderParents = new Map<string, string | null>();
+
+    // Fetch all folders
+    let pageToken: string | undefined;
+    const folders: { id: string; name: string; parent: string | null }[] = [];
+
+    do {
+      const response = await drive.files.list({
+        pageSize: 1000,
+        pageToken,
+        fields: 'nextPageToken, files(id, name, parents)',
+        q: `mimeType = '${FOLDER_MIME_TYPE}' and trashed = false`,
+      });
+
+      const files = response.data.files || [];
+      for (const file of files) {
+        folders.push({
+          id: file.id!,
+          name: file.name!,
+          parent: file.parents?.[0] || null,
+        });
+        folderParents.set(file.id!, file.parents?.[0] || null);
+      }
+
+      pageToken = response.data.nextPageToken ?? undefined;
+    } while (pageToken);
+
+    // Build paths for all folders
+    for (const folder of folders) {
+      this.folderPaths.set(folder.id, this.buildPath(folder.id, folder.name, folderParents, folders));
+    }
+  }
+
+  /**
+   * Build full path for a folder
+   */
+  private buildPath(
+    id: string,
+    name: string,
+    folderParents: Map<string, string | null>,
+    folders: { id: string; name: string; parent: string | null }[]
+  ): string {
+    const parts: string[] = [name];
+    let currentId: string | null = folderParents.get(id) || null;
+
+    while (currentId) {
+      const folder = folders.find(f => f.id === currentId);
+      if (!folder) break;
+      parts.unshift(folder.name);
+      currentId = folderParents.get(currentId) || null;
+    }
+
+    return '/' + parts.join('/');
+  }
+
+  /**
+   * Get the path for a file
+   */
+  private getFilePath(parentId: string | null, fileName: string): string {
+    if (!parentId) {
+      return '/' + fileName;
+    }
+
+    const parentPath = this.folderPaths.get(parentId);
+    if (!parentPath) {
+      return '/' + fileName;
+    }
+
+    return parentPath + '/' + fileName;
+  }
+
+  /**
+   * Convert a Google Drive file to a RawEntity
+   */
+  private fileToEntity(file: drive_v3.Schema$File): RawEntity {
+    const isFolder = file.mimeType === FOLDER_MIME_TYPE;
+    const parentId = file.parents?.[0] || null;
+
+    // Get the path
+    let path: string;
+    if (isFolder) {
+      path = this.folderPaths.get(file.id!) || '/' + file.name;
+    } else {
+      path = this.getFilePath(parentId, file.name!);
+    }
+
+    // Extract owner
+    const owner = file.owners?.[0]?.emailAddress || 'unknown';
+
+    // Convert permissions
+    const permissions: SourcePermission[] = (file.permissions || []).map(perm => ({
+      type: perm.type as 'user' | 'group' | 'domain' | 'anyone',
+      role: perm.role as 'owner' | 'writer' | 'reader',
+      email: perm.emailAddress || undefined,
+      domain: perm.domain || undefined,
+    }));
+
+    return {
+      id: file.id!,
+      type: isFolder ? 'folder' : 'file',
+      sourceType: 'gdrive',
+      properties: {
+        id: file.id,
+        name: file.name,
+        mimeType: file.mimeType,
+        path,
+        owner,
+        size: file.size ? parseInt(file.size, 10) : 0,
+        createdAt: file.createdTime,
+        modifiedAt: file.modifiedTime,
+        parentId,
+      },
+      permissions,
+      raw: file,
+    };
+  }
+}

@@ -1,0 +1,56 @@
+import type { ConfigManager } from './config-manager.js';
+import type { Connector, Credentials } from '../types/connector.js';
+import { GoogleDriveConnector } from '../connectors/gdrive/index.js';
+
+export type ConnectorType = 'gdrive';
+
+export class ConnectorRegistry {
+  private config: ConfigManager;
+  private connectors: Map<string, Connector> = new Map();
+
+  constructor(config: ConfigManager) {
+    this.config = config;
+  }
+
+  /**
+   * List available connector types
+   */
+  list(): ConnectorType[] {
+    return ['gdrive'];
+  }
+
+  /**
+   * Get a connector instance
+   */
+  get(type: string): Connector | null {
+    // Return cached instance if available
+    if (this.connectors.has(type)) {
+      return this.connectors.get(type)!;
+    }
+
+    // Create new instance
+    switch (type) {
+      case 'gdrive':
+        const connector = new GoogleDriveConnector(this.config);
+        this.connectors.set(type, connector);
+        return connector;
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Register credentials for a connector
+   */
+  async configure(type: string, credentials: Credentials): Promise<void> {
+    await this.config.saveCredentials(type, credentials);
+    await this.config.markSourceConfigured(type);
+  }
+
+  /**
+   * Check if a connector is configured and ready
+   */
+  isReady(type: string): boolean {
+    return this.config.isSourceConfigured(type) && this.config.loadCredentials(type) !== null;
+  }
+}

@@ -1,0 +1,8 @@
+rules:
+  - name: hide-board-docs
+    deny:
+      path: "/Board/*"
+
+  - name: hide-confidential
+    deny:
+      path: "*/Confidential/*"

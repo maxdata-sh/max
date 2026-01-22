@@ -77,20 +77,34 @@ export const syncCommand = new Command('sync')
       if (options.includeContent) {
         console.log(renderProgress(`Extracting content...`));
 
-        const { entities } = await store.query({ source, type: 'file' });
+        const PAGE_SIZE = 1000;
+        let offset = 0;
         let processed = 0;
+        let hasMore = true;
 
-        for (const entity of entities) {
-          const content = await connector.getContent(entity.id);
-          if (content) {
-            await store.storeContent(source, entity.id, content);
-            contentCount++;
-          }
-          processed++;
+        while (hasMore) {
+          const { entities, total } = await store.query({
+            source,
+            type: 'file',
+            limit: PAGE_SIZE,
+            offset,
+          });
 
-          if (processed % 50 === 0) {
-            console.log(renderProgress(`Extracted ${contentCount} of ${processed} files...`));
+          for (const entity of entities) {
+            const content = await connector.getContent(entity.id);
+            if (content) {
+              await store.storeContent(source, entity.id, content);
+              contentCount++;
+            }
+            processed++;
+
+            if (processed % 50 === 0) {
+              console.log(renderProgress(`Extracted ${contentCount} of ${processed}/${total} files...`));
+            }
           }
+
+          offset += PAGE_SIZE;
+          hasMore = entities.length === PAGE_SIZE;
         }
 
         console.log(renderSuccess(`Content extraction complete`));

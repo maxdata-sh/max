@@ -2,7 +2,7 @@ import { object } from '@optique/core/constructs';
 import { withDefault } from '@optique/core/modifiers';
 import { argument, constant } from '@optique/core/primitives';
 import { string } from '@optique/core/valueparser';
-import { message } from '@optique/core/message';
+import {commandLine, message, text} from '@optique/core/message';
 import { print, printError } from '@optique/run';
 import { ConfigManager } from '../../core/config-manager.js';
 
@@ -17,8 +17,10 @@ export async function handleInit(opts: { directory: string }) {
 
   const location = opts.directory === '.' ? 'current directory' : opts.directory;
   print(message`✓ Initialized Max project in ${location}`);
-  print(message`
+  print(message`\n\n
 Next steps:
-  max connect gdrive    Connect your Google Drive
-  max sync gdrive       Sync data from Google Drive`);
+  \n\n
+  ${commandLine('max connect gdrive')}    Connect your Google Drive
+  \n\n
+  ${commandLine('max sync gdrive')}       Sync data from Google Drive`);
 }

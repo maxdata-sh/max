@@ -1,5 +1,6 @@
 import { google, drive_v3 } from 'googleapis';
 import type { ConfigManager } from '../../core/config-manager.js';
+import { EntityStore } from '../../core/entity-store.js';
 import type {
   Connector,
   EntitySchema,
@@ -25,6 +26,7 @@ export class GoogleDriveConnector implements Connector {
 
   private config: ConfigManager;
   private drive: drive_v3.Drive | null = null;
+  private store: EntityStore | null = null;
   private folderPaths: Map<string, string> = new Map();
 
   constructor(config: ConfigManager) {
@@ -32,10 +34,21 @@ export class GoogleDriveConnector implements Connector {
   }
 
   /**
+   * Get or initialize the entity store
+   */
+  private async getStore(): Promise<EntityStore> {
+    if (!this.store) {
+      this.store = new EntityStore(this.config);
+      await this.store.initialize();
+    }
+    return this.store;
+  }
+
+  /**
    * Authenticate with Google Drive
    */
   async authenticate(): Promise<Credentials> {
-    return authenticate();
+    return authenticate(this.config);
   }
 
   /**
@@ -49,7 +62,7 @@ export class GoogleDriveConnector implements Connector {
       throw new Error('Not authenticated. Run "max connect gdrive" first.');
     }
 
-    const oauthConfig = getOAuthConfig();
+    const oauthConfig = getOAuthConfig(this.config);
     const auth = createAuthenticatedClient(credentials, oauthConfig);
 
     // Handle token refresh
@@ -128,15 +141,22 @@ export class GoogleDriveConnector implements Connector {
    */
   async getContent(id: string): Promise<ContentBlob | null> {
     const drive = await this.initializeDrive();
+    const store = await this.getStore();
 
     try {
-      // Get file metadata first
-      const response = await drive.files.get({
-        fileId: id,
-        fields: 'mimeType',
-      });
+      // Look up mimeType from store first (avoids API call)
+      const entity = await store.get(this.type, id);
+      let mimeType = entity?.properties.mimeType as string | undefined;
 
-      const mimeType = response.data.mimeType;
+      // Fall back to API if not in store
+      if (!mimeType) {
+        const response = await drive.files.get({
+          fileId: id,
+          fields: 'mimeType',
+        });
+        mimeType = response.data.mimeType || undefined;
+      }
+
       if (!mimeType || !canExtractContent(mimeType)) {
         return null;
       }

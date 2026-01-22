@@ -8,7 +8,8 @@ import { renderSuccess, renderError, renderProgress } from '../output.js';
 export const syncCommand = new Command('sync')
   .description('Sync data from a source')
   .argument('<source>', 'Source to sync (e.g., gdrive)')
-  .action(async (source: string) => {
+  .option('--include-content', 'Also download and extract file content')
+  .action(async (source: string, options: { includeContent?: boolean }) => {
     try {
       const config = ConfigManager.find();
       if (!config) {
@@ -35,12 +36,12 @@ export const syncCommand = new Command('sync')
 
       const permissionsEngine = new PermissionsEngine();
 
-      console.log(renderProgress(`Syncing from ${source}...`));
+      console.log(renderProgress(`Syncing metadata from ${source}...`));
 
       let fileCount = 0;
       let folderCount = 0;
-      let contentCount = 0;
 
+      // First pass: sync all metadata
       for await (const rawEntity of connector.sync()) {
         // Normalize permissions
         const normalizedPerms = permissionsEngine.normalize(source, rawEntity.permissions);
@@ -55,13 +56,6 @@ export const syncCommand = new Command('sync')
           syncedAt: new Date(),
         });
 
-        // Try to extract content
-        const content = await connector.getContent(rawEntity.id);
-        if (content) {
-          await store.storeContent(source, rawEntity.id, content);
-          contentCount++;
-        }
-
         if (rawEntity.type === 'folder') {
           folderCount++;
         } else {
@@ -74,12 +68,36 @@ export const syncCommand = new Command('sync')
         }
       }
 
-      await config.updateLastSync(source);
-
-      console.log(renderSuccess(`Sync complete`));
+      console.log(renderSuccess(`Metadata sync complete`));
       console.log(`  Files: ${fileCount}`);
       console.log(`  Folders: ${folderCount}`);
-      console.log(`  Content extracted: ${contentCount}`);
+
+      // Second pass: extract content (if requested)
+      let contentCount = 0;
+      if (options.includeContent) {
+        console.log(renderProgress(`Extracting content...`));
+
+        const { entities } = await store.query({ source, type: 'file' });
+        let processed = 0;
+
+        for (const entity of entities) {
+          const content = await connector.getContent(entity.id);
+          if (content) {
+            await store.storeContent(source, entity.id, content);
+            contentCount++;
+          }
+          processed++;
+
+          if (processed % 50 === 0) {
+            console.log(renderProgress(`Extracted ${contentCount} of ${processed} files...`));
+          }
+        }
+
+        console.log(renderSuccess(`Content extraction complete`));
+        console.log(`  Content extracted: ${contentCount}`);
+      }
+
+      await config.updateLastSync(source);
     } catch (error) {
       console.error(renderError(error instanceof Error ? error.message : 'Sync failed'));
       process.exit(1);

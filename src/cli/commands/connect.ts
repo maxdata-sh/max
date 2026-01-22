@@ -30,6 +30,7 @@ export const connectCommand = new Command('connect')
       console.log(renderSuccess(`Connected to ${source}`));
       console.log('\nNext step:');
       console.log(`  max sync ${source}    Sync data from ${source}`);
+      process.exit(0);
     } catch (error) {
       console.error(renderError(error instanceof Error ? error.message : 'Failed to connect'));
       process.exit(1);

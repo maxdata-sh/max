@@ -1,7 +1,11 @@
 import { google } from 'googleapis';
 import * as http from 'http';
 import * as url from 'url';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as readline from 'readline';
 import type { Credentials } from '../../types/connector.js';
+import type { ConfigManager } from '../../core/config-manager.js';
 
 const SCOPES = [
   'https://www.googleapis.com/auth/drive.readonly',
@@ -9,7 +13,8 @@ const SCOPES = [
 ];
 
 const REDIRECT_PORT = 3847;
-const REDIRECT_URI = `http://localhost:${REDIRECT_PORT}/oauth2callback`;
+// Desktop OAuth apps require 127.0.0.1 (IP), not localhost (hostname)
+const REDIRECT_URI = `http://127.0.0.1:${REDIRECT_PORT}/oauth2callback`;
 
 export interface OAuthConfig {
   clientId: string;
@@ -17,27 +22,97 @@ export interface OAuthConfig {
 }
 
 /**
- * Get OAuth configuration from environment variables
+ * Get path to OAuth client credentials file
  */
-export function getOAuthConfig(): OAuthConfig {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+function getOAuthConfigPath(config: ConfigManager): string {
+  return path.join(config.getCredentialsDir(), 'gdrive-oauth.json');
+}
+
+/**
+ * Load OAuth config from stored file
+ */
+export function loadStoredOAuthConfig(config: ConfigManager): OAuthConfig | null {
+  const configPath = getOAuthConfigPath(config);
+  if (!fs.existsSync(configPath)) {
+    return null;
+  }
+  try {
+    const content = fs.readFileSync(configPath, 'utf-8');
+    const parsed = JSON.parse(content);
+    if (parsed.clientId && parsed.clientSecret) {
+      return parsed as OAuthConfig;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save OAuth config to file
+ */
+export function saveOAuthConfig(config: ConfigManager, oauthConfig: OAuthConfig): void {
+  const configPath = getOAuthConfigPath(config);
+  fs.writeFileSync(configPath, JSON.stringify(oauthConfig, null, 2));
+}
+
+/**
+ * Prompt user for OAuth credentials
+ */
+export async function promptForOAuthConfig(): Promise<OAuthConfig> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  const question = (prompt: string): Promise<string> => {
+    return new Promise((resolve) => {
+      rl.question(prompt, (answer) => {
+        resolve(answer.trim());
+      });
+    });
+  };
+
+  console.log('\nGoogle OAuth credentials not found.\n');
+  console.log('To set up Google Drive access:');
+  console.log('1. Go to https://console.cloud.google.com/apis/credentials');
+  console.log('2. Create a new OAuth 2.0 Client ID (Desktop app type)');
+  console.log('3. Copy the Client ID and Client Secret\n');
+
+  const clientId = await question('Enter Client ID: ');
+  const clientSecret = await question('Enter Client Secret: ');
+
+  rl.close();
 
   if (!clientId || !clientSecret) {
-    throw new Error(
-      'Missing Google OAuth credentials.\n\n' +
-      'To connect to Google Drive, you need to set up OAuth credentials:\n\n' +
-      '1. Go to https://console.cloud.google.com/apis/credentials\n' +
-      '2. Create a new OAuth 2.0 Client ID (Desktop app type)\n' +
-      '3. Add http://localhost:3847/oauth2callback to authorized redirect URIs\n' +
-      '4. Set environment variables:\n' +
-      '   export GOOGLE_CLIENT_ID="your-client-id"\n' +
-      '   export GOOGLE_CLIENT_SECRET="your-client-secret"\n\n' +
-      'Then run "max connect gdrive" again.'
-    );
+    throw new Error('Client ID and Client Secret are required.');
   }
 
   return { clientId, clientSecret };
+}
+
+/**
+ * Get OAuth configuration - from stored file, env vars, or prompt
+ */
+export function getOAuthConfig(config?: ConfigManager): OAuthConfig {
+  // First try stored config
+  if (config) {
+    const stored = loadStoredOAuthConfig(config);
+    if (stored) {
+      return stored;
+    }
+  }
+
+  // Fall back to environment variables
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+  if (clientId && clientSecret) {
+    return { clientId, clientSecret };
+  }
+
+  // No credentials available - will need to prompt
+  throw new Error('NO_CREDENTIALS');
 }
 
 /**
@@ -50,9 +125,26 @@ export function createOAuth2Client(config: OAuthConfig) {
 /**
  * Perform OAuth flow and return credentials
  */
-export async function authenticate(): Promise<Credentials> {
-  const config = getOAuthConfig();
-  const oauth2Client = createOAuth2Client(config);
+export async function authenticate(configManager?: ConfigManager): Promise<Credentials> {
+  let oauthConfig: OAuthConfig;
+
+  try {
+    oauthConfig = getOAuthConfig(configManager);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'NO_CREDENTIALS') {
+      // Prompt for credentials
+      oauthConfig = await promptForOAuthConfig();
+      // Save for future use
+      if (configManager) {
+        saveOAuthConfig(configManager, oauthConfig);
+        console.log('\n✓ Credentials saved to .max/credentials/\n');
+      }
+    } else {
+      throw error;
+    }
+  }
+
+  const oauth2Client = createOAuth2Client(oauthConfig);
 
   // Generate auth URL
   const authUrl = oauth2Client.generateAuthUrl({
@@ -109,7 +201,7 @@ export async function authenticate(): Promise<Credentials> {
       }
     });
 
-    server.listen(REDIRECT_PORT, () => {
+    server.listen(REDIRECT_PORT, '127.0.0.1', () => {
       console.log(`\nOpening browser for Google OAuth...`);
       console.log(`If the browser doesn't open, visit this URL:\n${authUrl}\n`);
 

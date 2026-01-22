@@ -1,2 +1,4 @@
 version: 1
-sources: []
+sources:
+  - type: gdrive
+    configured: true

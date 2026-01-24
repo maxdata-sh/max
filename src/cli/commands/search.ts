@@ -54,11 +54,15 @@ export async function handleSearch(opts: {
   await store.initialize();
 
   // Convert filters to query format
-  const filters: Filter[] = opts.filters.map(({ field, value }) => ({
-    field,
-    op: '=' as const,
-    value,
-  }));
+  // Auto-detect glob patterns: if value contains * or ?, use 'like' operator
+  const filters: Filter[] = opts.filters.map(({ field, value }) => {
+    const hasWildcard = value.includes('*') || value.includes('?');
+    return {
+      field,
+      op: hasWildcard ? 'like' as const : '=' as const,
+      value,
+    };
+  });
 
   const result = await store.query({
     source: opts.source,

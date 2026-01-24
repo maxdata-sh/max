@@ -42,8 +42,10 @@ max search linear --type=issue --filter assignee="alice@example.com" --filter st
 # Find Google Docs by owner
 max search gdrive --type=document --filter owner="alice@example.com"
 
-# Search by name pattern
-max search gdrive --filter name="quarterly"
+# Wildcard patterns - use * or ? for glob matching
+max search linear --type=issue --filter "creator=*ben*"
+max search gdrive --filter "name=*quarterly*"
+max search gdrive --filter "path=/Reports/*"
 
 # Get JSON for parsing
 max search linear --type=issue --limit=5 -o json

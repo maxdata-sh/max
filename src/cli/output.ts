@@ -72,10 +72,13 @@ export function pickFields(
 /**
  * Render entities using a provided formatter function.
  * The formatter is typically provided by the connector.
+ *
+ * Note: ndjson format is handled separately in the search command,
+ * not through this function. This handles text and json only.
  */
 export function renderEntities(
   entities: StoredEntity[],
-  format: OutputFormat,
+  format: 'text' | 'json',
   formatEntity: (entity: StoredEntity) => string,
   options?: RenderOptions
 ): string {

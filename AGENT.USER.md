@@ -216,6 +216,8 @@ Metadata (FD 3):
 {"_meta":{"pagination":{"offset":0,"limit":5,"total":1234,"hasMore":true}}}
 ```
 
+The default limit is 50 if `--limit` is not specified.
+
 If FD 3 isn't redirected, metadata is silently skipped.
 
 ### Merged stream (--merged-stream)

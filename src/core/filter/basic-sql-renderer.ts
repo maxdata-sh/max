@@ -80,10 +80,16 @@ export class BasicSqlFilterRenderer implements ISqlFilterRenderer {
         return { sql: `${sqlField} < ?`, params: [value] };
       case '<=':
         return { sql: `${sqlField} <= ?`, params: [value] };
-      case '~=':
+      case '~=': {
         // Translate * to % and ? to _ for SQL LIKE
-        const likePattern = value.replace(/\*/g, '%').replace(/\?/g, '_');
+        // If no wildcards present, treat as "contains" by wrapping with %
+        const hasWildcards = value.includes('*') || value.includes('?');
+        let likePattern = value.replace(/\*/g, '%').replace(/\?/g, '_');
+        if (!hasWildcards) {
+          likePattern = `%${likePattern}%`;
+        }
         return { sql: `${sqlField} LIKE ?`, params: [likePattern] };
+      }
       default:
         throw new Error(`Unknown operator: ${op}`);
     }

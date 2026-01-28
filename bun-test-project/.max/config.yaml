@@ -6,3 +6,6 @@ sources:
   - type: linear
     configured: true
     lastSync: 2026-01-22T14:37:46.900Z
+  - type: hubspot
+    configured: true
+    lastSync: 2026-01-28T09:39:38.494Z

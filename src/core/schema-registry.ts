@@ -87,3 +87,22 @@ export function isFilterableField(source: string, fieldName: string): boolean {
   const fields = getFilterableFields(source);
   return fields.some(f => f.name === fieldName);
 }
+
+/**
+ * Get all fields across all sources (for field selection completions)
+ */
+export function getAllFields(): Array<{ source: string; field: FieldDefinition }> {
+  const fields: Array<{ source: string; field: FieldDefinition }> = [];
+  for (const schema of schemas) {
+    for (const entity of schema.entities) {
+      for (const field of entity.fields) {
+        // Avoid duplicates within same source
+        const exists = fields.some(f => f.source === schema.source && f.field.name === field.name);
+        if (!exists) {
+          fields.push({ source: schema.source, field });
+        }
+      }
+    }
+  }
+  return fields;
+}

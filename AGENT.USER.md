@@ -32,7 +32,7 @@ Options:
 - `-f, --filter <expr>` - Filter expression (e.g., "name=foo AND state=open")
 - `--limit <n>` - Max results (default: 50)
 - `--offset <n>` - Skip first n results
-- `-o, --output json` - Output as JSON for parsing
+- `-o, --output json` - Output as JSON for parsing (see [JSON Pagination](#json-pagination))
 
 ### Filter syntax
 
@@ -133,6 +133,89 @@ Example:
 ```bash
 {{GET_EXAMPLES}}
 ```
+
+## JSON Pagination
+
+When using `-o json`, the response includes pagination metadata:
+
+```json
+{
+  "pagination": {
+    "offset": 0,
+    "limit": 50,
+    "total": 1234,
+    "hasMore": true
+  },
+  "data": [
+    { "id": "1", "type": "contact", ... },
+    { "id": "2", "type": "contact", ... }
+  ]
+}
+```
+
+### Pagination fields
+
+| Field | Description |
+|-------|-------------|
+| `offset` | Number of results skipped |
+| `limit` | Maximum results requested |
+| `total` | Total matching results |
+| `hasMore` | `true` if more results exist |
+
+### Fetching the next page
+
+Use `--offset` to paginate through results:
+
+```bash
+# First page
+max search hubspot --type=contact --limit 50 -o json
+
+# Next page (offset = previous offset + limit)
+max search hubspot --type=contact --limit 50 --offset 50 -o json
+```
+
+### Agent pagination pattern
+
+```bash
+# Loop until hasMore is false
+OFFSET=0
+LIMIT=500
+
+while true; do
+  RESULT=$(max search hubspot --type=contact --limit $LIMIT --offset $OFFSET -o json)
+  # Process $RESULT...
+
+  HAS_MORE=$(echo "$RESULT" | jq '.pagination.hasMore')
+  if [ "$HAS_MORE" = "false" ]; then
+    break
+  fi
+  OFFSET=$((OFFSET + LIMIT))
+done
+```
+
+### Field selection
+
+Use `--fields` to return only specific fields (reduces output size):
+
+```bash
+# Comma-separated
+max search hubspot --type=contact --fields name,email,phone -o json
+
+# Or repeatable
+max search hubspot --type=contact --fields name --fields email -o json
+```
+
+Output with field selection:
+```json
+{
+  "pagination": { ... },
+  "data": [
+    { "id": "1", "source": "hubspot", "type": "contact", "name": "Alice", "email": "alice@example.com" }
+  ]
+}
+```
+
+Note: `id`, `source`, and `type` are always included. Selected fields are flattened from `properties`.
 
 ## Tips
 

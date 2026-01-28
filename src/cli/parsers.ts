@@ -41,11 +41,15 @@ export const entityTypeArg: ValueParser<'sync', string> = {
   },
 };
 
-// Output format choice
+// Output format choices
 export const outputFormat = choice(['text', 'json'] as const);
+export const outputFormatWithNdjson = choice(['text', 'json', 'ndjson'] as const);
 
-// Common output option
+// Common output option (text, json only)
 export const outputOption = optional(option('-o', '--output', outputFormat, { description: message`Output format (text, json)` }));
+
+// Output option with ndjson support (for search command)
+export const outputOptionWithNdjson = optional(option('-o', '--output', outputFormatWithNdjson, { description: message`Output format (text, json, ndjson)` }));
 
 // Field selection value parser with completions (supports comma-separated values)
 export const fieldsArg: ValueParser<'sync', string[]> = {

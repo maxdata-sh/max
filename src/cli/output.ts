@@ -1,6 +1,6 @@
 import type { StoredEntity, EntitySchema, PermissionsSummary, Rule } from '../types/index.js';
 
-export type OutputFormat = 'text' | 'json';
+export type OutputFormat = 'text' | 'json' | 'ndjson';
 
 export interface PaginationInfo {
   offset: number;
@@ -27,6 +27,42 @@ function selectFields(entity: StoredEntity, fields: readonly string[]): Record<s
   for (const field of fields) {
     if (field in entity.properties) {
       result[field] = entity.properties[field];
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Flatten an entity to a single-level object.
+ * Combines id, source, type with all properties at top level.
+ */
+export function flattenEntity(entity: StoredEntity): Record<string, unknown> {
+  return {
+    id: entity.id,
+    source: entity.source,
+    type: entity.type,
+    ...entity.properties,
+  };
+}
+
+/**
+ * Pick specific fields from a flattened entity.
+ * Always includes id, source, and type.
+ */
+export function pickFields(
+  flattened: Record<string, unknown>,
+  fields: readonly string[]
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {
+    id: flattened.id,
+    source: flattened.source,
+    type: flattened.type,
+  };
+
+  for (const field of fields) {
+    if (field in flattened && field !== 'id' && field !== 'source' && field !== 'type') {
+      result[field] = flattened[field];
     }
   }
 

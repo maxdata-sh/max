@@ -189,6 +189,75 @@ Example:
 {{GET_EXAMPLES}}
 ```
 
+## NDJSON Output (Streaming)
+
+Use `-o ndjson` for newline-delimited JSON output, ideal for streaming and piping to `jq`.
+
+### Split streams (default)
+
+By default, data records go to stdout and metadata goes to file descriptor 3:
+
+```bash
+# Data to stdout, metadata captured to file
+max search hubspot --type=contact --limit 5 -o ndjson 3>meta.json | jq '.email'
+
+# Ignore metadata, just process data
+max search hubspot --type=contact --limit 5 -o ndjson 3>/dev/null | jq '.firstName'
+```
+
+Output (stdout):
+```
+{"id":"1","source":"hubspot","type":"contact","firstName":"Ben","lastName":"Smith","email":"ben@example.com"}
+{"id":"2","source":"hubspot","type":"contact","firstName":"Alice","lastName":"Jones","email":"alice@example.com"}
+```
+
+Metadata (FD 3):
+```json
+{"_meta":{"pagination":{"offset":0,"limit":5,"total":1234,"hasMore":true}}}
+```
+
+If FD 3 isn't redirected, metadata is silently skipped.
+
+### Merged stream (--merged-stream)
+
+Use `--merged-stream` to write everything to stdout, with metadata as the last line:
+
+```bash
+max search hubspot --type=contact --limit 5 -o ndjson --merged-stream
+```
+
+Output:
+```
+{"id":"1","source":"hubspot","type":"contact","firstName":"Ben","lastName":"Smith","email":"ben@example.com"}
+{"id":"2","source":"hubspot","type":"contact","firstName":"Alice","lastName":"Jones","email":"alice@example.com"}
+{"_meta":{"pagination":{"offset":0,"limit":5,"total":1234,"hasMore":true}}}
+```
+
+### Field selection with NDJSON
+
+Use `--fields` to include only specific fields:
+
+```bash
+max search hubspot --type=contact --limit 5 --fields firstName,email -o ndjson
+```
+
+Output:
+```
+{"id":"1","source":"hubspot","type":"contact","firstName":"Ben","email":"ben@example.com"}
+{"id":"2","source":"hubspot","type":"contact","firstName":"Alice","email":"alice@example.com"}
+```
+
+Note: `id`, `source`, and `type` are always included.
+
+### When to use NDJSON vs JSON
+
+| Use case | Format |
+|----------|--------|
+| Pipe to jq for filtering/transformation | `-o ndjson` |
+| Process large result sets line by line | `-o ndjson` |
+| Need structured response with data array | `-o json` |
+| Inspect pagination and data together | `-o json` |
+
 ## JSON Pagination
 
 When using `-o json`, the response includes pagination metadata:

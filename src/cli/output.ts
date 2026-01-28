@@ -8,6 +8,31 @@ export interface PaginationInfo {
   total: number;
 }
 
+export interface RenderOptions {
+  pagination?: PaginationInfo;
+  fields?: readonly string[];
+}
+
+/**
+ * Select specific fields from an entity.
+ * Always includes id, source, and type. Additional fields come from properties.
+ */
+function selectFields(entity: StoredEntity, fields: readonly string[]): Record<string, unknown> {
+  const result: Record<string, unknown> = {
+    id: entity.id,
+    source: entity.source,
+    type: entity.type,
+  };
+
+  for (const field of fields) {
+    if (field in entity.properties) {
+      result[field] = entity.properties[field];
+    }
+  }
+
+  return result;
+}
+
 /**
  * Render entities using a provided formatter function.
  * The formatter is typically provided by the connector.
@@ -16,10 +41,27 @@ export function renderEntities(
   entities: StoredEntity[],
   format: OutputFormat,
   formatEntity: (entity: StoredEntity) => string,
-  pagination?: PaginationInfo
+  options?: RenderOptions
 ): string {
+  const { pagination, fields } = options ?? {};
+
   if (format === 'json') {
-    return JSON.stringify(entities, null, 2);
+    const data = fields && fields.length > 0
+      ? entities.map(e => selectFields(e, fields))
+      : entities;
+
+    const response = {
+      pagination: pagination
+        ? {
+            offset: pagination.offset,
+            limit: pagination.limit,
+            total: pagination.total,
+            hasMore: pagination.offset + entities.length < pagination.total,
+          }
+        : null,
+      data,
+    };
+    return JSON.stringify(response, null, 2);
   }
 
   if (entities.length === 0) {

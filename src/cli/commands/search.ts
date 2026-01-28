@@ -10,7 +10,7 @@ import { EntityStore } from '../../core/entity-store.js';
 import { PermissionsEngine } from '../../core/permissions-engine.js';
 import { isFilterableField } from '../../core/schema-registry.js';
 import { renderEntities, type OutputFormat } from '../output.js';
-import { sourceArg, entityTypeArg, filterArg, outputOption } from '../parsers.js';
+import { sourceArg, entityTypeArg, filterArg, outputOption, fieldsOption } from '../parsers.js';
 import type { Filter } from '../../types/entity.js';
 
 export const searchCommand = object({
@@ -21,6 +21,7 @@ export const searchCommand = object({
   limit: withDefault(option('--limit', integer({ min: 1 }), { description: message`Maximum results` }), 50),
   offset: withDefault(option('--offset', integer({ min: 0 }), { description: message`Skip first n results` }), 0),
   output: outputOption,
+  fields: fieldsOption,
 });
 
 export async function handleSearch(opts: {
@@ -30,6 +31,7 @@ export async function handleSearch(opts: {
   limit: number;
   offset: number;
   output?: 'text' | 'json';
+  fields: readonly (readonly string[])[];
 }) {
   const config = ConfigManager.find();
   if (!config) {
@@ -86,7 +88,10 @@ export async function handleSearch(opts: {
     total: adjustedTotal,
   } : undefined;
 
-  console.log(renderEntities(filteredEntities, format, connector.formatEntity.bind(connector), pagination));
+  console.log(renderEntities(filteredEntities, format, connector.formatEntity.bind(connector), {
+    pagination,
+    fields: opts.fields.flat(),
+  }));
 
   if (filteredCount > 0 && format === 'text') {
     print(message`(${filteredCount.toString()} result${filteredCount !== 1 ? 's' : ''} filtered by rules)`);

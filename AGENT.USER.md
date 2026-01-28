@@ -2,6 +2,61 @@
 
 Max is a data pipe CLI that syncs and queries data from various sources ({{SOURCES_LIST}}).
 
+## How Max Works
+
+Max mirrors data locally from external sources. When Max is integrated, data is fetched once and stored in a local SQLite database called a mirror. All subsequent queries run against this local copy.
+
+**This means:**
+- Queries are fast and free - no API calls, no rate limits
+- Large result sets are fine - request 500 or 5000 results without worry
+- You can iterate and explore without cost concerns
+
+### Thinking in Max
+
+Unlike direct API calls where you'd minimize requests, with Max you should:
+
+1. **Request what you need:** Use `--limit 500` or higher freely. Paginate through entire datasets if needed.
+
+2. **Use `--fields` for token efficiency:** Only fetch the fields you need:
+   ```bash
+   # Instead of full entities with 20+ fields:
+   max search hubspot --type=contact --limit 500 -o json
+
+   # Fetch only what you need:
+   max search hubspot --type=contact --limit 500 --fields firstName,lastName,email -o json
+   ```
+
+3. **Script for complex analysis:** For aggregations, joins across sources, or data transformations, pipe Max output to scripts:
+   ```bash
+   # Count contacts by lifecycle stage
+   max search hubspot --type=contact --limit 10000 --fields lifecycleStage -o json \
+     | jq -r '.data[].lifecycleStage' | sort | uniq -c | sort -rn
+
+   # Find top 10 contact first names
+   max search hubspot --type=contact --limit 5000 --fields firstName -o json \
+     | jq -r '.data[].firstName' | sort | uniq -c | sort -rn | head -10
+
+   # Cross-source: find files mentioning top contacts
+   TOP_NAMES=$(max search hubspot --type=contact --limit 1000 --fields firstName -o json \
+     | jq -r '.data[].firstName' | sort | uniq -c | sort -rn | head -5 | awk '{print $2}')
+   for name in $TOP_NAMES; do
+     echo "=== Files mentioning $name ==="
+     max search gdrive --type=file --filter "name~=*$name*" --fields name,path
+   done
+   ```
+
+4. **Iterate freely:** Run exploratory queries, refine filters, check counts - it's all local.
+
+### When to use Max vs direct scripting
+
+| Task | Approach |
+|------|----------|
+| Find specific entities | `max search` with filters |
+| Get entity details | `max get <id>` |
+| Count/aggregate data | Script with `jq`, `awk`, Python |
+| Join across sources | Script piping multiple `max search` calls |
+| Complex transformations | Python/Node script consuming Max JSON output |
+
 ## Available Sources
 
 {{SOURCES_SUMMARY}}
@@ -224,3 +279,6 @@ Note: `id`, `source`, and `type` are always included. Selected fields are flatte
 3. Entity types vary by source:
 {{ENTITY_TYPES_LIST}}
 4. Filter fields are validated against the schema - use `max schema` to see what's available
+5. **Don't be shy with limits** - data is local, so `--limit 500` or `--limit 5000` is fine
+6. **Use `--fields`** to reduce output size and save tokens
+7. **Pipe to scripts** for counting, aggregating, or joining data across sources

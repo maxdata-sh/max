@@ -1,23 +1,39 @@
 import { object } from '@optique/core/constructs';
-import { optional, withDefault, multiple } from '@optique/core/modifiers';
+import { optional, withDefault } from '@optique/core/modifiers';
 import { argument, option, constant } from '@optique/core/primitives';
-import { integer } from '@optique/core/valueparser';
+import { integer, string } from '@optique/core/valueparser';
 import { message } from '@optique/core/message';
 import { print, printError } from '@optique/run';
 import { ConfigManager } from '../../core/config-manager.js';
 import { ConnectorRegistry } from '../../core/connector-registry.js';
 import { EntityStore } from '../../core/entity-store.js';
 import { PermissionsEngine } from '../../core/permissions-engine.js';
-import { isFilterableField } from '../../core/schema-registry.js';
+import { BasicFilterParser } from '../../core/filter/basic-parser.js';
 import { renderEntities, type OutputFormat } from '../output.js';
-import { sourceArg, entityTypeArg, filterArg, outputOption } from '../parsers.js';
-import type { Filter } from '../../types/entity.js';
+import { sourceArg, entityTypeArg, outputOption } from '../parsers.js';
+import type { FilterExpr } from '../../types/filter.js';
+import type { EntitySchema } from '../../types/connector.js';
+
+/**
+ * Extract filterable field names from a connector schema.
+ */
+function getFilterableFieldsFromSchema(schema: EntitySchema): string[] {
+  const fields = new Set<string>();
+  for (const entity of schema.entities) {
+    for (const field of entity.fields) {
+      if (field.filterable) {
+        fields.add(field.name);
+      }
+    }
+  }
+  return Array.from(fields);
+}
 
 export const searchCommand = object({
   cmd: constant('search' as const),
   source: argument(sourceArg, { description: message`Source to search` }),
   type: optional(option('-t', '--type', entityTypeArg, { description: message`Filter by entity type` })),
-  filters: multiple(option('-f', '--filter', filterArg, { description: message`Filter by field=value` })),
+  filter: optional(option('-f', '--filter', string(), { description: message`Filter expression (e.g., "name=foo AND state=open")` })),
   limit: withDefault(option('--limit', integer({ min: 1 }), { description: message`Maximum results` }), 50),
   offset: withDefault(option('--offset', integer({ min: 0 }), { description: message`Skip first n results` }), 0),
   output: outputOption,
@@ -26,7 +42,7 @@ export const searchCommand = object({
 export async function handleSearch(opts: {
   source: string;
   type?: string;
-  filters: readonly { field: string; value: string }[];
+  filter?: string;
   limit: number;
   offset: number;
   output?: 'text' | 'json';
@@ -43,31 +59,29 @@ export async function handleSearch(opts: {
     printError(message`Unknown source: ${opts.source}`, { exitCode: 1 });
   }
 
-  // Validate filters against schema
-  for (const { field } of opts.filters) {
-    if (!isFilterableField(opts.source, field)) {
-      printError(message`Field "${field}" is not filterable for source "${opts.source}". Run "max schema ${opts.source}" to see available fields.`, { exitCode: 1 });
+  // Get filterable fields from connector schema
+  const allowedColumns = getFilterableFieldsFromSchema(connector.schema);
+
+  // Parse filter expression if provided
+  let filterExpr: FilterExpr | undefined;
+  if (opts.filter) {
+    try {
+      const parser = new BasicFilterParser();
+      filterExpr = parser.parse(opts.filter, allowedColumns);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      printError(message`Invalid filter expression: ${errorMessage}`, { exitCode: 1 });
     }
   }
 
   const store = new EntityStore(config);
   await store.initialize();
 
-  // Convert filters to query format
-  // Auto-detect glob patterns: if value contains * or ?, use 'like' operator
-  const filters: Filter[] = opts.filters.map(({ field, value }) => {
-    const hasWildcard = value.includes('*') || value.includes('?');
-    return {
-      field,
-      op: hasWildcard ? 'like' as const : '=' as const,
-      value,
-    };
-  });
-
-  const result = await store.query({
+  const result = await store.queryWithFilter({
     source: opts.source,
     type: opts.type,
-    filters,
+    filterExpr,
+    allowedColumns,
     limit: opts.limit,
     offset: opts.offset,
   });

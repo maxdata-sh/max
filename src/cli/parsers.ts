@@ -4,7 +4,7 @@ import { choice } from '@optique/core/valueparser';
 import type { ValueParser, ValueParserResult } from '@optique/core/valueparser';
 import type { Suggestion } from '@optique/core/parser';
 import { message } from '@optique/core/message';
-import { getSources, getAllEntityTypes, getAllFilterableFields } from '../core/schema-registry.js';
+import { getSources, getAllEntityTypes } from '../core/schema-registry.js';
 
 // Custom value parser for source argument with completions
 export const sourceArg: ValueParser<'sync', string> = {
@@ -37,33 +37,6 @@ export const entityTypeArg: ValueParser<'sync', string> = {
   *suggest(): Generator<Suggestion> {
     for (const { source, type } of getAllEntityTypes()) {
       yield { kind: 'literal', text: type, description: message`${type} (${source})` };
-    }
-  },
-};
-
-// Filter value parser - accepts field=value syntax
-export const filterArg: ValueParser<'sync', { field: string; value: string }> = {
-  $mode: 'sync',
-  metavar: 'FIELD=VALUE',
-  parse(input: string): ValueParserResult<{ field: string; value: string }> {
-    const eqIndex = input.indexOf('=');
-    if (eqIndex === -1) {
-      return { success: false, error: message`Filter must be in field=value format` };
-    }
-    const field = input.substring(0, eqIndex);
-    const value = input.substring(eqIndex + 1);
-    if (!field) {
-      return { success: false, error: message`Filter field cannot be empty` };
-    }
-    return { success: true, value: { field, value } };
-  },
-  format(value: { field: string; value: string }): string {
-    return `${value.field}=${value.value}`;
-  },
-  *suggest(): Generator<Suggestion> {
-    for (const { source, field } of getAllFilterableFields()) {
-      const desc = field.description ? `${field.description} (${source})` : `${source}`;
-      yield { kind: 'literal', text: `${field.name}=`, description: message`${desc}` };
     }
   },
 };

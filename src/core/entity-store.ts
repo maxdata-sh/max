@@ -6,6 +6,8 @@ import type { ConfigManager } from './config-manager.js';
 import type { StoredEntity, EntityQuery, QueryResult, Filter } from '../types/entity.js';
 import type { EntitySchema } from '../types/connector.js';
 import type { ContentBlob } from '../types/connector.js';
+import type { FilterExpr } from '../types/filter.js';
+import { BasicSqlFilterRenderer } from './filter/basic-sql-renderer.js';
 
 export class EntityStore {
   private config: ConfigManager;
@@ -192,6 +194,63 @@ export class EntityStore {
     if (query.limit) {
       entities = entities.slice(0, query.limit);
     }
+
+    return { entities, total };
+  }
+
+  /**
+   * Query entities with a parsed filter expression.
+   * Uses SQL-level filtering with json_extract for property access.
+   */
+  async queryWithFilter(options: {
+    source: string;
+    type?: string;
+    filterExpr?: FilterExpr;
+    allowedColumns?: string[];
+    limit?: number;
+    offset?: number;
+  }): Promise<QueryResult> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    let sql = 'SELECT * FROM entities WHERE source = ?';
+    const params: (string | number | bigint | boolean | null | Uint8Array)[] = [options.source];
+
+    if (options.type) {
+      sql += ' AND type = ?';
+      params.push(options.type);
+    }
+
+    // Apply filter expression if provided
+    if (options.filterExpr && options.allowedColumns) {
+      const renderer = new BasicSqlFilterRenderer();
+      const filterResult = renderer.render(options.filterExpr, options.allowedColumns);
+      sql += ` AND (${filterResult.sql})`;
+      params.push(...filterResult.params as string[]);
+    }
+
+    // Get count for total
+    const countSql = sql.replace('SELECT *', 'SELECT COUNT(*) as count');
+    const countRow = this.db.prepare(countSql).get(...params) as { count: number };
+    const total = countRow.count;
+
+    // Apply pagination at SQL level
+    if (options.limit) {
+      sql += ` LIMIT ${options.limit}`;
+      if (options.offset) {
+        sql += ` OFFSET ${options.offset}`;
+      }
+    }
+
+    const rows = this.db.prepare(sql).all(...params) as Array<{
+      source: string;
+      id: string;
+      type: string;
+      properties: string;
+      permissions: string;
+      synced_at: string;
+    }>;
+
+    const entities = rows.map(row => this.rowToEntity(row));
 
     return { entities, total };
   }

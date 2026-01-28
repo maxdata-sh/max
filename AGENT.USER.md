@@ -30,14 +30,14 @@ Unlike direct API calls where you'd minimize requests, with Max you should:
 
    | Count | Approach |
    |-------|----------|
-   | < 100 | Fetch directly, inspect results |
-   | 100 - 10,000 | Fetch with `--all`, pipe to jq/scripts |
-   | 10,000+ | Use `--all` with `--fields` to minimize data, or stream with ndjson |
+   | < 2,000 | Fetch with `--all`, inspect results |
+   | 2,000 - 20,000 | Use `--all` with `--fields`, or paginate with state file |
+   | 20,000+ | Paginate with state file, process in batches |
 
 2. **Use `--all` for complete data:** Don't guess limits; get all matching records:
    ```bash
    # Get ALL contacts (no limit)
-   max search hubspot --type=contact --all --fields firstName -o ndjson 3>/dev/null
+   max search hubspot --type=contact --all --fields firstName -o ndjson
    ```
 
 3. **Use `--fields` for token efficiency:** Only fetch the fields you need:
@@ -52,15 +52,15 @@ Unlike direct API calls where you'd minimize requests, with Max you should:
 4. **Script for complex analysis:** For aggregations, joins across sources, or data transformations, pipe Max output to scripts:
    ```bash
    # Count contacts by lifecycle stage (use --all to get complete data)
-   max search hubspot --type=contact --all --fields lifecycleStage -o ndjson 3>/dev/null \
+   max search hubspot --type=contact --all --fields lifecycleStage -o ndjson \
      | jq -r '.lifecycleStage' | sort | uniq -c | sort -rn
 
    # Find top 10 contact first names
-   max search hubspot --type=contact --all --fields firstName -o ndjson 3>/dev/null \
+   max search hubspot --type=contact --all --fields firstName -o ndjson \
      | jq -r '.firstName' | grep -v '^$' | sort | uniq -c | sort -rn | head -10
 
    # Cross-source: find files mentioning top contacts
-   TOP_NAMES=$(max search hubspot --type=contact --all --fields firstName -o ndjson 3>/dev/null \
+   TOP_NAMES=$(max search hubspot --type=contact --all --fields firstName -o ndjson \
      | jq -r '.firstName' | sort | uniq -c | sort -rn | head -5 | awk '{print $2}')
    for name in $TOP_NAMES; do
      echo "=== Files mentioning $name ==="
@@ -236,16 +236,9 @@ Example:
 
 Use `-o ndjson` for newline-delimited JSON output, ideal for streaming and piping to `jq`.
 
-### Split streams (default)
-
-By default, data records go to stdout and metadata goes to file descriptor 3:
-
 ```bash
-# Data to stdout, metadata captured to file
-max search hubspot --type=contact --limit 5 -o ndjson 3>meta.json | jq '.email'
-
-# Ignore metadata, just process data
-max search hubspot --type=contact --limit 5 -o ndjson 3>/dev/null | jq '.firstName'
+# Process data with jq
+max search hubspot --type=contact --limit 5 -o ndjson | jq '.email'
 ```
 
 Output (stdout):
@@ -254,18 +247,11 @@ Output (stdout):
 {"id":"2","source":"hubspot","type":"contact","firstName":"Alice","lastName":"Jones","email":"alice@example.com"}
 ```
 
-Metadata (FD 3):
-```json
-{"_meta":{"pagination":{"offset":0,"limit":5,"total":1234,"hasMore":true}}}
-```
-
 The default limit is 50 if `--limit` is not specified.
-
-If FD 3 isn't redirected, metadata is silently skipped.
 
 ### Merged stream (--merged-stream)
 
-Use `--merged-stream` to write everything to stdout, with metadata as the last line:
+Use `--merged-stream` to include metadata as the last line of stdout:
 
 ```bash
 max search hubspot --type=contact --limit 5 -o ndjson --merged-stream
@@ -302,6 +288,93 @@ Note: `id`, `source`, and `type` are always included.
 | Process large result sets line by line | `-o ndjson` |
 | Need structured response with data array | `-o json` |
 | Inspect pagination and data together | `-o json` |
+
+## Pagination with State Files
+
+When search results exceed your limit, Max creates a state file for continuation and prints a hint to stderr:
+
+```bash
+max search hubspot --type=contact --limit=500 -o ndjson
+# stdout: 500 records
+# stderr: More results (500 of 12500). Continue: --state=max:a1b2c3d
+```
+
+State files use a short `max:` prefix format (e.g., `max:a1b2c3d`) for convenience. Continue fetching:
+```bash
+max search hubspot --type=contact --limit=500 --state=max:a1b2c3d -o ndjson
+# stdout: next 500 records
+# stderr: More results (1000 of 12500). Continue: --state=max:a1b2c3d
+```
+
+Repeat until complete:
+```bash
+# stderr: Complete (12500 results).
+```
+
+Clean up when done (optional):
+```bash
+max search --close --state=max:a1b2c3d
+```
+
+### Proactive pagination from count
+
+When count exceeds 2000, `max count` includes a state reference in its output:
+
+```bash
+max count hubspot --type=contact -o json
+# {"count": 12500, "state": "max:a1b2c3d"}
+
+# Use state from the start
+max search hubspot --type=contact --limit=500 --state=max:a1b2c3d -o ndjson
+```
+
+### Pre-create state file (for scripting)
+
+```bash
+# Create a virgin state file before knowing the query
+state=$(max search --init)
+# Output: max:a1b2c3d
+
+# Use it with any query - first use locks in the query params
+max search gdrive --type=file --filter='size>0' --limit=500 --state=$state -o ndjson
+
+# Subsequent calls must use the same query params
+max search gdrive --type=file --filter='size>0' --limit=500 --state=$state -o ndjson
+```
+
+### Agent pagination loop
+
+```bash
+#!/bin/bash
+# Example: Process all contacts in batches
+
+STATE=""
+while true; do
+  if [ -n "$STATE" ]; then
+    OUTPUT=$(max search hubspot --type=contact --limit=500 --state="$STATE" -o ndjson 2>&1)
+  else
+    OUTPUT=$(max search hubspot --type=contact --limit=500 -o ndjson 2>&1)
+  fi
+
+  # Separate stdout (data) from stderr (status)
+  DATA=$(echo "$OUTPUT" | grep -v "^More results\|^Complete")
+  STATUS=$(echo "$OUTPUT" | grep "^More results\|^Complete")
+
+  # Process data...
+  echo "$DATA" | jq '.email'
+
+  # Check if done
+  if echo "$STATUS" | grep -q "^Complete"; then
+    break
+  fi
+
+  # Extract state reference for next iteration
+  STATE=$(echo "$STATUS" | sed -n 's/.*--state=\([^ ]*\).*/\1/p')
+done
+
+# Cleanup
+[ -n "$STATE" ] && max search --close --state="$STATE"
+```
 
 ## JSON Pagination
 
@@ -398,4 +471,5 @@ Note: `id`, `source`, and `type` are always included. Selected fields are flatte
 7. **Pipe to scripts** for counting, aggregating, or joining data across sources
 8. **Count before querying** - Use `max count` to understand data size before fetching
 9. **Use `--all` for aggregations** - Don't guess limits; get complete data
-10. **Prefer ndjson for piping** - Use `-o ndjson 3>/dev/null` when piping to jq
+10. **Prefer ndjson for piping** - Use `-o ndjson` when piping to jq
+11. **Use state files for large datasets** - When results exceed your limit, continue with `--state`

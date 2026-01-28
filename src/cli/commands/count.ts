@@ -8,9 +8,13 @@ import { ConfigManager } from '../../core/config-manager.js';
 import { ConnectorRegistry } from '../../core/connector-registry.js';
 import { EntityStore } from '../../core/entity-store.js';
 import { BasicFilterParser } from '../../core/filter/basic-parser.js';
-import { sourceArg, entityTypeArg } from '../parsers.js';
+import { cleanupStaleStateFiles } from '../../core/pagination-state.js';
+import {PaginationAdvanceResult, PaginationSession} from '../../core/pagination-session.js';
+import { sourceArg, entityTypeArg, outputOption } from '../parsers.js';
 import type { FilterExpr } from '../../types/filter.js';
 import type { EntitySchema } from '../../types/connector.js';
+
+const PAGINATION_THRESHOLD = 2000;
 
 /**
  * Extract filterable field names from a connector schema.
@@ -32,17 +36,22 @@ export const countCommand = object({
   source: argument(sourceArg, { description: message`Source to count` }),
   type: optional(option('-t', '--type', entityTypeArg, { description: message`Filter by entity type` })),
   filter: optional(option('-f', '--filter', string(), { description: message`Filter expression` })),
+  output: outputOption,
 });
 
 export async function handleCount(opts: {
   source: string;
   type?: string;
   filter?: string;
+  output?: 'text' | 'json';
 }) {
   const config = ConfigManager.find();
   if (!config) {
     printError(message`Not in a Max project. Run "max init" first.`, { exitCode: 1 });
   }
+
+  // Cleanup stale state files opportunistically
+  cleanupStaleStateFiles(config.getMaxDir());
 
   const registry = new ConnectorRegistry(config);
   const connector = await registry.get(opts.source);
@@ -73,6 +82,29 @@ export async function handleCount(opts: {
     allowedColumns,
   });
 
-  // Output just the number - easy to capture
-  console.log(count);
+  const format = opts.output ?? 'text';
+  const output: { count: number; state?: string } = { count };
+  let result: PaginationAdvanceResult | null
+  if (count > PAGINATION_THRESHOLD) {
+    // Use PaginationSession to create state file for large result sets
+    result = PaginationSession.createIfNeeded(
+      config.getMaxDir(),
+      { source: opts.source, type: opts.type, filter: opts.filter },
+      count,
+      0  // offset starts at 0
+    );
+    if (result?.stateRef) {
+      output.state = result.stateRef;
+    }
+  }
+
+  if (format === 'json') {
+    console.log(JSON.stringify(output));
+  } else {
+    // Text output
+    console.log(count);
+    if (result?.stateRef) {
+      console.error(`Hint: Use --state=${result.stateRef} for paginated search`);
+    }
+  }
 }

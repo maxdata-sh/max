@@ -4,12 +4,13 @@ import { argument, option, constant } from '@optique/core/primitives';
 import { integer, string } from '@optique/core/valueparser';
 import { message } from '@optique/core/message';
 import { print, printError } from '@optique/run';
-import * as fs from 'node:fs';
 import { ConfigManager } from '../../core/config-manager.js';
 import { ConnectorRegistry } from '../../core/connector-registry.js';
 import { EntityStore } from '../../core/entity-store.js';
 import { PermissionsEngine } from '../../core/permissions-engine.js';
 import { BasicFilterParser } from '../../core/filter/basic-parser.js';
+import { cleanupStaleStateFiles } from '../../core/pagination-state.js';
+import { PaginationSession, createPaginationHandler } from '../../core/pagination-session.js';
 import { renderEntities, flattenEntity, pickFields, type OutputFormat } from '../output.js';
 import { sourceArg, entityTypeArg, outputOptionWithNdjson, fieldsOption } from '../parsers.js';
 import type { FilterExpr } from '../../types/filter.js';
@@ -33,7 +34,7 @@ function getFilterableFieldsFromSchema(schema: EntitySchema): string[] {
 
 export const searchCommand = object({
   cmd: constant('search' as const),
-  source: argument(sourceArg, { description: message`Source to search` }),
+  source: optional(argument(sourceArg, { description: message`Source to search` })),
   type: optional(option('-t', '--type', entityTypeArg, { description: message`Filter by entity type` })),
   filter: optional(option('-f', '--filter', string(), { description: message`Filter expression (e.g., "name=foo AND state=open")` })),
   all: option('--all', { description: message`Return all results (no limit)` }),
@@ -42,21 +43,10 @@ export const searchCommand = object({
   output: outputOptionWithNdjson,
   fields: fieldsOption,
   mergedStream: option('--merged-stream', { description: message`Write all ndjson output to stdout (metadata last)` }),
+  init: option('--init', { description: message`Create a virgin state file and exit (outputs path)` }),
+  state: optional(option('--state', string(), { description: message`State file for pagination (use with search to continue, or alone to close)` })),
+  close: option('--close', { description: message`Delete state file specified by --state and exit` }),
 });
-
-/**
- * Try to write metadata to FD 3.
- * Returns true if successful, false if FD 3 is not available.
- */
-function tryWriteToFd3(data: string): boolean {
-  try {
-    fs.writeSync(3, data + '\n');
-    return true;
-  } catch {
-    // FD 3 not available - user didn't redirect it
-    return false;
-  }
-}
 
 /**
  * Format entities for NDJSON output.
@@ -69,7 +59,7 @@ function formatNdjsonEntity(entity: StoredEntity, fields?: readonly string[]): s
 }
 
 export async function handleSearch(opts: {
-  source: string;
+  source?: string;
   type?: string;
   filter?: string;
   all: boolean;
@@ -78,17 +68,45 @@ export async function handleSearch(opts: {
   output?: 'text' | 'json' | 'ndjson';
   fields: readonly (readonly string[])[];
   mergedStream: boolean;
+  init: boolean;
+  state?: string;
+  close: boolean;
 }) {
   const config = ConfigManager.find();
   if (!config) {
     printError(message`Not in a Max project. Run "max init" first.`, { exitCode: 1 });
   }
 
+  // Cleanup stale state files opportunistically
+  cleanupStaleStateFiles(config.getMaxDir());
+
+  // Handle --init: create virgin state file and exit
+  if (opts.init) {
+    const stateRef = PaginationSession.createVirgin(config.getMaxDir());
+    console.log(stateRef);
+    return;
+  }
+
+  // Handle --close: delete state file specified by --state and exit
+  if (opts.close) {
+    if (!opts.state) {
+      printError(message`--close requires --state=<path> to specify which state file to delete`, { exitCode: 1 });
+    }
+    PaginationSession.delete(config.getMaxDir(), opts.state);
+    return;
+  }
+
+  // Source is required for actual search
+  if (!opts.source) {
+    printError(message`Source is required for search. Use --init to create a state file.`, { exitCode: 1 });
+  }
+  const source = opts.source;
+
   // Get the connector for formatting
   const registry = new ConnectorRegistry(config);
-  const connector = await registry.get(opts.source);
+  const connector = await registry.get(source);
   if (!connector) {
-    printError(message`Unknown source: ${opts.source}`, { exitCode: 1 });
+    printError(message`Unknown source: ${source}`, { exitCode: 1 });
   }
 
   // Get filterable fields from connector schema
@@ -109,12 +127,44 @@ export async function handleSearch(opts: {
   const store = new EntityStore(config);
   await store.initialize();
 
+  // Set up pagination handler (handles both new and resumed sessions)
+  const queryParams = { source, type: opts.type, filter: opts.filter };
+  let paginationHandler: ReturnType<typeof createPaginationHandler>;
+
+  try {
+    paginationHandler = createPaginationHandler(
+      config.getMaxDir(),
+      opts.state,
+      queryParams,
+      opts.offset,
+    );
+  } catch (err) {
+    printError(message`${err instanceof Error ? err.message : String(err)}`, { exitCode: 1 });
+  }
+
+  // Check if pagination is already exhausted
+  if (paginationHandler.isExhausted) {
+    const format = (opts.output ?? 'text') as OutputFormat;
+    const exhaustedPagination = paginationHandler.getExhaustedPagination(opts.limit);
+    if (exhaustedPagination) {
+      if (format === 'ndjson') {
+        if (opts.mergedStream) {
+          console.log(JSON.stringify({ _meta: { pagination: exhaustedPagination } }));
+        }
+      } else if (format === 'json') {
+        console.log(JSON.stringify({ pagination: exhaustedPagination, data: [] }));
+      }
+      console.error(`Complete (${exhaustedPagination.total} results).`);
+    }
+    return;
+  }
+
   // When --all is specified, don't apply limit or offset
   const limit = opts.all ? undefined : opts.limit;
-  const offset = opts.all ? undefined : opts.offset;
+  const offset = opts.all ? undefined : paginationHandler.offset;
 
   const result = await store.queryWithFilter({
-    source: opts.source,
+    source,
     type: opts.type,
     filterExpr,
     allowedColumns,
@@ -166,9 +216,14 @@ export async function handleSearch(opts: {
     if (opts.mergedStream) {
       // --merged-stream: write metadata as last line to stdout
       console.log(JSON.stringify(meta));
-    } else {
-      // Default: write metadata to FD 3 (silently skip if not available)
-      tryWriteToFd3(JSON.stringify(meta));
+    }
+
+    // Handle pagination state update and hints
+    if (pagination) {
+      const hint = paginationHandler.advance(pagination.total, filteredEntities.length);
+      if (hint) {
+        console.error(hint);
+      }
     }
 
     if (filteredCount > 0) {
@@ -185,6 +240,13 @@ export async function handleSearch(opts: {
   // Avoid console.log so we aren't buffering
   process.stdout.write(data);
 
+  // Handle pagination state update and hints (for json and text formats)
+  if (pagination) {
+    const hint = paginationHandler.advance(pagination.total, filteredEntities.length);
+    if (hint) {
+      console.error(hint);
+    }
+  }
 
   if (filteredCount > 0 && format === 'text') {
     print(message`(${filteredCount.toString()} result${filteredCount !== 1 ? 's' : ''} filtered by rules)`);

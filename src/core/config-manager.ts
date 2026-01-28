@@ -78,7 +78,7 @@ export class ConfigManager {
     // Create .gitignore for sensitive files
     const gitignorePath = path.join(this.maxDir, '.gitignore');
     if (!fs.existsSync(gitignorePath)) {
-      fs.writeFileSync(gitignorePath, 'credentials/\nstore/\nlogs/\n');
+      fs.writeFileSync(gitignorePath, 'credentials/\nstore/\nlogs/\nstate/\n');
     }
   }
 

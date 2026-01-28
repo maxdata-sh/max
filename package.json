@@ -9,7 +9,8 @@
     "build": "bun build ./src/cli/index.ts --outdir ./dist --target node",
     "dev": "bun run ./src/cli/index.ts",
     "start": "bun ./dist/cli/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "@optique/core": "^0.9.1",

@@ -69,7 +69,7 @@ const result = run(parser, {
         break;
     }
   } catch (err) {
-    console.error(err instanceof Error ? err.message : 'Command failed');
+    console.error(err instanceof Error ? err : 'Command failed');
     process.exit(1);
   }
 })();

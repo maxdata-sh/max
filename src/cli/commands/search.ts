@@ -130,6 +130,8 @@ export async function handleSearch(opts: {
     total: adjustedTotal,
   } : undefined;
 
+  // TODO: This is too messy. There should be a Printer class for these two output types
+
   // Handle NDJSON output format
   if (format === 'ndjson') {
     const flatFields = opts.fields.flat();
@@ -168,11 +170,14 @@ export async function handleSearch(opts: {
     }
     return;
   }
-
-  console.log(renderEntities(filteredEntities, format, connector.formatEntity.bind(connector), {
+  const data = (renderEntities(filteredEntities, format, connector.formatEntity.bind(connector), {
     pagination,
     fields: opts.fields.flat(),
   }));
+
+  // Avoid console.log so we aren't buffering
+  process.stdout.write(data);
+
 
   if (filteredCount > 0 && format === 'text') {
     print(message`(${filteredCount.toString()} result${filteredCount !== 1 ? 's' : ''} filtered by rules)`);

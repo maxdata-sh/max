@@ -15,9 +15,32 @@ Max mirrors data locally from external sources. When Max is integrated, data is 
 
 Unlike direct API calls where you'd minimize requests, with Max you should:
 
-1. **Request what you need:** Use `--limit 500` or higher freely. Paginate through entire datasets if needed.
+1. **Count first, then query:** Before fetching data, check how much you're dealing with:
+   ```bash
+   # How many contacts total?
+   max count hubspot --type=contact
+   # Output: 98543
 
-2. **Use `--fields` for token efficiency:** Only fetch the fields you need:
+   # How many match my filter?
+   max count hubspot --type=contact --filter "lifecycleStage=lead"
+   # Output: 12301
+   ```
+
+   **Use count to decide your approach:**
+
+   | Count | Approach |
+   |-------|----------|
+   | < 100 | Fetch directly, inspect results |
+   | 100 - 10,000 | Fetch with `--all`, pipe to jq/scripts |
+   | 10,000+ | Use `--all` with `--fields` to minimize data, or stream with ndjson |
+
+2. **Use `--all` for complete data:** Don't guess limits; get all matching records:
+   ```bash
+   # Get ALL contacts (no limit)
+   max search hubspot --type=contact --all --fields firstName -o ndjson 3>/dev/null
+   ```
+
+3. **Use `--fields` for token efficiency:** Only fetch the fields you need:
    ```bash
    # Instead of full entities with 20+ fields:
    max search hubspot --type=contact --limit 500 -o json
@@ -26,26 +49,26 @@ Unlike direct API calls where you'd minimize requests, with Max you should:
    max search hubspot --type=contact --limit 500 --fields firstName,lastName,email -o json
    ```
 
-3. **Script for complex analysis:** For aggregations, joins across sources, or data transformations, pipe Max output to scripts:
+4. **Script for complex analysis:** For aggregations, joins across sources, or data transformations, pipe Max output to scripts:
    ```bash
-   # Count contacts by lifecycle stage
-   max search hubspot --type=contact --limit 10000 --fields lifecycleStage -o json \
-     | jq -r '.data[].lifecycleStage' | sort | uniq -c | sort -rn
+   # Count contacts by lifecycle stage (use --all to get complete data)
+   max search hubspot --type=contact --all --fields lifecycleStage -o ndjson 3>/dev/null \
+     | jq -r '.lifecycleStage' | sort | uniq -c | sort -rn
 
    # Find top 10 contact first names
-   max search hubspot --type=contact --limit 5000 --fields firstName -o json \
-     | jq -r '.data[].firstName' | sort | uniq -c | sort -rn | head -10
+   max search hubspot --type=contact --all --fields firstName -o ndjson 3>/dev/null \
+     | jq -r '.firstName' | grep -v '^$' | sort | uniq -c | sort -rn | head -10
 
    # Cross-source: find files mentioning top contacts
-   TOP_NAMES=$(max search hubspot --type=contact --limit 1000 --fields firstName -o json \
-     | jq -r '.data[].firstName' | sort | uniq -c | sort -rn | head -5 | awk '{print $2}')
+   TOP_NAMES=$(max search hubspot --type=contact --all --fields firstName -o ndjson 3>/dev/null \
+     | jq -r '.firstName' | sort | uniq -c | sort -rn | head -5 | awk '{print $2}')
    for name in $TOP_NAMES; do
      echo "=== Files mentioning $name ==="
      max search gdrive --type=file --filter "name~=*$name*" --fields name,path
    done
    ```
 
-4. **Iterate freely:** Run exploratory queries, refine filters, check counts - it's all local.
+5. **Iterate freely:** Run exploratory queries, refine filters, check counts - it's all local.
 
 ### When to use Max vs direct scripting
 
@@ -76,6 +99,25 @@ Example:
 
 This shows entity types and their filterable fields.
 
+### Count entities
+
+```bash
+max count <source> [options]
+```
+
+Options:
+- `-t, --type <type>` - Filter by entity type
+- `-f, --filter <expr>` - Filter expression
+
+Outputs just a number (easy to capture in scripts):
+```bash
+max count hubspot --type=contact
+# 98543
+
+max count hubspot --type=contact --filter "lifecycleStage=lead"
+# 12301
+```
+
 ### Search for entities
 
 ```bash
@@ -85,6 +127,7 @@ max search <source> [options]
 Options:
 - `-t, --type <type>` - Filter by entity type
 - `-f, --filter <expr>` - Filter expression (e.g., "name=foo AND state=open")
+- `--all` - Return all results (no limit)
 - `--limit <n>` - Max results (default: 50)
 - `--offset <n>` - Skip first n results
 - `-o, --output json` - Output as JSON for parsing (see [JSON Pagination](#json-pagination))
@@ -353,3 +396,6 @@ Note: `id`, `source`, and `type` are always included. Selected fields are flatte
 5. **Don't be shy with limits** - data is local, so `--limit 500` or `--limit 5000` is fine
 6. **Use `--fields`** to reduce output size and save tokens
 7. **Pipe to scripts** for counting, aggregating, or joining data across sources
+8. **Count before querying** - Use `max count` to understand data size before fetching
+9. **Use `--all` for aggregations** - Don't guess limits; get complete data
+10. **Prefer ndjson for piping** - Use `-o ndjson 3>/dev/null` when piping to jq

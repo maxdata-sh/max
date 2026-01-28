@@ -199,6 +199,36 @@ export class EntityStore {
   }
 
   /**
+   * Count entities matching query (without fetching data)
+   */
+  async count(options: {
+    source: string;
+    type?: string;
+    filterExpr?: FilterExpr;
+    allowedColumns?: string[];
+  }): Promise<number> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    let sql = 'SELECT COUNT(*) as count FROM entities WHERE source = ?';
+    const params: (string | number | bigint | boolean | null | Uint8Array)[] = [options.source];
+
+    if (options.type) {
+      sql += ' AND type = ?';
+      params.push(options.type);
+    }
+
+    if (options.filterExpr && options.allowedColumns) {
+      const renderer = new BasicSqlFilterRenderer();
+      const filterResult = renderer.render(options.filterExpr, options.allowedColumns);
+      sql += ` AND (${filterResult.sql})`;
+      params.push(...filterResult.params as string[]);
+    }
+
+    const row = this.db.prepare(sql).get(...params) as { count: number };
+    return row.count;
+  }
+
+  /**
    * Query entities with a parsed filter expression.
    * Uses SQL-level filtering with json_extract for property access.
    */

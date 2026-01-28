@@ -36,6 +36,7 @@ export const searchCommand = object({
   source: argument(sourceArg, { description: message`Source to search` }),
   type: optional(option('-t', '--type', entityTypeArg, { description: message`Filter by entity type` })),
   filter: optional(option('-f', '--filter', string(), { description: message`Filter expression (e.g., "name=foo AND state=open")` })),
+  all: option('--all', { description: message`Return all results (no limit)` }),
   limit: withDefault(option('--limit', integer({ min: 1 }), { description: message`Maximum results` }), 50),
   offset: withDefault(option('--offset', integer({ min: 0 }), { description: message`Skip first n results` }), 0),
   output: outputOptionWithNdjson,
@@ -71,6 +72,7 @@ export async function handleSearch(opts: {
   source: string;
   type?: string;
   filter?: string;
+  all: boolean;
   limit: number;
   offset: number;
   output?: 'text' | 'json' | 'ndjson';
@@ -107,13 +109,17 @@ export async function handleSearch(opts: {
   const store = new EntityStore(config);
   await store.initialize();
 
+  // When --all is specified, don't apply limit or offset
+  const limit = opts.all ? undefined : opts.limit;
+  const offset = opts.all ? undefined : opts.offset;
+
   const result = await store.queryWithFilter({
     source: opts.source,
     type: opts.type,
     filterExpr,
     allowedColumns,
-    limit: opts.limit,
-    offset: opts.offset,
+    limit,
+    offset,
   });
 
   const permissionsEngine = new PermissionsEngine();
@@ -124,9 +130,10 @@ export async function handleSearch(opts: {
   const format = (opts.output ?? 'text') as OutputFormat;
   const adjustedTotal = result.total - filteredCount;
 
-  const pagination = opts.limit ? {
-    offset: opts.offset ?? 0,
-    limit: opts.limit,
+  // Don't include pagination info when --all is used (no limit applies)
+  const pagination = !opts.all && limit ? {
+    offset: offset ?? 0,
+    limit: limit,
     total: adjustedTotal,
   } : undefined;
 

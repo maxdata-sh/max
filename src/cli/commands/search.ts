@@ -196,7 +196,9 @@ export async function handleSearch(opts: {
 
     // Write data records to stdout
     for (const entity of filteredEntities) {
-      console.log(formatNdjsonEntity(entity, hasFields ? flatFields : undefined));
+      process.stdout.write(formatNdjsonEntity(entity, hasFields ? flatFields : undefined));
+      process.stdout.write('\n')
+
     }
 
     // Build metadata object

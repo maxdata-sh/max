@@ -8,8 +8,9 @@
 import { gdriveSchema } from '../connectors/gdrive/schema.js';
 import { linearSchema } from '../connectors/linear/schema.js';
 import type { EntitySchema, FieldDefinition } from '../types/connector.js';
+import {hubspotSchema} from "../connectors/hubspot/schema.js";
 
-const schemas: EntitySchema[] = [gdriveSchema, linearSchema];
+const schemas: EntitySchema[] = [gdriveSchema, linearSchema, hubspotSchema];
 
 /**
  * Get all registered sources

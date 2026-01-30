@@ -1,5 +1,16 @@
 import type { StoredEntity } from './entity.js';
 
+/**
+ * Describes how to format entities for display.
+ * The connector provides this, and the Printer uses it to render output.
+ */
+export interface EntityFormatter {
+  /** Fields to display by default when --fields is not specified. */
+  defaultFields: string[];
+  /** Transform functions for specific fields. If not provided, value is stringified. */
+  transforms?: Record<string, (value: unknown, entity: StoredEntity) => string>;
+}
+
 export interface EntitySchema {
   source: string;
   entities: EntityDefinition[];
@@ -67,8 +78,8 @@ export interface Connector {
   getContent(id: string): Promise<ContentBlob | null>;
 
   /**
-   * Format an entity for text display.
-   * Each connector knows best how to display its own entities.
+   * Get the formatter for a specific entity type.
+   * Returns the default fields and any transform functions for display.
    */
-  formatEntity(entity: StoredEntity): string;
+  getFormatter(entityType: string): EntityFormatter;
 }

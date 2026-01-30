@@ -4,13 +4,13 @@ import { EntityStore } from '../../core/entity-store.js';
 import type {
   Connector,
   EntitySchema,
+  EntityFormatter,
   Credentials,
   SyncOptions,
   RawEntity,
   SourcePermission,
   ContentBlob,
 } from '../../types/connector.js';
-import type { StoredEntity } from '../../types/entity.js';
 import { gdriveSchema } from './schema.js';
 import {
   authenticate,
@@ -246,28 +246,17 @@ export class GoogleDriveConnector implements Connector {
   }
 
   /**
-   * Format an entity for text display
+   * Get formatter for an entity type
    */
-  formatEntity(entity: StoredEntity): string {
-    const props = entity.properties;
-    const lines: string[] = [];
-
-    lines.push(`${props.name || entity.id}`);
-    if (props.path) {
-      lines.push(`   Path: ${props.path}`);
-    }
-    if (props.owner) {
-      lines.push(`   Owner: ${props.owner}`);
-    }
-    if (props.modifiedAt) {
-      const date = new Date(props.modifiedAt as string);
-      lines.push(`   Modified: ${date.toISOString().split('T')[0]}`);
-    }
-    if (props.mimeType) {
-      lines.push(`   Type: ${formatMimeType(props.mimeType as string)}`);
-    }
-
-    return lines.join('\n');
+  getFormatter(_entityType: string): EntityFormatter {
+    // Both file and folder use the same formatting
+    return {
+      defaultFields: ['name', 'path', 'owner', 'modifiedAt', 'mimeType'],
+      transforms: {
+        modifiedAt: (value) => value ? new Date(value as string).toISOString().split('T')[0] : '',
+        mimeType: (value) => value ? formatMimeType(value as string) : '',
+      },
+    };
   }
 
   /**

@@ -2,13 +2,13 @@ import type { ConfigManager } from '../../core/config-manager.js';
 import type {
   Connector,
   EntitySchema,
+  EntityFormatter,
   Credentials,
   SyncOptions,
   RawEntity,
   SourcePermission,
   ContentBlob,
 } from '../../types/connector.js';
-import type { StoredEntity } from '../../types/entity.js';
 import { linearSchema } from './schema.js';
 import { promptForApiKey, validateApiKey } from './auth.js';
 
@@ -42,74 +42,53 @@ export class LinearConnector implements Connector {
   }
 
   /**
-   * Format an entity for text display
+   * Get formatter for an entity type
    */
-  formatEntity(entity: StoredEntity): string {
-    const props = entity.properties;
-    const lines: string[] = [];
-
-    switch (entity.type) {
-      case 'issue': {
-        const identifier = props.identifier || entity.id;
-        const title = props.title || '(untitled)';
-        const state = props.state || 'Unknown';
-        lines.push(`${identifier}  ${title}`);
-        lines.push(`   State: ${state}`);
-        if (props.assignee) {
-          lines.push(`   Assignee: ${props.assignee}`);
-        }
-        if (props.team) {
-          lines.push(`   Team: ${props.team}`);
-        }
-        if (props.labels && Array.isArray(props.labels) && props.labels.length > 0) {
-          lines.push(`   Labels: ${props.labels.join(', ')}`);
-        }
-        if (props.updatedAt) {
-          const date = new Date(props.updatedAt as string);
-          lines.push(`   Updated: ${date.toISOString().split('T')[0]}`);
-        }
-        break;
-      }
-      case 'project': {
-        const name = props.name || entity.id;
-        const state = props.state || '';
-        lines.push(`${name}${state ? ` [${state}]` : ''}`);
-        if (props.description) {
-          const desc = String(props.description).substring(0, 80);
-          lines.push(`   ${desc}${String(props.description).length > 80 ? '...' : ''}`);
-        }
-        if (props.lead) {
-          lines.push(`   Lead: ${props.lead}`);
-        }
-        if (props.targetDate) {
-          lines.push(`   Target: ${props.targetDate}`);
-        }
-        break;
-      }
-      case 'comment': {
-        const author = props.author || 'Unknown';
-        const issueId = props.issueIdentifier || props.issueId || '';
-        lines.push(`Comment on ${issueId} by ${author}`);
-        if (props.body) {
-          const body = String(props.body).substring(0, 100).replace(/\n/g, ' ');
-          lines.push(`   ${body}${String(props.body).length > 100 ? '...' : ''}`);
-        }
-        if (props.createdAt) {
-          const date = new Date(props.createdAt as string);
-          lines.push(`   Created: ${date.toISOString().split('T')[0]}`);
-        }
-        break;
-      }
-      default: {
-        lines.push(`${props.name || props.title || entity.id}`);
-        if (props.description) {
-          const desc = String(props.description).substring(0, 80);
-          lines.push(`   ${desc}${String(props.description).length > 80 ? '...' : ''}`);
-        }
-      }
+  getFormatter(entityType: string): EntityFormatter {
+    switch (entityType) {
+      case 'issue':
+        return {
+          defaultFields: ['identifier', 'title', 'state', 'assignee', 'team', 'labels', 'updatedAt'],
+          transforms: {
+            labels: (value) => Array.isArray(value) && value.length > 0 ? value.join(', ') : '',
+            updatedAt: (value) => value ? new Date(value as string).toISOString().split('T')[0] : '',
+          },
+        };
+      case 'project':
+        return {
+          defaultFields: ['name', 'state', 'description', 'lead', 'targetDate'],
+          transforms: {
+            description: (value) => {
+              if (!value) return '';
+              const str = String(value);
+              return str.length > 80 ? str.substring(0, 80) + '...' : str;
+            },
+          },
+        };
+      case 'comment':
+        return {
+          defaultFields: ['issueIdentifier', 'author', 'body', 'createdAt'],
+          transforms: {
+            body: (value) => {
+              if (!value) return '';
+              const str = String(value).replace(/\n/g, ' ');
+              return str.length > 100 ? str.substring(0, 100) + '...' : str;
+            },
+            createdAt: (value) => value ? new Date(value as string).toISOString().split('T')[0] : '',
+          },
+        };
+      default:
+        return {
+          defaultFields: ['name', 'title', 'description'],
+          transforms: {
+            description: (value) => {
+              if (!value) return '';
+              const str = String(value);
+              return str.length > 80 ? str.substring(0, 80) + '...' : str;
+            },
+          },
+        };
     }
-
-    return lines.join('\n');
   }
 
   /**

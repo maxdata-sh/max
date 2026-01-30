@@ -2,6 +2,7 @@ import type { ConfigManager } from '../../core/config-manager.js';
 import type {
   Connector,
   EntitySchema,
+  EntityFormatter,
   Credentials,
   SyncOptions,
   RawEntity,
@@ -50,74 +51,43 @@ export class HubSpotConnector implements Connector {
   }
 
   /**
-   * Format an entity for text display
+   * Get formatter for an entity type
    */
-  formatEntity(entity: StoredEntity): string {
-    const props = entity.properties;
-    const lines: string[] = [];
-
-    switch (entity.type) {
-      case 'contact': {
-        const name = [props.firstName, props.lastName].filter(Boolean).join(' ') || '(unnamed)';
-        const email = props.email || '';
-        lines.push(`${name}${email ? ` <${email}>` : ''}`);
-        if (props.company) {
-          lines.push(`   Company: ${props.company}`);
-        }
-        if (props.jobTitle) {
-          lines.push(`   Title: ${props.jobTitle}`);
-        }
-        if (props.lifecycleStage) {
-          lines.push(`   Stage: ${props.lifecycleStage}`);
-        }
-        if (props.owner) {
-          lines.push(`   Owner: ${props.owner}`);
-        }
-        break;
-      }
-      case 'company': {
-        const name = props.name || entity.id;
-        lines.push(`${name}`);
-        if (props.domain) {
-          lines.push(`   Domain: ${props.domain}`);
-        }
-        if (props.industry) {
-          lines.push(`   Industry: ${props.industry}`);
-        }
-        const location = [props.city, props.state, props.country].filter(Boolean).join(', ');
-        if (location) {
-          lines.push(`   Location: ${location}`);
-        }
-        if (props.owner) {
-          lines.push(`   Owner: ${props.owner}`);
-        }
-        break;
-      }
-      case 'deal': {
-        const name = props.name || entity.id;
-        const amount = props.amount ? `$${Number(props.amount).toLocaleString()}` : '';
-        lines.push(`${name}${amount ? ` (${amount})` : ''}`);
-        if (props.stage) {
-          lines.push(`   Stage: ${props.stage}`);
-        }
-        if (props.pipeline) {
-          lines.push(`   Pipeline: ${props.pipeline}`);
-        }
-        if (props.closeDate) {
-          const date = new Date(props.closeDate as string);
-          lines.push(`   Close date: ${date.toISOString().split('T')[0]}`);
-        }
-        if (props.owner) {
-          lines.push(`   Owner: ${props.owner}`);
-        }
-        break;
-      }
-      default: {
-        lines.push(`${props.name || entity.id}`);
-      }
+  getFormatter(entityType: string): EntityFormatter {
+    switch (entityType) {
+      case 'contact':
+        return {
+          defaultFields: ['name', 'email', 'company', 'jobTitle', 'lifecycleStage', 'owner'],
+          transforms: {
+            name: (_value, entity) => {
+              const props = entity.properties;
+              return [props.firstName, props.lastName].filter(Boolean).join(' ') || '(unnamed)';
+            },
+          },
+        };
+      case 'company':
+        return {
+          defaultFields: ['name', 'domain', 'industry', 'location', 'owner'],
+          transforms: {
+            location: (_value, entity) => {
+              const props = entity.properties;
+              return [props.city, props.state, props.country].filter(Boolean).join(', ');
+            },
+          },
+        };
+      case 'deal':
+        return {
+          defaultFields: ['name', 'amount', 'stage', 'pipeline', 'closeDate', 'owner'],
+          transforms: {
+            amount: (value) => value ? `$${Number(value).toLocaleString()}` : '',
+            closeDate: (value) => value ? new Date(value as string).toISOString().split('T')[0] : '',
+          },
+        };
+      default:
+        return {
+          defaultFields: ['name'],
+        };
     }
-
-    return lines.join('\n');
   }
 
   /**

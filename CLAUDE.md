@@ -63,3 +63,6 @@ Register new connectors in `src/core/connector-registry.ts`.
 - `AGENT.USER.md` - Template for `llm-bootstrap` command output (uses `{{PLACEHOLDER}}` syntax)
 - `.max/` - Project config directory (created by `max init`)
 - `bun-test-project/` - Test project with `.max` directory for development
+
+# How to think
+@CLAUDE.thinking.md

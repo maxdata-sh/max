@@ -1,23 +1,15 @@
 {
-  "name": "max",
+  "name": "max-monorepo",
   "version": "0.1.0",
-  "type": "module",
-  "bin": {
-    "max": "./dist/cli/index.js"
-  },
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "connectors/*"
+  ],
   "scripts": {
-    "build": "bun build ./src/cli/index.ts --outdir ./dist --target node",
-    "dev": "bun run ./src/cli/index.ts",
-    "start": "bun ./dist/cli/index.js",
-    "typecheck": "tsc --noEmit",
-    "test": "bun test"
-  },
-  "dependencies": {
-    "@optique/core": "^0.9.1",
-    "@optique/run": "^0.9.1",
-    "googleapis": "^144.0.0",
-    "minimatch": "^10.0.1",
-    "yaml": "^2.7.0"
+    "build": "bun run --filter '*' build",
+    "typecheck": "bun run --filter '*' typecheck",
+    "test": "bun run --filter '*' test"
   },
   "devDependencies": {
     "@types/bun": "latest",

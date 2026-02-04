@@ -1,17 +1,13 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "esModuleInterop": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "declaration": true,
-    "resolveJsonModule": true,
-    "types": ["bun"]
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/storage-sqlite" },
+    { "path": "packages/execution" },
+    { "path": "packages/execution-local" },
+    { "path": "packages/cli" },
+    { "path": "connectors/connector-gdrive" },
+    { "path": "connectors/connector-linear" },
+    { "path": "connectors/connector-hubspot" }
+  ]
 }

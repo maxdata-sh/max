@@ -1,0 +1,26 @@
+{
+  "name": "@max/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "max": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target node",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@max/core": "workspace:*",
+    "@max/storage-sqlite": "workspace:*",
+    "@max/execution": "workspace:*",
+    "@max/execution-local": "workspace:*",
+    "@optique/core": "^0.9.1",
+    "@optique/run": "^0.9.1",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.7.0"
+  }
+}

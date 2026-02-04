@@ -1,5 +1,5 @@
 {
-  "name": "@max/storage-sqlite",
+  "name": "@max/connector-acme",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,7 +20,6 @@
     "@max/core": "workspace:*"
   },
   "devDependencies": {
-    "@max/connector-acme": "workspace:*",
     "@types/bun": "latest",
     "typescript": "^5.7.0"
   }

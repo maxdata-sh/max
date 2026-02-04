@@ -21,6 +21,7 @@ export type {
 export type { FieldType, EntityFields, CollectionTargetRef, CollectionKeys } from "./field-types.js";
 
 // Entity definition
+export { EntityDefImpl } from "./entity-def.js";
 export type { EntityDef, EntityDefAny } from "./entity-def.js";
 
 // References

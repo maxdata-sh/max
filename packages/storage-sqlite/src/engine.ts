@@ -54,7 +54,7 @@ export class SqliteEngine implements Engine {
     this.db.run(sql, values);
 
     // Return a direct ref (it now exists in DB)
-    return RefOf.direct(input.ref.entityDef, id, id) as Ref<E>;
+    return RefOf.direct(input.ref.entityDef, id, id);
   }
 
   async load<E extends EntityDefAny, K extends keyof EntityFields<E>>(

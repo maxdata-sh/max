@@ -1,0 +1,89 @@
+/**
+ * Acme entity definitions for testing.
+ */
+
+import {
+  type EntityDef,
+  EntityDefImpl,
+  type ScalarField,
+  type RefField,
+  type CollectionField,
+} from "@max/core";
+
+// ============================================================================
+// AcmeUser
+// ============================================================================
+
+interface AcmeUser extends EntityDef<{
+  name: ScalarField<"string">;
+  email: ScalarField<"string">;
+  age: ScalarField<"number">;
+  isAdmin: ScalarField<"boolean">;
+}> {}
+
+export const AcmeUser: AcmeUser = new EntityDefImpl("AcmeUser", {
+  name: { kind: "scalar", type: "string" },
+  email: { kind: "scalar", type: "string" },
+  age: { kind: "scalar", type: "number" },
+  isAdmin: { kind: "scalar", type: "boolean" },
+});
+
+// ============================================================================
+// AcmeTeam
+// ============================================================================
+
+interface AcmeTeam extends EntityDef<{
+  name: ScalarField<"string">;
+  description: ScalarField<"string">;
+  owner: RefField<typeof AcmeUser>;
+  members: CollectionField<typeof AcmeUser>;
+}> {}
+
+export const AcmeTeam: AcmeTeam = new EntityDefImpl("AcmeTeam", {
+  name: { kind: "scalar", type: "string" },
+  description: { kind: "scalar", type: "string" },
+  owner: { kind: "ref", target: AcmeUser },
+  members: { kind: "collection", target: AcmeUser },
+});
+
+// ============================================================================
+// AcmeProject
+// ============================================================================
+
+interface AcmeProject extends EntityDef<{
+  name: ScalarField<"string">;
+  status: ScalarField<"string">;
+  createdAt: ScalarField<"date">;
+  team: RefField<typeof AcmeTeam>;
+  lead: RefField<typeof AcmeUser>;
+}> {}
+
+export const AcmeProject: AcmeProject = new EntityDefImpl("AcmeProject", {
+  name: { kind: "scalar", type: "string" },
+  status: { kind: "scalar", type: "string" },
+  createdAt: { kind: "scalar", type: "date" },
+  team: { kind: "ref", target: AcmeTeam },
+  lead: { kind: "ref", target: AcmeUser },
+});
+
+// ============================================================================
+// AcmeTask
+// ============================================================================
+
+interface AcmeTask extends EntityDef<{
+  title: ScalarField<"string">;
+  description: ScalarField<"string">;
+  priority: ScalarField<"number">;
+  completed: ScalarField<"boolean">;
+  project: RefField<typeof AcmeProject>;
+  assignee: RefField<typeof AcmeUser>;
+}> {}
+
+export const AcmeTask: AcmeTask = new EntityDefImpl("AcmeTask", {
+  title: { kind: "scalar", type: "string" },
+  description: { kind: "scalar", type: "string" },
+  priority: { kind: "scalar", type: "number" },
+  completed: { kind: "scalar", type: "boolean" },
+  project: { kind: "ref", target: AcmeProject },
+  assignee: { kind: "ref", target: AcmeUser },
+});

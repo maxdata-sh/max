@@ -29,7 +29,7 @@ class EntityDefImpl<T extends FieldDefinitions> implements EntityDef<T> {
   }
 
   ref(id: string, domain?: Domain): Ref<this> {
-    return undefined; // TODO: Implement creation of Ref
+    return new RefOf(this, id, "indirect", undefined, domain);
   }
 }
 

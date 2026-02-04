@@ -18,7 +18,7 @@ export type {
 } from "./field.js";
 
 // Field type utilities
-export type { FieldType, EntityFields } from "./field-types.js";
+export type { FieldType, EntityFields, CollectionTarget, CollectionKeys } from "./field-types.js";
 
 // Entity definition
 export type { EntityDef, EntityDefAny } from "./entity-def.js";

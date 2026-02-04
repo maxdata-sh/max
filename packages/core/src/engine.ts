@@ -5,10 +5,10 @@
 import type { EntityDefAny } from "./entity-def.js";
 import type { EntityInput } from "./entity-input.js";
 import type { EntityResult } from "./entity-result.js";
-import type { EntityFields } from "./field-types.js";
+import type { CollectionKeys, CollectionTarget, EntityFields } from "./field-types.js";
 import type { FieldsAll, FieldsSelect } from "./fields-selector.js";
 import type { Page, PageRequest } from "./pagination.js";
-import type { Ref, RefAny } from "./ref.js";
+import type { Ref } from "./ref.js";
 
 export interface Engine {
   /**
@@ -35,11 +35,11 @@ export interface Engine {
   /**
    * Load a collection field with pagination.
    */
-  loadCollection<E extends EntityDefAny, K extends keyof EntityFields<E>>(
+  loadCollection<E extends EntityDefAny, K extends CollectionKeys<E>>(
     ref: Ref<E>,
     field: K,
     options?: PageRequest
-  ): Promise<Page<RefAny>>; // TODO: type the collection target properly
+  ): Promise<Page<Ref<CollectionTarget<E["fields"][K]>>>>;
 
   /**
    * Store entity data.

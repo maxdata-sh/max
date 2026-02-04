@@ -5,7 +5,7 @@
 import type { EntityDefAny } from "./entity-def.js";
 import type { EntityInput } from "./entity-input.js";
 import type { EntityResult } from "./entity-result.js";
-import type { CollectionKeys, CollectionTarget, EntityFields } from "./field-types.js";
+import type { CollectionKeys, CollectionTargetRef, EntityFields } from "./field-types.js";
 import type { FieldsAll, FieldsSelect } from "./fields-selector.js";
 import type { Page, PageRequest } from "./pagination.js";
 import type { Ref } from "./ref.js";
@@ -39,7 +39,7 @@ export interface Engine {
     ref: Ref<E>,
     field: K,
     options?: PageRequest
-  ): Promise<Page<Ref<CollectionTarget<E["fields"][K]>>>>;
+  ): Promise<Page<CollectionTargetRef<E, K>>>;
 
   /**
    * Store entity data.

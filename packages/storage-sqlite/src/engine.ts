@@ -2,7 +2,7 @@
  * SqliteEngine - Engine implementation backed by SQLite.
  */
 
-import type { Database } from "bun:sqlite";
+import type { Database, SQLQueryBindings } from "bun:sqlite";
 import {
   type Engine,
   type EntityDefAny,
@@ -36,7 +36,7 @@ export class SqliteEngine implements Engine {
     // Build column names and values
     const columnNames: string[] = ["id"];
     const placeholders: string[] = ["?"];
-    const values: unknown[] = [id];
+    const values: SQLQueryBindings[] = [id];
 
     for (const col of tableDef.columns) {
       const fieldValue = (input.fields as Record<string, unknown>)[col.fieldName];
@@ -46,7 +46,7 @@ export class SqliteEngine implements Engine {
 
       columnNames.push(col.columnName);
       placeholders.push("?");
-      values.push(this.toSqlValue(fieldValue, col));
+      values.push(this.toSqlValue(fieldValue, col) as SQLQueryBindings);
     }
 
     // Upsert: INSERT OR REPLACE

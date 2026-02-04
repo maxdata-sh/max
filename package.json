@@ -13,6 +13,9 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "typescript": "^5.7.0"
+    "typescript": "catalog:"
+  },
+  "catalog": {
+    "typescript": "5.9.3"
   }
 }

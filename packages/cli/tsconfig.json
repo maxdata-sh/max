@@ -2,14 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
-    "composite": true
+    "rootDir": "./src"
   },
-  "include": ["src/**/*"],
-  "references": [
-    { "path": "../core" },
-    { "path": "../storage-sqlite" },
-    { "path": "../execution" },
-    { "path": "../execution-local" }
-  ]
+  "include": ["src/**/*"]
 }

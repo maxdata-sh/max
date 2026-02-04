@@ -6,7 +6,7 @@
       "name": "max",
       "devDependencies": {
         "@types/bun": "latest",
-        "typescript": "^5.7.0",
+        "typescript": "catalog:",
       },
     },
     "connectors/connector-acme": {
@@ -17,7 +17,7 @@
       },
       "devDependencies": {
         "@types/bun": "latest",
-        "typescript": "^5.7.0",
+        "typescript": "catalog:",
       },
     },
     "connectors/connector-gdrive": {
@@ -29,7 +29,7 @@
       },
       "devDependencies": {
         "@types/bun": "latest",
-        "typescript": "^5.7.0",
+        "typescript": "catalog:",
       },
     },
     "connectors/connector-hubspot": {
@@ -40,7 +40,7 @@
       },
       "devDependencies": {
         "@types/bun": "latest",
-        "typescript": "^5.7.0",
+        "typescript": "catalog:",
       },
     },
     "connectors/connector-linear": {
@@ -51,7 +51,7 @@
       },
       "devDependencies": {
         "@types/bun": "latest",
-        "typescript": "^5.7.0",
+        "typescript": "catalog:",
       },
     },
     "packages/cli": {
@@ -71,7 +71,7 @@
       },
       "devDependencies": {
         "@types/bun": "latest",
-        "typescript": "^5.7.0",
+        "typescript": "catalog:",
       },
     },
     "packages/core": {
@@ -79,7 +79,7 @@
       "version": "0.1.0",
       "devDependencies": {
         "@types/bun": "latest",
-        "typescript": "^5.7.0",
+        "typescript": "catalog:",
       },
     },
     "packages/execution": {
@@ -90,7 +90,7 @@
       },
       "devDependencies": {
         "@types/bun": "latest",
-        "typescript": "^5.7.0",
+        "typescript": "catalog:",
       },
     },
     "packages/execution-local": {
@@ -102,7 +102,7 @@
       },
       "devDependencies": {
         "@types/bun": "latest",
-        "typescript": "^5.7.0",
+        "typescript": "catalog:",
       },
     },
     "packages/storage-sqlite": {
@@ -114,9 +114,12 @@
       "devDependencies": {
         "@max/connector-acme": "workspace:*",
         "@types/bun": "latest",
-        "typescript": "^5.7.0",
+        "typescript": "catalog:",
       },
     },
+  },
+  "catalog": {
+    "typescript": "5.9.3",
   },
   "packages": {
     "@max/cli": ["@max/cli@workspace:packages/cli"],

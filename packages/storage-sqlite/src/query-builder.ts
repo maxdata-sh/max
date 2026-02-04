@@ -2,7 +2,7 @@
  * SqliteQueryBuilder - builds and executes SQL queries.
  */
 
-import type { Database } from "bun:sqlite";
+import type {Database, SQLQueryBindings} from "bun:sqlite";
 import {
   type QueryBuilder,
   type EntityDefAny,
@@ -105,13 +105,13 @@ export class SqliteQueryBuilder<E extends EntityDefAny> implements QueryBuilder<
     });
   }
 
-  private buildSql(columns: string[]): { query: string; params: unknown[] } {
+  private buildSql(columns: string[]): { query: string; params: SQLQueryBindings[] } {
     let query = `SELECT ${columns.join(", ")} FROM ${this.tableDef.tableName}`;
-    const params: unknown[] = [];
+    const params: SQLQueryBindings[] = [];
 
     if (this.whereClauses.length > 0) {
       const whereConditions = this.whereClauses.map(w => {
-        params.push(w.value);
+        params.push(w.value as SQLQueryBindings);
         return `${w.column} ${w.op} ?`;
       });
       query += ` WHERE ${whereConditions.join(" AND ")}`;

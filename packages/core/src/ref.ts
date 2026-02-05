@@ -1,108 +1,143 @@
 /**
- * Rich reference type that carries entity type, id, and reference kind.
+ * Ref - A reference to an entity, scoped to a particular level.
  */
 
-import type { Domain } from "./domain.js";
 import type { EntityDefAny } from "./entity-def.js";
+import type { Scope, LocalScope, SystemScope } from "./scope.js";
+import { type RefKey, RefKey as RefKeyUtil, type EntityType, type EntityId } from "./ref-key.js";
+
+// ============================================================================
+// ScopeUpgradeable Marker Interface
+// ============================================================================
 
 /**
- * ReferenceKind distinguishes how we're pointing to an entity.
+ * Marker interface for types that can upgrade their scope.
  *
- * - direct: Entity exists in Max's DB, we have the atomId
- * - indirect: Entity in upstream, identified by upstreamId
- * - id-only: Minimal reference, just atomId (no type info at runtime)
+ * Each implementing type defines its own upgradeScope with specific return type.
  */
-export type ReferenceKind = "direct" | "indirect" | "id-only";
+export interface ScopeUpgradeable {
+  readonly scope: Scope;
+  upgradeScope(newScope: Scope): ScopeUpgradeable;
+}
+
+// ============================================================================
+// Ref Interface
+// ============================================================================
 
 /**
- * Ref - a rich reference object.
+ * Ref<E, S> - A reference to an entity of type E at scope S.
  *
- * Carries all information needed to identify an entity:
- * - Entity type (runtime)
- * - ID (upstream or atom)
- * - Reference kind
- * - Domain (optional)
- *
- * Usage:
- *   const ref = SlackChannel.ref("C123");
- *   engine.load(ref, Fields.ALL);  // ref is self-sufficient
- *
- *   ref.entityDef;  // SlackChannel
- *   ref.id;         // "C123"
- *   ref.kind;       // "indirect" (not yet in DB)
+ * S defaults to Scope (the union), meaning "any scope".
+ * Most code can ignore S and just use Ref<E>.
+ * Boundary-crossing code specifies LocalScope or SystemScope explicitly.
  */
-export interface Ref<E extends EntityDefAny = EntityDefAny> {
+export interface Ref<E extends EntityDefAny = EntityDefAny, S extends Scope = Scope>
+  extends ScopeUpgradeable {
   /** The entity definition (runtime) */
   readonly entityDef: E;
 
-  /** The entity type name (convenience) */
-  readonly entityType: string;
+  /** The entity type name */
+  readonly entityType: EntityType;
 
-  /** The upstream ID or atom ID depending on kind */
-  readonly id: string;
+  /** The entity ID */
+  readonly id: EntityId;
 
-  /** What kind of reference this is */
-  readonly kind: ReferenceKind;
+  /** The scope this ref exists in */
+  readonly scope: S;
 
-  /** Atom ID if this is a direct reference */
-  readonly atomId?: string;
-
-  /** Domain context */
-  readonly domain?: Domain;
-
-  /** Serialize to string form */
-  toString(): string;
+  /** Get a unique key that identifies this ref */
+  toKey(): RefKey;
 
   /** Check if this ref points to the same entity as another */
-  equals(other: RefAny): boolean;
+  equals(other: Ref<EntityDefAny, Scope>): boolean;
+
+  /** Upgrade this ref to a new scope */
+  upgradeScope<NewS extends Scope>(newScope: NewS): Ref<E, NewS>;
 }
 
 /** Any Ref - for functions that accept any reference */
-export type RefAny = Ref<EntityDefAny>;
+export type RefAny = Ref<EntityDefAny, Scope>;
 
-/** Helper class for creating Refs */
-export class RefOf<E extends EntityDefAny> implements Ref<E> {
+/** Convenience aliases */
+export type LocalRef<E extends EntityDefAny = EntityDefAny> = Ref<E, LocalScope>;
+export type SystemRef<E extends EntityDefAny = EntityDefAny> = Ref<E, SystemScope>;
+
+// ============================================================================
+// Ref Implementation
+// ============================================================================
+
+/**
+ * Ref class implementation.
+ */
+export class RefImpl<E extends EntityDefAny, S extends Scope = Scope> implements Ref<E, S> {
+  readonly entityType: EntityType;
+
   constructor(
     readonly entityDef: E,
-    readonly id: string,
-    readonly kind: ReferenceKind = "indirect",
-    readonly atomId?: string,
-    readonly domain?: Domain
-  ) {}
-
-  get entityType(): string {
-    return this.entityDef.name;
+    readonly id: EntityId,
+    readonly scope: S
+  ) {
+    this.entityType = entityDef.name as EntityType;
   }
 
-  toString(): string {
-    if (this.kind === "direct" || this.kind === "id-only") {
-      return `atm:${this.atomId}`;
-    }
-    if (this.domain?.kind === "global") {
-      return `egl:${this.domain.installationId}:${this.entityType}:${this.id}`;
-    }
-    return `elo:${this.entityType}:${this.id}`;
+  toKey(): RefKey {
+    return RefKeyUtil.from(this.entityType, this.id, this.scope);
   }
 
-  equals(other: RefAny): boolean {
-    if (this.atomId && other.atomId) {
-      return this.atomId === other.atomId;
-    }
+  equals(other: Ref<EntityDefAny, Scope>): boolean {
+    // Two refs are equal if they point to the same entity type and ID
+    // Scope doesn't affect equality - it's the same entity at different scopes
     return this.entityType === other.entityType && this.id === other.id;
   }
 
-  /** Upgrade to direct ref when we have an atomId */
-  withAtomId(atomId: string): RefOf<E> {
-    return new RefOf(this.entityDef, this.id, "direct", atomId, this.domain);
+  upgradeScope<NewS extends Scope>(newScope: NewS): Ref<E, NewS> {
+    return new RefImpl(this.entityDef, this.id, newScope);
   }
 
-  /** Create an indirect ref */
-  static indirect<E extends EntityDefAny>(def: E, id: string, domain?: Domain): Ref<E> {
-    return new RefOf(def, id, "indirect", undefined, domain);
+  /** Custom inspect for Node.js console */
+  [Symbol.for("nodejs.util.inspect.custom")](): string {
+    if (this.scope.kind === "local") {
+      return `Ref<${this.entityType}>(${this.id})`;
+    } else {
+      return `Ref<${this.entityType}>(${this.id}, inst:${this.scope.installationId})`;
+    }
   }
 
-  /** Create a direct ref */
-  static direct<E extends EntityDefAny>(def: E, id: string, atomId: string, domain?: Domain): Ref<E> {
-    return new RefOf(def, id, "direct", atomId, domain);
+  toString(): string {
+    return this.toKey() as string;
+  }
+
+  // ============================================================================
+  // Static Factories
+  // ============================================================================
+
+  /** Create a local-scoped ref */
+  static local<E extends EntityDefAny>(def: E, id: EntityId): Ref<E, LocalScope> {
+    return new RefImpl(def, id, { kind: "local" });
+  }
+
+  /** Create a system-scoped ref */
+  static system<E extends EntityDefAny>(
+    def: E,
+    id: EntityId,
+    scope: SystemScope
+  ): Ref<E, SystemScope> {
+    return new RefImpl(def, id, scope);
+  }
+
+  /** Create a ref with explicit scope */
+  static create<E extends EntityDefAny, S extends Scope>(
+    def: E,
+    id: EntityId,
+    scope: S
+  ): Ref<E, S> {
+    return new RefImpl(def, id, scope);
   }
 }
+
+// ============================================================================
+// Convenience Re-export
+// ============================================================================
+
+/** Alias for backwards compatibility and convenience */
+export const RefOf = RefImpl;

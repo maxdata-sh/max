@@ -15,9 +15,10 @@ import {
   type Page,
   type PageRequest,
   type Ref,
-  RefOf,
+  RefImpl,
   type CollectionKeys,
   type CollectionTargetRef,
+  type EntityId,
 } from "@max/core";
 import type { SqliteSchema } from "./schema.js";
 import type { TableDef, ColumnDef } from "./table-def.js";
@@ -53,8 +54,8 @@ export class SqliteEngine implements Engine {
     const sql = `INSERT OR REPLACE INTO ${tableDef.tableName} (${columnNames.join(", ")}) VALUES (${placeholders.join(", ")})`;
     this.db.run(sql, values);
 
-    // Return a direct ref (it now exists in DB)
-    return RefOf.direct(input.ref.entityDef, id, id);
+    // Return a local ref (it now exists in DB)
+    return RefImpl.local(input.ref.entityDef, id as EntityId);
   }
 
   async load<E extends EntityDefAny, K extends keyof EntityFields<E>>(
@@ -164,7 +165,7 @@ export class SqliteEngine implements Engine {
       // Ref field: reconstruct the Ref
       const fieldDef = entityDef.fields[col.fieldName];
       if (fieldDef.kind === "ref") {
-        return RefOf.indirect(fieldDef.target, value as string);
+        return RefImpl.local(fieldDef.target, value as EntityId);
       }
     }
 

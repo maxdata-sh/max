@@ -5,6 +5,7 @@
     "": {
       "name": "max",
       "devDependencies": {
+        "@max/connector-acme": "workspace:*",
         "@types/bun": "latest",
         "typescript": "catalog:",
       },

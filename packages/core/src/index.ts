@@ -2,9 +2,17 @@
  * @max/core - Core types and interfaces for Max
  */
 
-// Domain
-export { Domain } from "./domain.js";
-export type { LocalDomain, GlobalDomain } from "./domain.js";
+// Branding utilities
+export { hardBrand } from "./brand.js";
+export type { SoftBrand, HardBrand, Id } from "./brand.js";
+
+// Scope
+export { Scope } from "./scope.js";
+export type { LocalScope, SystemScope } from "./scope.js";
+
+// RefKey
+export { RefKey } from "./ref-key.js";
+export type { EntityType, EntityId, InstallationId, ParsedRefKey } from "./ref-key.js";
 
 // Fields
 export { Field } from "./field.js";
@@ -25,8 +33,8 @@ export { EntityDefImpl } from "./entity-def.js";
 export type { EntityDef, EntityDefAny } from "./entity-def.js";
 
 // References
-export { RefOf } from "./ref.js";
-export type { ReferenceKind, Ref, RefAny } from "./ref.js";
+export { RefImpl, RefOf } from "./ref.js";
+export type { Ref, RefAny, LocalRef, SystemRef, ScopeUpgradeable } from "./ref.js";
 
 // Entity input
 export { EntityInputOf } from "./entity-input.js";
@@ -50,3 +58,7 @@ export type { Page, PageRequest } from "./pagination.js";
 
 // Engine
 export type { Engine, QueryBuilder, QueryBuilderAny } from "./engine.js";
+
+// Legacy - Domain (deprecated, use Scope)
+export { Domain } from "./domain.js";
+export type { LocalDomain, GlobalDomain } from "./domain.js";

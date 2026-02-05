@@ -14,91 +14,8 @@ import type {CollectionField, FieldDefinitions, RefField, ScalarField} from "../
 import { Fields } from "../fields-selector.js";
 import {Ref, RefOf} from "../ref.js";
 import type { Engine } from "../engine.js";
-
-// ============================================================================
-// Entity Definitions
-// ============================================================================
-
-class EntityDefImpl<T extends FieldDefinitions> implements EntityDef<T> {
-  readonly fields: T;
-  readonly name: string;
-
-  constructor(name: string, fields: T) {
-    this.fields = fields
-    this.name = name
-  }
-
-  ref(id: string, domain?: Domain): Ref<this> {
-    return new RefOf(this, id, "indirect", undefined, domain);
-  }
-}
-
-interface SlackUser extends EntityDef<{
-  name: ScalarField<"string">
-  email: ScalarField<"string">
-  avatarUrl: ScalarField<"string">
-  isAdmin: ScalarField<"boolean">
-}> {}
-
-const SlackUser: SlackUser = new EntityDefImpl("SlackUser", {
-  name: { kind: "scalar", type: "string" },
-  email: { kind: "scalar", type: "string" },
-  avatarUrl: { kind: "scalar", type: "string" },
-  isAdmin: { kind: "scalar", type: "boolean" },
-});
-
-interface SlackTeam extends EntityDef<{
-  name: ScalarField<"string">
-  domain: ScalarField<"string">
-  channels: CollectionField<SlackChannel>
-}> {}
-
-const SlackTeam: SlackTeam = new EntityDefImpl("SlackTeam", {
-  name: { kind: "scalar", type: "string" },
-  domain: { kind: "scalar", type: "string" },
-  channels: { kind: "collection", target: null! as typeof SlackChannel }, // Circular ref, assigned below
-})
-
-
-interface SlackChannel extends EntityDef<{
-  name: ScalarField<"string">;
-  topic: ScalarField<"string">;
-  isPrivate: ScalarField<"boolean">;
-  team: RefField<SlackTeam>;
-  members: CollectionField<SlackUser>;
-  creator: RefField<SlackUser>;
-}> {}
-
-
-const SlackChannel: SlackChannel = new EntityDefImpl("SlackChannel", {
-    name: { kind: "scalar", type: "string" },
-    topic: { kind: "scalar", type: "string" },
-    isPrivate: { kind: "scalar", type: "boolean" },
-    team: { kind: "ref", target: SlackTeam },
-    members: { kind: "collection", target: SlackUser },
-    creator: { kind: "ref", target: SlackUser },
-});
-
-// Wire up circular reference
-(SlackTeam.fields as { channels: CollectionField<SlackChannel> }).channels = {
-  kind: "collection",
-  target: SlackChannel,
-};
-
-
-interface SlackMessage extends EntityDef<{
-  text: ScalarField<"string">;
-  timestamp: ScalarField<"date">;
-  channel: RefField<SlackChannel>;
-  author: RefField<SlackUser>;
-}> {}
-
-const SlackMessage: SlackMessage = new EntityDefImpl("SlackMessage", {
-    text: { kind: "scalar", type: "string" },
-    timestamp: { kind: "scalar", type: "date" },
-    channel: { kind: "ref", target: SlackChannel },
-    author: { kind: "ref", target: SlackUser },
-});
+import {AcmeProject, AcmeTask} from "@max/connector-acme";
+import {Scope} from "../scope.js";
 
 // ============================================================================
 // Usage Examples (Type Checking)
@@ -108,47 +25,47 @@ declare const engine: Engine;
 
 async function examples() {
   // --- Rich Refs ---
-  const channelRef = SlackChannel.ref("C123");
+  const channelRef = AcmeTask.ref("C123");
 
   // Ref properties are accessible
   channelRef.entityDef;   // SlackChannel
   channelRef.entityType;  // "SlackChannel"
   channelRef.id;          // "C123"
-  channelRef.kind;        // "indirect"
+  channelRef.scope.kind;        // "indirect"
   channelRef.toString();  // "elo:SlackChannel:C123"
-  channelRef.domain;      // undefined
+
+  const y  = channelRef.upgradeScope(Scope.system("asdf"))
 
 
   // --- Load all fields ---
   const result = await engine.load(channelRef, Fields.ALL);
 
   // Access via .get()
-  const name1: string = result.get("name");
-  const topic1: string = result.get("topic");
-  const isPrivate1: boolean = result.get("isPrivate");
+  const title1: string = result.get("title");
+  const priority1: number = result.get("priority");
 
   // Access via .fields proxy
-  const name2: string = result.fields.name;
-  const topic2: string = result.fields.topic;
-  const isPrivate2: boolean = result.fields.isPrivate;
+  const title2: string = result.fields.title;
+  const priority2: number = result.fields.priority;
+
 
   // Ref fields
-  const teamRef = result.fields.team;
-  const creatorRef = result.fields.creator;
+  const projectRef = result.fields.project;
+  const assigneeRef = result.fields.assignee;
 
   // Following refs
-  const creator = await engine.load(creatorRef, Fields.select("name", "email"));
+  const creator = await engine.load(assigneeRef, Fields.select("name", "email"));
   const creatorName: string = creator.fields.name;
   const creatorEmail: string = creator.fields.email;
 
   // --- Partial load ---
-  const partial = await engine.load(channelRef, Fields.select("name", "topic"));
+  const partial = await engine.load(channelRef, Fields.select("description", "completed"));
 
   // Loaded fields are accessible
-  partial.get("name");
-  partial.fields.name;
-  partial.get("topic");
-  partial.fields.topic;
+  partial.get("description");
+  partial.fields.description;
+  partial.get("completed");
+  partial.fields.completed;
 
   // @ts-expect-error - team not in selector
   partial.get("team");
@@ -160,34 +77,32 @@ async function examples() {
   partial.get("isPrivate");
 
   // --- EntityInput for store ---
-  const input = EntityInputOf.create(SlackChannel.ref("C789"), {
-    name: "new-channel",
-    topic: "A new channel",
-    team: SlackTeam.ref("T123"),
+  const input = EntityInputOf.create(AcmeTask.ref("T789"), {
+    title: "new-task",
+    description: "A new task",
+    project: AcmeProject.ref("P123"),
   });
 
   const newRef = await engine.store(input);
 
   // Using from() helper
-  const input2 = EntityInputOf.from(SlackMessage, "M456", {
-    text: "Hello world",
-    timestamp: new Date(),
-    channel: SlackChannel.ref("C123"),
-    author: SlackUser.ref("U999"),
+  const input2 = EntityInputOf.from(AcmeTask, "M456", {
+    title: "another task",
+    project: AcmeProject.ref("P123")
   });
 
   await engine.store(input2);
 
   // --- Query ---
-  const publicChannels = await engine
-    .query(SlackChannel)
-    .where("isPrivate", "=", false)
+  const tasks = await engine
+    .query(AcmeTask)
+    .where("completed", "=", false)
     .limit(10)
-    .select("name", "topic");
+    .select("title", "description");
 
-  for (const ch of publicChannels) {
-    const chName: string = ch.fields.name;
-    const chTopic: string = ch.fields.topic;
+  for (const t of tasks) {
+    const title: string = t.fields.title;
+    const descr: string = t.fields.description;
   }
 
   // --- Type errors for invalid field access ---
@@ -202,10 +117,10 @@ async function examples() {
   const wrongType: number = result.fields.name;
 
   // @ts-expect-error - wrong value type in query
-  engine.query(SlackChannel).where("isPrivate", "=", "not-a-boolean");
+  engine.query(AcmeTask).where("completed", "=", "not-a-boolean");
 
   // Silence unused variable warnings
-  void [name1, name2, topic1, topic2, isPrivate1, isPrivate2, teamRef, creatorName, creatorEmail, newRef, wrongType];
+  void [title1, title2, priority1, priority2, projectRef, creatorName, creatorEmail, newRef, wrongType];
 }
 
 // Ensure the examples function is used (prevents unused warning)

@@ -6,11 +6,9 @@ import type {Database, SQLQueryBindings} from "bun:sqlite";
 import {
   type QueryBuilder,
   type EntityDefAny,
-  type EntityResult,
   type EntityFields,
-  type Ref,
-  RefImpl,
-  EntityResultOf,
+  EntityResult,
+  Ref,
   type EntityId,
 } from "@max/core";
 import type { TableDef, ColumnDef } from "./table-def.js";
@@ -65,7 +63,7 @@ export class SqliteQueryBuilder<E extends EntityDefAny> implements QueryBuilder<
   async refs(): Promise<Ref<E>[]> {
     const sql = this.buildSql(["id"]);
     const rows = this.db.query(sql.query).all(...sql.params) as { id: string }[];
-    return rows.map(row => RefImpl.local(this.entityDef, row.id as EntityId));
+    return rows.map(row => Ref.local(this.entityDef, row.id as EntityId));
   }
 
   async select<K extends keyof EntityFields<E>>(...fields: K[]): Promise<EntityResult<E, K>[]> {
@@ -76,14 +74,14 @@ export class SqliteQueryBuilder<E extends EntityDefAny> implements QueryBuilder<
     const rows = this.db.query(sql.query).all(...sql.params) as Record<string, unknown>[];
 
     return rows.map(row => {
-      const ref = RefImpl.local(this.entityDef, row.id as EntityId);
+      const ref = Ref.local(this.entityDef, row.id as EntityId);
       const data: Record<string, unknown> = {};
 
       for (const col of columns) {
         data[col.fieldName] = this.fromSqlValue(row[col.columnName], col);
       }
 
-      return EntityResultOf.from(ref, data as { [P in K]: EntityFields<E>[P] });
+      return EntityResult.from(ref, data as { [P in K]: EntityFields<E>[P] });
     });
   }
 
@@ -95,14 +93,14 @@ export class SqliteQueryBuilder<E extends EntityDefAny> implements QueryBuilder<
     const rows = this.db.query(sql.query).all(...sql.params) as Record<string, unknown>[];
 
     return rows.map(row => {
-      const ref = RefImpl.local(this.entityDef, row.id as EntityId);
+      const ref = Ref.local(this.entityDef, row.id as EntityId);
       const data: Record<string, unknown> = {};
 
       for (const col of columns) {
         data[col.fieldName] = this.fromSqlValue(row[col.columnName], col);
       }
 
-      return EntityResultOf.from(ref, data as { [P in keyof EntityFields<E>]: EntityFields<E>[P] });
+      return EntityResult.from(ref, data as { [P in keyof EntityFields<E>]: EntityFields<E>[P] });
     });
   }
 
@@ -162,7 +160,7 @@ export class SqliteQueryBuilder<E extends EntityDefAny> implements QueryBuilder<
     if (col.isRef) {
       const fieldDef = this.entityDef.fields[col.fieldName];
       if (fieldDef.kind === "ref") {
-        return RefImpl.local(fieldDef.target, value as EntityId);
+        return Ref.local(fieldDef.target, value as EntityId);
       }
     }
 

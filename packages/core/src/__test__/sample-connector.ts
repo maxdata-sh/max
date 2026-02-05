@@ -7,11 +7,11 @@
  * 3. Demonstrates ref creation, engine.load, engine.store patterns
  */
 
-import { EntityInputOf } from "../entity-input.js";
 import { Fields } from "../fields-selector.js";
 import type { Engine } from "../engine.js";
 import {AcmeProject, AcmeTask} from "@max/connector-acme";
 import {Scope} from "../scope.js";
+import {EntityInput} from "../entity-input.js";
 
 // ============================================================================
 // Usage Examples (Type Checking)
@@ -73,7 +73,7 @@ async function examples() {
   partial.get("isPrivate");
 
   // --- EntityInput for store ---
-  const input = EntityInputOf.create(AcmeTask.ref("T789"), {
+  const input = EntityInput.create(AcmeTask.ref("T789"), {
     title: "new-task",
     description: "A new task",
     project: AcmeProject.ref("P123"),
@@ -82,7 +82,7 @@ async function examples() {
   const newRef = await engine.store(input);
 
   // Using from() helper
-  const input2 = EntityInputOf.from(AcmeTask, "M456", {
+  const input2 = EntityInput.from(AcmeTask, "M456", {
     title: "another task",
     project: AcmeProject.ref("P123")
   });

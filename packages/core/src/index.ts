@@ -29,22 +29,22 @@ export type {
 export type { FieldType, EntityFields, CollectionTargetRef, CollectionKeys } from "./field-types.js";
 
 // Entity definition
-export { EntityDefImpl } from "./entity-def.js";
-export type { EntityDef, EntityDefAny } from "./entity-def.js";
+export { EntityDef } from "./entity-def.js";
+export type { EntityDef as EntityDefType, EntityDefAny } from "./entity-def.js";
 
 // References
-export { RefImpl } from "./ref.js";
-export type { Ref, RefAny, LocalRef, SystemRef, ScopeUpgradeable } from "./ref.js";
+export { Ref } from "./ref.js";
+export type { Ref as RefType, RefAny, LocalRef, SystemRef, ScopeUpgradeable } from "./ref.js";
 
 // Entity input
-export { EntityInputOf } from "./entity-input.js";
-export type { EntityInput, EntityInputAny } from "./entity-input.js";
+export { EntityInput } from "./entity-input.js";
+export type { EntityInput as EntityInputType, EntityInputAny } from "./entity-input.js";
 
 // Entity result
-export { EntityResultOf } from "./entity-result.js";
+export { EntityResult } from "./entity-result.js";
 export type {
   FieldsProxy,
-  EntityResult,
+  EntityResult as EntityResultType,
   EntityResultAny,
 } from "./entity-result.js";
 
@@ -53,12 +53,8 @@ export { Fields } from "./fields-selector.js";
 export type { FieldsSelect, FieldsAll, FieldSelector } from "./fields-selector.js";
 
 // Pagination
-export { PageOf } from "./pagination.js";
-export type { Page, PageRequest } from "./pagination.js";
+export { Page } from "./pagination.js";
+export type { Page as PageType, PageRequest } from "./pagination.js";
 
 // Engine
 export type { Engine, QueryBuilder, QueryBuilderAny } from "./engine.js";
-
-// Legacy - Domain (deprecated, use Scope)
-export { Domain } from "./domain.js";
-export type { LocalDomain, GlobalDomain } from "./domain.js";

@@ -3,8 +3,7 @@
  */
 
 import {
-  type EntityDef,
-  EntityDefImpl,
+  EntityDef,
   type ScalarField,
   type RefField,
   type CollectionField,
@@ -21,7 +20,7 @@ interface AcmeUser extends EntityDef<{
   isAdmin: ScalarField<"boolean">;
 }> {}
 
-export const AcmeUser: AcmeUser = new EntityDefImpl("AcmeUser", {
+export const AcmeUser: AcmeUser = EntityDef.create("AcmeUser", {
   name: { kind: "scalar", type: "string" },
   email: { kind: "scalar", type: "string" },
   age: { kind: "scalar", type: "number" },
@@ -39,7 +38,7 @@ interface AcmeTeam extends EntityDef<{
   members: CollectionField<typeof AcmeUser>;
 }> {}
 
-export const AcmeTeam: AcmeTeam = new EntityDefImpl("AcmeTeam", {
+export const AcmeTeam: AcmeTeam = EntityDef.create("AcmeTeam", {
   name: { kind: "scalar", type: "string" },
   description: { kind: "scalar", type: "string" },
   owner: { kind: "ref", target: AcmeUser },
@@ -58,7 +57,7 @@ interface AcmeProject extends EntityDef<{
   lead: RefField<typeof AcmeUser>;
 }> {}
 
-export const AcmeProject: AcmeProject = new EntityDefImpl("AcmeProject", {
+export const AcmeProject: AcmeProject = EntityDef.create("AcmeProject", {
   name: { kind: "scalar", type: "string" },
   status: { kind: "scalar", type: "string" },
   createdAt: { kind: "scalar", type: "date" },
@@ -79,7 +78,7 @@ interface AcmeTask extends EntityDef<{
   assignee: RefField<typeof AcmeUser>;
 }> {}
 
-export const AcmeTask: AcmeTask = new EntityDefImpl("AcmeTask", {
+export const AcmeTask: AcmeTask = EntityDef.create("AcmeTask", {
   title: { kind: "scalar", type: "string" },
   description: { kind: "scalar", type: "string" },
   priority: { kind: "scalar", type: "number" },

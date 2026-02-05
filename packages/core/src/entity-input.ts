@@ -6,11 +6,17 @@
 import type { EntityDefAny } from "./entity-def.js";
 import type { EntityFields } from "./field-types.js";
 import type { Ref } from "./ref.js";
+import type { EntityId } from "./ref-key.js";
 
 /**
- * EntityInput - a complete upsert request.
+ * EntityInput<E> - a complete upsert request.
+ *
  * Contains everything needed to store an entity.
  * Can be passed around, returned from functions, etc.
+ *
+ * Create using:
+ *   EntityInput.create(ref, { name: "Alice" })
+ *   EntityInput.from(AcmeUser, "u1", { name: "Alice" })
  */
 export interface EntityInput<E extends EntityDefAny = EntityDefAny> {
   /** Reference to the entity (carries type + id) */
@@ -23,27 +29,37 @@ export interface EntityInput<E extends EntityDefAny = EntityDefAny> {
 /** Any EntityInput */
 export type EntityInputAny = EntityInput<EntityDefAny>;
 
-/** Helper class for creating EntityInput */
-export class EntityInputOf<E extends EntityDefAny> implements EntityInput<E> {
+// ============================================================================
+// EntityInput Implementation (internal)
+// ============================================================================
+
+class EntityInputImpl<E extends EntityDefAny> implements EntityInput<E> {
   constructor(
     readonly ref: Ref<E>,
     readonly fields: Partial<EntityFields<E>>
   ) {}
+}
 
+// ============================================================================
+// EntityInput Static Methods (namespace merge)
+// ============================================================================
+
+/** Static methods for creating EntityInputs */
+export const EntityInput = {
   /** Create from ref and fields */
-  static create<E extends EntityDefAny>(
+  create<E extends EntityDefAny>(
     ref: Ref<E>,
     fields: Partial<EntityFields<E>>
   ): EntityInput<E> {
-    return new EntityInputOf(ref, fields);
-  }
+    return new EntityInputImpl(ref, fields);
+  },
 
   /** Create from def, id, and fields */
-  static from<E extends EntityDefAny>(
+  from<E extends EntityDefAny>(
     def: E,
-    id: string,
+    id: EntityId,
     fields: Partial<EntityFields<E>>
   ): EntityInput<E> {
-    return new EntityInputOf(def.ref(id), fields);
-  }
-}
+    return new EntityInputImpl(def.ref(id), fields);
+  },
+} as const;

@@ -30,6 +30,11 @@ export interface ScopeUpgradeable {
  * S defaults to Scope (the union), meaning "any scope".
  * Most code can ignore S and just use Ref<E>.
  * Boundary-crossing code specifies LocalScope or SystemScope explicitly.
+ *
+ * Create refs using static methods:
+ *   Ref.local(AcmeUser, "u1")
+ *   Ref.system(AcmeUser, "u1", scope)
+ *   Ref.create(AcmeUser, "u1", scope)
  */
 export interface Ref<E extends EntityDefAny = EntityDefAny, S extends Scope = Scope>
   extends ScopeUpgradeable {
@@ -63,13 +68,10 @@ export type LocalRef<E extends EntityDefAny = EntityDefAny> = Ref<E, LocalScope>
 export type SystemRef<E extends EntityDefAny = EntityDefAny> = Ref<E, SystemScope>;
 
 // ============================================================================
-// Ref Implementation
+// Ref Implementation (internal)
 // ============================================================================
 
-/**
- * Ref class implementation.
- */
-export class RefImpl<E extends EntityDefAny, S extends Scope = Scope> implements Ref<E, S> {
+class RefImpl<E extends EntityDefAny, S extends Scope = Scope> implements Ref<E, S> {
   readonly entityType: EntityType;
 
   constructor(
@@ -85,8 +87,6 @@ export class RefImpl<E extends EntityDefAny, S extends Scope = Scope> implements
   }
 
   equals(other: Ref<EntityDefAny, Scope>): boolean {
-    // Two refs are equal if they point to the same entity type and ID
-    // Scope doesn't affect equality - it's the same entity at different scopes
     return this.entityType === other.entityType && this.id === other.id;
   }
 
@@ -94,7 +94,6 @@ export class RefImpl<E extends EntityDefAny, S extends Scope = Scope> implements
     return new RefImpl(this.entityDef, this.id, newScope);
   }
 
-  /** Custom inspect for Node.js console */
   [Symbol.for("nodejs.util.inspect.custom")](): string {
     if (this.scope.kind === "local") {
       return `Ref<${this.entityType}>(${this.id})`;
@@ -106,31 +105,34 @@ export class RefImpl<E extends EntityDefAny, S extends Scope = Scope> implements
   toString(): string {
     return this.toKey() as string;
   }
+}
 
-  // ============================================================================
-  // Static Factories
-  // ============================================================================
+// ============================================================================
+// Ref Static Methods (namespace merge)
+// ============================================================================
 
+/** Static methods for creating Refs */
+export const Ref = {
   /** Create a local-scoped ref */
-  static local<E extends EntityDefAny>(def: E, id: EntityId): Ref<E, LocalScope> {
+  local<E extends EntityDefAny>(def: E, id: EntityId): Ref<E, LocalScope> {
     return new RefImpl(def, id, { kind: "local" });
-  }
+  },
 
   /** Create a system-scoped ref */
-  static system<E extends EntityDefAny>(
+  system<E extends EntityDefAny>(
     def: E,
     id: EntityId,
     scope: SystemScope
   ): Ref<E, SystemScope> {
     return new RefImpl(def, id, scope);
-  }
+  },
 
   /** Create a ref with explicit scope */
-  static create<E extends EntityDefAny, S extends Scope>(
+  create<E extends EntityDefAny, S extends Scope>(
     def: E,
     id: EntityId,
     scope: S
   ): Ref<E, S> {
     return new RefImpl(def, id, scope);
-  }
-}
+  },
+} as const;

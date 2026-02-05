@@ -17,11 +17,14 @@ export type FieldsProxy<
 };
 
 /**
- * EntityResult - wrapper around loaded entity data.
+ * EntityResult<E, Loaded> - wrapper around loaded entity data.
  *
  * Two ways to access fields:
  * - result.get("name")     - explicit, type-safe
  * - result.fields.name     - proxy, feels like object access
+ *
+ * Create using:
+ *   EntityResult.from(ref, { name: "Alice", age: 30 })
  */
 export interface EntityResult<
   E extends EntityDefAny = EntityDefAny,
@@ -51,8 +54,6 @@ export interface EntityResult<
 
 /**
  * EntityResultAny - accepts any EntityResult.
- *
- * Note: toObject() returns Record<string, unknown> for compatibility.
  */
 export interface EntityResultAny {
   readonly def: EntityDefAny;
@@ -68,8 +69,11 @@ export interface EntityResultAny {
 // Verify compatibility
 type _CheckCompatibility = EntityResult<EntityDefAny, string> extends EntityResultAny ? true : never;
 
-/** Helper class implementing EntityResult */
-export class EntityResultOf<
+// ============================================================================
+// EntityResult Implementation (internal)
+// ============================================================================
+
+class EntityResultImpl<
   E extends EntityDefAny,
   Loaded extends keyof EntityFields<E>
 > implements EntityResult<E, Loaded> {
@@ -124,11 +128,19 @@ export class EntityResultOf<
   toObject(): { [K in Loaded]: EntityFields<E>[K] } {
     return Object.fromEntries(this.data) as { [K in Loaded]: EntityFields<E>[K] };
   }
+}
 
-  static from<E extends EntityDefAny, K extends keyof EntityFields<E>>(
+// ============================================================================
+// EntityResult Static Methods (namespace merge)
+// ============================================================================
+
+/** Static methods for creating EntityResults */
+export const EntityResult = {
+  /** Create an EntityResult from a ref and field data */
+  from<E extends EntityDefAny, K extends keyof EntityFields<E>>(
     ref: Ref<E>,
     data: { [P in K]: EntityFields<E>[P] }
   ): EntityResult<E, K> {
-    return new EntityResultOf(ref.entityDef, ref, data);
-  }
-}
+    return new EntityResultImpl(ref.entityDef, ref, data);
+  },
+} as const;

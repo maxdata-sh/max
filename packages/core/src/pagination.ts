@@ -2,6 +2,13 @@
  * Pagination types for collection queries.
  */
 
+/**
+ * Page<T> - A page of results from a paginated query.
+ *
+ * Create using:
+ *   Page.from(items, hasMore, cursor)
+ *   Page.empty()
+ */
 export interface Page<T> {
   readonly items: T[];
   readonly hasMore: boolean;
@@ -14,19 +21,32 @@ export interface PageRequest {
   limit?: number;
 }
 
-export class PageOf<T> implements Page<T> {
+// ============================================================================
+// Page Implementation (internal)
+// ============================================================================
+
+class PageImpl<T> implements Page<T> {
   constructor(
     readonly items: T[],
     readonly hasMore: boolean,
     readonly cursor?: string,
     readonly total?: number
   ) {}
-
-  static empty<T>(): Page<T> {
-    return new PageOf([], false);
-  }
-
-  static from<T>(items: T[], hasMore: boolean, cursor?: string): Page<T> {
-    return new PageOf(items, hasMore, cursor);
-  }
 }
+
+// ============================================================================
+// Page Static Methods (namespace merge)
+// ============================================================================
+
+/** Static methods for creating Pages */
+export const Page = {
+  /** Create an empty page */
+  empty<T>(): Page<T> {
+    return new PageImpl([], false);
+  },
+
+  /** Create a page from items */
+  from<T>(items: T[], hasMore: boolean, cursor?: string, total?: number): Page<T> {
+    return new PageImpl(items, hasMore, cursor, total);
+  },
+} as const;

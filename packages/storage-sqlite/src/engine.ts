@@ -7,15 +7,13 @@ import {
   type Engine,
   type EntityDefAny,
   type EntityInput,
-  type EntityResult,
-  EntityResultOf,
+  EntityResult,
   type EntityFields,
   type FieldsAll,
   type FieldsSelect,
   type Page,
   type PageRequest,
-  type Ref,
-  RefImpl,
+  Ref,
   type CollectionKeys,
   type CollectionTargetRef,
   type EntityId,
@@ -55,7 +53,7 @@ export class SqliteEngine implements Engine {
     this.db.run(sql, values);
 
     // Return a local ref (it now exists in DB)
-    return RefImpl.local(input.ref.entityDef, id as EntityId);
+    return Ref.local(input.ref.entityDef, id as EntityId);
   }
 
   async load<E extends EntityDefAny, K extends keyof EntityFields<E>>(
@@ -97,7 +95,7 @@ export class SqliteEngine implements Engine {
       data[col.fieldName] = this.fromSqlValue(row[col.columnName], col, ref.entityDef);
     }
 
-    return EntityResultOf.from(ref, data as { [P in K]: EntityFields<E>[P] });
+    return EntityResult.from(ref, data as { [P in K]: EntityFields<E>[P] });
   }
 
   async loadField<E extends EntityDefAny, K extends keyof EntityFields<E>>(
@@ -165,7 +163,7 @@ export class SqliteEngine implements Engine {
       // Ref field: reconstruct the Ref
       const fieldDef = entityDef.fields[col.fieldName];
       if (fieldDef.kind === "ref") {
-        return RefImpl.local(fieldDef.target, value as EntityId);
+        return Ref.local(fieldDef.target, value as EntityId);
       }
     }
 

@@ -54,3 +54,25 @@ export type { PageRequest } from "./pagination.js";
 
 // Engine
 export type { Engine, QueryBuilder, QueryBuilderAny } from "./engine.js";
+
+// Batch (Batch is both type and value)
+export { Batch } from "./batch.js";
+export type { Keyable, KeyableType, BatchAny, BatchBuilder } from "./batch.js";
+
+// Context definition (ContextDef is both type and value)
+export { ContextDef, t } from "./context-def.js";
+export type {
+  ContextDefAny,
+  InferContext,
+  ContextSchema,
+  TypeDesc,
+  StringTypeDesc,
+  NumberTypeDesc,
+  BooleanTypeDesc,
+  InstanceTypeDesc,
+  OptionalTypeDesc,
+} from "./context-def.js";
+
+// Utilities
+export { StaticTypeCompanion } from "./companion.js";
+export { Lazy } from "./lazy.js";

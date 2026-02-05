@@ -34,6 +34,8 @@ export type SoftBrand<U, Name extends string> = U & { [SoftBrandTag]?: Name };
  */
 export type HardBrand<U, Name extends string> = U & { [HardBrandTag]: Name, __t?: U };
 
+export type CustomBrand<U,Mark> = U & { [HardBrandTag]: Mark, __t?: U}
+
 /** Pulls the brand target U out of a hard brand */
 type ExtractBrandTarget<T extends HardBrand<unknown, string>> = T extends HardBrand<infer U, infer N> ? U : never
 

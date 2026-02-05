@@ -73,6 +73,21 @@ export type {
   OptionalTypeDesc,
 } from "./context-def.js";
 
+// Loader (Loader is both type and value)
+export { Loader, LoaderResultsImpl } from "./loader.js";
+export type {
+  LoaderName,
+  LoaderStrategy,
+  LoaderResults,
+  FieldAssignment,
+  BaseLoader,
+  EntityLoader,
+  EntityLoaderBatched,
+  CollectionLoader,
+  RawLoader,
+  LoaderAny,
+} from "./loader.js";
+
 // Utilities
 export { StaticTypeCompanion } from "./companion.js";
 export { Lazy } from "./lazy.js";

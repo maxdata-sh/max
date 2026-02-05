@@ -12,6 +12,8 @@ import type { Engine } from "../engine.js";
 import {AcmeProject, AcmeTask} from "@max/connector-acme";
 import {Scope} from "../scope.js";
 import {EntityInput} from "../entity-input.js";
+import {Loader} from "../loader.js";
+import {ContextDef, t} from "../context-def.js";
 
 // ============================================================================
 // Usage Examples (Type Checking)

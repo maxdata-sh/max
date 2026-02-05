@@ -5,6 +5,7 @@
 import type { EntityDefAny } from "./entity-def.js";
 import type { Scope, LocalScope, SystemScope } from "./scope.js";
 import { type RefKey, RefKey as RefKeyUtil, type EntityType, type EntityId } from "./ref-key.js";
+import {StaticTypeCompanion} from "./companion.js";
 
 // ============================================================================
 // ScopeUpgradeable Marker Interface
@@ -112,7 +113,7 @@ class RefImpl<E extends EntityDefAny, S extends Scope = Scope> implements Ref<E,
 // ============================================================================
 
 /** Static methods for creating Refs */
-export const Ref = {
+export const Ref = StaticTypeCompanion({
   /** Create a local-scoped ref */
   local<E extends EntityDefAny>(def: E, id: EntityId): Ref<E, LocalScope> {
     return new RefImpl(def, id, { kind: "local" });
@@ -135,4 +136,4 @@ export const Ref = {
   ): Ref<E, S> {
     return new RefImpl(def, id, scope);
   },
-} as const;
+})

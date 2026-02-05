@@ -2,6 +2,8 @@
  * Pagination types for collection queries.
  */
 
+import {StaticTypeCompanion} from "./companion.js";
+
 /**
  * Page<T> - A page of results from a paginated query.
  *
@@ -39,7 +41,7 @@ class PageImpl<T> implements Page<T> {
 // ============================================================================
 
 /** Static methods for creating Pages */
-export const Page = {
+export const Page = StaticTypeCompanion({
   /** Create an empty page */
   empty<T>(): Page<T> {
     return new PageImpl([], false);
@@ -49,4 +51,4 @@ export const Page = {
   from<T>(items: T[], hasMore: boolean, cursor?: string, total?: number): Page<T> {
     return new PageImpl(items, hasMore, cursor, total);
   },
-} as const;
+})

@@ -9,6 +9,7 @@
  */
 
 import type { InstallationId } from "./ref-key.js";
+import {StaticTypeCompanion} from "./companion.js";
 
 export interface LocalScope {
   readonly kind: "local";
@@ -21,7 +22,7 @@ export interface SystemScope {
 
 export type Scope = LocalScope | SystemScope;
 
-export const Scope = {
+export const Scope = StaticTypeCompanion({
   local(): LocalScope {
     return { kind: "local" };
   },
@@ -37,4 +38,4 @@ export const Scope = {
   isSystem(scope: Scope): scope is SystemScope {
     return scope.kind === "system";
   },
-} as const;
+})

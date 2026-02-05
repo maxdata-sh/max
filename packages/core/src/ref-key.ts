@@ -9,6 +9,7 @@
 import { type HardBrand, hardBrand } from "./brand.js";
 import type { Scope, LocalScope, SystemScope } from "./scope.js";
 import type { Id } from "./brand.js";
+import {StaticTypeCompanion} from "./companion.js";
 
 // ============================================================================
 // Types
@@ -37,7 +38,7 @@ export type ParsedRefKey =
 
 const DELIMITER = ":";
 
-export const RefKey = {
+export const RefKey = StaticTypeCompanion({
   /**
    * Create a RefKey from components.
    */
@@ -111,4 +112,4 @@ export const RefKey = {
   isValid(str: string): str is RefKey {
     return RefKey.tryParse(str) !== undefined;
   },
-} as const;
+})

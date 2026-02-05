@@ -6,6 +6,7 @@ import type { FieldDefinitions } from "./field.js";
 import { type Ref, Ref as RefStatic, type LocalRef } from "./ref.js";
 import type { Scope, LocalScope } from "./scope.js";
 import type { EntityId } from "./ref-key.js";
+import {StaticTypeCompanion} from "./companion.js";
 
 /**
  * EntityDef<Fields> - Defines an entity type and its fields.
@@ -51,9 +52,9 @@ class EntityDefImpl<T extends FieldDefinitions> implements EntityDef<T> {
 // ============================================================================
 
 /** Static methods for creating EntityDefs */
-export const EntityDef = {
+export const EntityDef = StaticTypeCompanion({
   /** Create a new entity definition */
   create<T extends FieldDefinitions>(name: string, fields: T): EntityDef<T> {
     return new EntityDefImpl(name, fields);
   },
-} as const;
+})

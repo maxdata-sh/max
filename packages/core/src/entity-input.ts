@@ -7,6 +7,7 @@ import type { EntityDefAny } from "./entity-def.js";
 import type { EntityFields } from "./field-types.js";
 import type { Ref } from "./ref.js";
 import type { EntityId } from "./ref-key.js";
+import {StaticTypeCompanion} from "./companion.js";
 
 /**
  * EntityInput<E> - a complete upsert request.
@@ -45,7 +46,7 @@ class EntityInputImpl<E extends EntityDefAny> implements EntityInput<E> {
 // ============================================================================
 
 /** Static methods for creating EntityInputs */
-export const EntityInput = {
+export const EntityInput = StaticTypeCompanion({
   /** Create from ref and fields */
   create<E extends EntityDefAny>(
     ref: Ref<E>,
@@ -62,4 +63,4 @@ export const EntityInput = {
   ): EntityInput<E> {
     return new EntityInputImpl(def.ref(id), fields);
   },
-} as const;
+})

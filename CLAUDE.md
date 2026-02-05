@@ -64,5 +64,8 @@ Register new connectors in `src/core/connector-registry.ts`.
 - `.max/` - Project config directory (created by `max init`)
 - `bun-test-project/` - Test project with `.max` directory for development
 
+# Code Patterns
+@CLAUDE.patterns.md
+
 # How to think
 @CLAUDE.thinking.md

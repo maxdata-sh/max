@@ -33,7 +33,7 @@ export { EntityDefImpl } from "./entity-def.js";
 export type { EntityDef, EntityDefAny } from "./entity-def.js";
 
 // References
-export { RefImpl, RefOf } from "./ref.js";
+export { RefImpl } from "./ref.js";
 export type { Ref, RefAny, LocalRef, SystemRef, ScopeUpgradeable } from "./ref.js";
 
 // Entity input

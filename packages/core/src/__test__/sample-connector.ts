@@ -7,12 +7,8 @@
  * 3. Demonstrates ref creation, engine.load, engine.store patterns
  */
 
-import type { Domain } from "../domain.js";
-import type { EntityDef } from "../entity-def.js";
 import { EntityInputOf } from "../entity-input.js";
-import type {CollectionField, FieldDefinitions, RefField, ScalarField} from "../field.js";
 import { Fields } from "../fields-selector.js";
-import {Ref, RefOf} from "../ref.js";
 import type { Engine } from "../engine.js";
 import {AcmeProject, AcmeTask} from "@max/connector-acme";
 import {Scope} from "../scope.js";

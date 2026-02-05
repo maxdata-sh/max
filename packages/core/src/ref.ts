@@ -134,10 +134,3 @@ export class RefImpl<E extends EntityDefAny, S extends Scope = Scope> implements
     return new RefImpl(def, id, scope);
   }
 }
-
-// ============================================================================
-// Convenience Re-export
-// ============================================================================
-
-/** Alias for backwards compatibility and convenience */
-export const RefOf = RefImpl;

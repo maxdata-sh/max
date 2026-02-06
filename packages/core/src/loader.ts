@@ -133,12 +133,6 @@ export interface BaseLoader<TContext extends ContextDefAny = ContextDefAny> {
 
   /** Context definition for type safety */
   readonly context: TContext;
-
-  /**
-   * Create a field assignment for use in Resolver.for().
-   * @param sourceField - The field name in the loader's output (if different from entity field)
-   */
-  field(sourceField?: string): FieldAssignment;
 }
 
 // ============================================================================
@@ -165,6 +159,11 @@ export interface EntityLoader<
     ctx: InferContext<TContext>,
     deps: LoaderResults
   ): Promise<EntityInput<E>>;
+
+  /**
+   * Create a field assignment for use in Resolver.for().
+   */
+  field(sourceField?: string): FieldAssignment<E>;
 }
 
 // ============================================================================
@@ -191,6 +190,11 @@ export interface EntityLoaderBatched<
     ctx: InferContext<TContext>,
     deps: LoaderResults
   ): Promise<Batch<EntityInput<E>, Ref<E>>>;
+
+  /**
+   * Create a field assignment for use in Resolver.for().
+   */
+  field(sourceField?: string): FieldAssignment<E>;
 }
 
 // ============================================================================
@@ -220,6 +224,11 @@ export interface CollectionLoader<
     ctx: InferContext<TContext>,
     deps: LoaderResults
   ): Promise<Page<Ref<TTarget>>>;
+
+  /**
+   * Create a field assignment for use in Resolver.for().
+   */
+  field(sourceField?: string): FieldAssignment<E>;
 }
 
 // ============================================================================
@@ -393,10 +402,6 @@ class RawLoaderImpl<TData, TContext extends ContextDefAny>
 
   load(ctx: InferContextUnknown<TContext>, deps: LoaderResults): Promise<TData> {
     return this.loadFn(ctx, deps);
-  }
-
-  field(sourceField?: string): FieldAssignment {
-    return { loader: this, sourceField };
   }
 }
 

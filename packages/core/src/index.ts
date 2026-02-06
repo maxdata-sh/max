@@ -88,6 +88,10 @@ export type {
   LoaderAny,
 } from "./loader.js";
 
+// Resolver (Resolver is both type and value)
+export { Resolver } from "./resolver.js";
+export type { FieldMapping, ResolverAny } from "./resolver.js";
+
 // Utilities
 export { StaticTypeCompanion } from "./companion.js";
 export { Lazy } from "./lazy.js";

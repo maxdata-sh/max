@@ -19,7 +19,7 @@ import { AcmeContext } from "../context.js";
 /**
  * BasicUserLoader - Fetches core user fields in batch.
  */
-const BasicUserLoader = Loader.entityBatched({
+export const BasicUserLoader = Loader.entityBatched({
   name: "acme:user:basic" as LoaderName,
   context: AcmeContext,
   entity: AcmeUser,
@@ -45,7 +45,7 @@ const BasicUserLoader = Loader.entityBatched({
  * UserAgeLoader - Fetches user age (single ref, manual).
  * Example of a more expensive field that's loaded on-demand.
  */
-const UserAgeLoader = Loader.entity({
+export const UserAgeLoader = Loader.entity({
   name: "acme:user:age" as LoaderName,
   context: AcmeContext,
   entity: AcmeUser,
@@ -67,7 +67,7 @@ const UserAgeLoader = Loader.entity({
 /**
  * AcmeUserResolver - Maps AcmeUser fields to loaders.
  */
-const AcmeUserResolver = Resolver.for(AcmeUser, {
+export const AcmeUserResolver = Resolver.for(AcmeUser, {
   name: BasicUserLoader.field("name"),
   email: BasicUserLoader.field("email"),
   age: UserAgeLoader.field("age"),

@@ -13,7 +13,7 @@ import {
 // AcmeUser
 // ============================================================================
 
-interface AcmeUser extends EntityDef<{
+export interface AcmeUser extends EntityDef<{
   name: ScalarField<"string">;
   email: ScalarField<"string">;
   age: ScalarField<"number">;
@@ -31,7 +31,7 @@ export const AcmeUser: AcmeUser = EntityDef.create("AcmeUser", {
 // AcmeTeam
 // ============================================================================
 
-interface AcmeTeam extends EntityDef<{
+export interface AcmeTeam extends EntityDef<{
   name: ScalarField<"string">;
   description: ScalarField<"string">;
   owner: RefField<typeof AcmeUser>;
@@ -49,7 +49,7 @@ export const AcmeTeam: AcmeTeam = EntityDef.create("AcmeTeam", {
 // AcmeProject
 // ============================================================================
 
-interface AcmeProject extends EntityDef<{
+export interface AcmeProject extends EntityDef<{
   name: ScalarField<"string">;
   status: ScalarField<"string">;
   createdAt: ScalarField<"date">;
@@ -69,7 +69,7 @@ export const AcmeProject: AcmeProject = EntityDef.create("AcmeProject", {
 // AcmeTask
 // ============================================================================
 
-interface AcmeTask extends EntityDef<{
+export interface AcmeTask extends EntityDef<{
   title: ScalarField<"string">;
   description: ScalarField<"string">;
   priority: ScalarField<"number">;

@@ -26,6 +26,11 @@ export type CollectionKeys<E extends EntityDefAny> = {
   [K in keyof E["fields"]]: E["fields"][K] extends CollectionField ? K : never
 }[keyof E["fields"]];
 
+/** Get keys that are NOT collection fields (scalar + ref) */
+export type NonCollectionKeys<E extends EntityDefAny> = {
+  [K in keyof E["fields"]]: E["fields"][K] extends CollectionField ? never : K
+}[keyof E["fields"]];
+
 /** Extract the ref type for a collection field's target */
 export type CollectionTargetRef<E extends EntityDefAny, K extends CollectionKeys<E>> =
   E["fields"][K] extends CollectionField<infer T> ? Ref<T> : never;

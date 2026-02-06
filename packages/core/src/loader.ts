@@ -4,7 +4,7 @@
  * Four loader types:
  * - EntityLoader: Single ref → EntityInput<E>
  * - EntityLoaderBatched: Multiple refs → Batch<EntityInput<E>, Ref<E>>
- * - CollectionLoader: Parent ref → Page<Ref<TTarget>>
+ * - CollectionLoader: Parent ref → Page<EntityInput<TTarget>>
  * - RawLoader: No ref → TData (for config, metadata, etc.)
  *
  * @example
@@ -203,7 +203,11 @@ export interface EntityLoaderBatched<
 /**
  * CollectionLoader<E, TTarget, TContext> - Loads a collection field.
  *
- * Returns Page<Ref<TTarget>> for the collection items.
+ * Returns Page<EntityInput<TTarget>> for the collection items.
+ * Collection loaders return EntityInputs (not bare Refs) because upstream
+ * list APIs typically return entity data alongside references. Returning
+ * EntityInputs allows fields to be populated immediately, avoiding
+ * redundant per-entity fetches later.
  */
 export interface CollectionLoader<
   E extends EntityDefAny = EntityDefAny,
@@ -222,7 +226,7 @@ export interface CollectionLoader<
     page: PageRequest,
     ctx: InferContext<TContext>,
     deps: LoaderResults
-  ): Promise<Page<Ref<TTarget>>>;
+  ): Promise<Page<EntityInput<TTarget>>>;
 
   /**
    * Create a field assignment for use in Resolver.for().
@@ -364,7 +368,7 @@ class CollectionLoaderImpl<
       page: PageRequest,
       ctx: InferContextUnknown<TContext>,
       deps: LoaderResults
-    ) => Promise<Page<Ref<TTarget>>>
+    ) => Promise<Page<EntityInput<TTarget>>>
   ) {}
 
   load(
@@ -372,7 +376,7 @@ class CollectionLoaderImpl<
     page: PageRequest,
     ctx: InferContextUnknown<TContext>,
     deps: LoaderResults
-  ): Promise<Page<Ref<TTarget>>> {
+  ): Promise<Page<EntityInput<TTarget>>> {
     return this.loadFn(ref, page, ctx, deps);
   }
 
@@ -460,7 +464,7 @@ export const Loader = StaticTypeCompanion({
   },
 
   /**
-   * Create a collection loader (paginated refs).
+   * Create a collection loader (paginated entity inputs).
    */
   collection<
     E extends EntityDefAny,
@@ -478,7 +482,7 @@ export const Loader = StaticTypeCompanion({
       page: PageRequest,
       ctx: InferContext<TContext>,
       deps: LoaderResults
-    ) => Promise<Page<Ref<TTarget>>>;
+    ) => Promise<Page<EntityInput<TTarget>>>;
   }): CollectionLoader<E, TTarget, TContext> {
     return new CollectionLoaderImpl(
       config.name,

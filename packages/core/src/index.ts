@@ -26,7 +26,7 @@ export type {
 } from "./field.js";
 
 // Field type utilities
-export type { FieldType, EntityFields, CollectionTargetRef, CollectionKeys } from "./field-types.js";
+export type { FieldType, EntityFields, CollectionTargetRef, CollectionKeys, NonCollectionKeys } from "./field-types.js";
 
 // Entity definition (EntityDef is both type and value)
 export { EntityDef } from "./entity-def.js";
@@ -92,6 +92,33 @@ export type {
 // Resolver (Resolver is both type and value)
 export { Resolver } from "./resolver.js";
 export type { FieldMapping, ResolverAny } from "./resolver.js";
+
+// SyncPlan (SyncPlan and Step are both type and value)
+export { SyncPlan, Step } from "./sync-plan.js";
+export type {
+  SyncStep,
+  SyncPlanEntry,
+  ConcurrentSteps,
+  StepTarget,
+  StepOperation,
+  ForAllTarget,
+  ForRootTarget,
+  ForOneTarget,
+  LoadFieldsOperation,
+  LoadCollectionOperation,
+} from "./sync-plan.js";
+
+// Seeder (Seeder is both type and value)
+export { Seeder } from "./seeder.js";
+export type { SeederAny } from "./seeder.js";
+
+// SyncMeta
+export { Duration } from "./sync-meta.js";
+export type { SyncMeta } from "./sync-meta.js";
+
+// FlowController
+export { NoOpFlowController } from "./flow-controller.js";
+export type { FlowController, FlowToken, OperationKind } from "./flow-controller.js";
 
 // Utilities
 export { StaticTypeCompanion } from "./companion.js";

@@ -9,7 +9,7 @@
   "scripts": {
     "build": "bun run --filter '*' build",
     "typecheck": "bun run --filter '*' typecheck",
-    "test": "bun run --filter '*' test"
+    "test": "bun run --filter '*' test --pass-with-no-tests"
   },
   "devDependencies": {
     "@types/bun": "latest",

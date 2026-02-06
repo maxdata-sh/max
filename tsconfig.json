@@ -1,3 +1,14 @@
 {
-
-}
+    "files": [],
+    "references": [
+      { "path": "./packages/core" },
+      { "path": "./packages/storage-sqlite" },
+      { "path": "./packages/execution" },
+      { "path": "./packages/execution-local" },
+      { "path": "./packages/cli" },
+      { "path": "./connectors/connector-acme" },
+      { "path": "./connectors/connector-gdrive" },
+      { "path": "./connectors/connector-linear" },
+      { "path": "./connectors/connector-hubspot" }
+    ]
+  }

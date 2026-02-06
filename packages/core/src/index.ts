@@ -59,9 +59,11 @@ export type { Engine, QueryBuilder, QueryBuilderAny } from "./engine.js";
 export { Batch } from "./batch.js";
 export type { Keyable, KeyableType, BatchAny, BatchBuilder } from "./batch.js";
 
-// Context definition (ContextDef is both type and value)
-export { ContextDef, t } from "./context-def.js";
+// Context (class-based pattern)
+export { Context, t } from "./context-def.js";
 export type {
+  ContextClass,
+  ContextValues,
   ContextDefAny,
   InferContext,
   ContextSchema,
@@ -70,7 +72,6 @@ export type {
   NumberTypeDesc,
   BooleanTypeDesc,
   InstanceTypeDesc,
-  OptionalTypeDesc,
 } from "./context-def.js";
 
 // Loader (Loader is both type and value)

@@ -19,15 +19,14 @@
  * });
  */
 
-import { StaticTypeCompanion } from "./companion.js";
-import type { Id } from "./brand.js";
-import type { EntityDefAny, EntityDef } from "./entity-def.js";
-import type { EntityInput } from "./entity-input.js";
-import type { EntityFields } from "./field-types.js";
-import type { Ref } from "./ref.js";
-import type { Page, PageRequest } from "./pagination.js";
-import type { Batch } from "./batch.js";
-import type { ContextDef, ContextDefAny, InferContext } from "./context-def.js";
+import {StaticTypeCompanion} from "./companion.js";
+import type {Id} from "./brand.js";
+import type {EntityDefAny} from "./entity-def.js";
+import type {EntityInput} from "./entity-input.js";
+import type {Ref} from "./ref.js";
+import type {Page, PageRequest} from "./pagination.js";
+import type {Batch} from "./batch.js";
+import type {ClassOf, ContextDefAny, InferContext} from "./context-def.js";
 
 // ============================================================================
 // Branded Types
@@ -131,8 +130,8 @@ export interface BaseLoader<TContext extends ContextDefAny = ContextDefAny> {
   /** Loaders that must run before this one */
   readonly dependsOn: readonly LoaderAny[];
 
-  /** Context definition for type safety */
-  readonly context: TContext;
+  /** Context class (not instance) */
+  readonly context: ClassOf<TContext>;
 }
 
 // ============================================================================
@@ -290,7 +289,7 @@ class EntityLoaderImpl<E extends EntityDefAny, TContext extends ContextDefAny>
 
   constructor(
     readonly name: LoaderName,
-    readonly context: TContext,
+    readonly context: ClassOf<TContext>,
     readonly entity: E,
     readonly strategy: LoaderStrategy,
     readonly dependsOn: readonly LoaderAny[],
@@ -321,7 +320,7 @@ class EntityLoaderBatchedImpl<E extends EntityDefAny, TContext extends ContextDe
 
   constructor(
     readonly name: LoaderName,
-    readonly context: TContext,
+    readonly context: ClassOf<TContext>,
     readonly entity: E,
     readonly strategy: LoaderStrategy,
     readonly dependsOn: readonly LoaderAny[],
@@ -355,7 +354,7 @@ class CollectionLoaderImpl<
 
   constructor(
     readonly name: LoaderName,
-    readonly context: TContext,
+    readonly context: ClassOf<TContext>,
     readonly entity: E,
     readonly target: TTarget,
     readonly strategy: LoaderStrategy,
@@ -391,7 +390,7 @@ class RawLoaderImpl<TData, TContext extends ContextDefAny>
 
   constructor(
     readonly name: LoaderName,
-    readonly context: TContext,
+    readonly context: ClassOf<TContext>,
     readonly strategy: LoaderStrategy,
     readonly dependsOn: readonly LoaderAny[],
     private loadFn: (
@@ -415,7 +414,7 @@ export const Loader = StaticTypeCompanion({
    */
   entity<E extends EntityDefAny, TContext extends ContextDefAny>(config: {
     name: LoaderName;
-    context: TContext;
+    context: ClassOf<TContext>;
     entity: E;
     strategy?: LoaderStrategy;
     dependsOn?: readonly LoaderAny[];
@@ -440,7 +439,7 @@ export const Loader = StaticTypeCompanion({
    */
   entityBatched<E extends EntityDefAny, TContext extends ContextDefAny>(config: {
     name: LoaderName;
-    context: TContext;
+    context: ClassOf<TContext>;
     entity: E;
     strategy?: LoaderStrategy;
     dependsOn?: readonly LoaderAny[];
@@ -469,7 +468,7 @@ export const Loader = StaticTypeCompanion({
     TContext extends ContextDefAny
   >(config: {
     name: LoaderName;
-    context: TContext;
+    context: ClassOf<TContext>;
     entity: E;
     target: TTarget;
     strategy?: LoaderStrategy;
@@ -497,7 +496,7 @@ export const Loader = StaticTypeCompanion({
    */
   raw<TData, TContext extends ContextDefAny>(config: {
     name: LoaderName;
-    context: TContext;
+    context: ClassOf<TContext>;
     strategy?: LoaderStrategy;
     dependsOn?: readonly LoaderAny[];
     load: (

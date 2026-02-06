@@ -1,165 +1,275 @@
 /**
- * ContextDef - Type-safe connector context definitions.
+ * Context - Type-safe context definitions for connectors.
  *
- * Follows the Type + Companion Object pattern.
- * Connectors define their context shape, and loaders reference it for type safety.
+ * Contexts use standard class syntax with type descriptor initializers.
  *
  * @example
- * const AcmeContext = ContextDef.create({
- *   api: t.instance<AcmeApiClient>(),
- *   installationId: t.string(),
+ * class AcmeAppContext extends Context {
+ *   api = Context.instance<AcmeApiClient>();
+ *   installationId = Context.string;
+ * }
+ *
+ * // Build an instance
+ * const ctx = Context.build(AcmeAppContext, {
+ *   api: new AcmeApiClient(),
+ *   installationId: "inst_123",
  * });
  *
- * // AcmeContext is both a type and a value
- * type Ctx = ContextDef.Infer<typeof AcmeContext>;  // { api: AcmeApiClient, installationId: string }
+ * // Use in loaders
+ * Loader.entity({
+ *   context: AcmeAppContext,
+ *   load(ref, ctx, deps) {
+ *     ctx.api  // ✅ Typed as AcmeApiClient
+ *   }
+ * })
  */
-
-import { StaticTypeCompanion } from "./companion.js";
 
 // ============================================================================
 // Type Descriptors
 // ============================================================================
 
 /**
- * Type descriptors for context fields.
- * These carry type information at the type level.
+ * Base interface for type descriptors.
  */
-export interface StringTypeDesc {
-  readonly kind: "string";
+export interface TypeDescBase {
+  readonly kind: string;
 }
 
-export interface NumberTypeDesc {
-  readonly kind: "number";
-}
-
-export interface BooleanTypeDesc {
-  readonly kind: "boolean";
-}
-
-export interface InstanceTypeDesc<T> {
+/**
+ * Instance type descriptor - for injected dependencies.
+ */
+export interface InstanceTypeDesc<T> extends TypeDescBase {
   readonly kind: "instance";
-  // Phantom type - not used at runtime, but carries T at type level
   readonly _phantom?: T;
 }
 
-export interface OptionalTypeDesc<T extends TypeDesc> {
-  readonly kind: "optional";
-  readonly inner: T;
+/**
+ * String type descriptor.
+ */
+export interface StringTypeDesc extends TypeDescBase {
+  readonly kind: "string";
 }
 
-export type TypeDesc =
-  | StringTypeDesc
-  | NumberTypeDesc
-  | BooleanTypeDesc
-  | InstanceTypeDesc<unknown>
-  | OptionalTypeDesc<TypeDesc>;
+/**
+ * Number type descriptor.
+ */
+export interface NumberTypeDesc extends TypeDescBase {
+  readonly kind: "number";
+}
 
 /**
- * Type descriptor factories.
+ * Boolean type descriptor.
+ */
+export interface BooleanTypeDesc extends TypeDescBase {
+  readonly kind: "boolean";
+}
+
+/**
+ * Any type descriptor.
+ */
+export type TypeDesc =
+  | InstanceTypeDesc<any>
+  | StringTypeDesc
+  | NumberTypeDesc
+  | BooleanTypeDesc;
+
+/**
+ * Check if a value is a type descriptor.
+ */
+function isTypeDesc(value: unknown): value is TypeDesc {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "kind" in value &&
+    typeof (value as any).kind === "string"
+  );
+}
+
+// ============================================================================
+// Type Descriptor Factories
+// ============================================================================
+
+/**
+ * Type descriptor factory functions.
  */
 export const t = {
-  string: (): StringTypeDesc => ({ kind: "string" }),
-  number: (): NumberTypeDesc => ({ kind: "number" }),
-  boolean: (): BooleanTypeDesc => ({ kind: "boolean" }),
-  instance: <T>(): InstanceTypeDesc<T> => ({ kind: "instance" }),
-  optional: <T extends TypeDesc>(inner: T): OptionalTypeDesc<T> => ({ kind: "optional", inner }),
+  /**
+   * Instance type - for injected dependencies.
+   */
+  instance<T>(): T {
+    return { kind: "instance" } as T;
+  },
+
+  /**
+   * String type.
+   */
+  string: { kind: "string" } as unknown as string,
+
+  /**
+   * Number type.
+   */
+  number: { kind: "number" } as unknown as number,
+
+  /**
+   * Boolean type.
+   */
+  boolean: { kind: "boolean" } as unknown as boolean,
 } as const;
 
 // ============================================================================
-// Type Inference
+// Context Base Class
 // ============================================================================
 
 /**
- * Infer the TypeScript type from a type descriptor.
- */
-export type InferTypeDesc<T extends TypeDesc> =
-  T extends StringTypeDesc ? string :
-  T extends NumberTypeDesc ? number :
-  T extends BooleanTypeDesc ? boolean :
-  T extends InstanceTypeDesc<infer U> ? U :
-  T extends OptionalTypeDesc<infer U> ? InferTypeDesc<U> | undefined :
-  never;
-
-/**
- * Schema for context definition - mapping of field names to type descriptors.
- */
-export type ContextSchema = Record<string, TypeDesc>;
-
-/**
- * Infer the full context type from a schema.
- */
-export type InferContextSchema<S extends ContextSchema> = {
-  readonly [K in keyof S]: InferTypeDesc<S[K]>;
-};
-
-// ============================================================================
-// ContextDef Interface
-// ============================================================================
-
-/**
- * ContextDef<S> - A context definition with schema S.
+ * Context - Base class for connector contexts.
  *
- * Use ContextDef.create() to create one.
+ * Subclass and define fields using type descriptors.
+ * Use Context.build() to create instances.
+ *
+ * @example
+ * class MyContext extends Context {
+ *   api = Context.instance<MyApiClient>();
+ *   setting = Context.string;
+ * }
  */
-export interface ContextDef<S extends ContextSchema = ContextSchema> {
-  readonly schema: S;
+export class Context {
+  private static buildInProgress = false;
 
   /**
-   * Create a context instance from values.
+   * Protected constructor prevents direct instantiation.
+   * Must use Context.build() to create instances.
    */
-  create(values: InferContextSchema<S>): InferContextSchema<S>;
-}
+  protected constructor() {
+    if (!Context.buildInProgress) {
+      throw new Error(
+        "Cannot instantiate Context directly. Use Context.build(ContextClass, values)."
+      );
+    }
+  }
 
-export type ContextDefAny = ContextDef<ContextSchema>;
+  // --- Type descriptor factories (static) ---
 
-/**
- * Infer the context type from a ContextDef.
- */
-export type InferContext<C extends ContextDefAny> =
-  C extends ContextDef<infer S> ? InferContextSchema<S> : never;
+  static instance = t.instance;
+  static string = t.string;
+  static number = t.number;
+  static boolean = t.boolean;
 
-// ============================================================================
-// ContextDef Implementation
-// ============================================================================
+  // --- Build method ---
 
-class ContextDefImpl<S extends ContextSchema> implements ContextDef<S> {
-  constructor(readonly schema: S) {}
+  /**
+   * Build a context instance, replacing descriptors with actual values.
+   *
+   * Validates:
+   * - All class fields are type descriptors
+   * - All required fields are provided
+   *
+   * @example
+   * const ctx = Context.build(AcmeAppContext, {
+   *   api: new AcmeApiClient(),
+   *   installationId: "inst_123",
+   * });
+   */
+  static build<C extends Context>(
+    ContextClass: new () => C,
+    values: ContextValues<C>
+  ): C {
+    // Create temporary instance to extract schema
+    Context.buildInProgress = true;
+    const schemaInstance = new ContextClass();
+    Context.buildInProgress = false;
 
-  create(values: InferContextSchema<S>): InferContextSchema<S> {
-    // For now, just return as-is. Could add validation later.
-    return values;
+    // Extract schema and validate all fields are type descriptors
+    const fieldNames: string[] = [];
+
+    for (const key of Object.keys(schemaInstance)) {
+      const value = (schemaInstance as any)[key];
+
+      // Validate: all fields must be type descriptors
+      if (!isTypeDesc(value)) {
+        throw new Error(
+          `Context field '${key}' in ${ContextClass.name} is not a valid type descriptor. ` +
+            `Use Context.string, Context.instance<T>(), etc.`
+        );
+      }
+
+      fieldNames.push(key);
+    }
+
+    // Validate: all required fields are provided
+    for (const fieldName of fieldNames) {
+      if (!(fieldName in values)) {
+        throw new Error(
+          `Missing required context field '${fieldName}' when building ${ContextClass.name}`
+        );
+      }
+    }
+
+    // Create final instance with actual values
+    Context.buildInProgress = true;
+    const instance = new ContextClass();
+    Context.buildInProgress = false;
+
+    // Replace descriptors with actual values
+    for (const [key, value] of Object.entries(values)) {
+      (instance as any)[key] = value;
+    }
+
+    return instance;
+  }
+
+  /**
+   * Extract the runtime schema from a context class.
+   */
+  static schemaOf<C extends Context>(ContextClass: new () => C): Record<string, TypeDesc> {
+    Context.buildInProgress = true;
+    const instance = new ContextClass();
+    Context.buildInProgress = false;
+
+    const schema: Record<string, TypeDesc> = {};
+
+    for (const key of Object.keys(instance)) {
+      const value = (instance as any)[key];
+      if (isTypeDesc(value)) {
+        schema[key] = value;
+      }
+    }
+
+    return schema;
   }
 }
 
 // ============================================================================
-// ContextDef Static Companion
+// Type Utilities
 // ============================================================================
 
-export const ContextDef = StaticTypeCompanion({
-  /**
-   * Create a new context definition.
-   *
-   * @example
-   * const AcmeContext = ContextDef.create({
-   *   api: t.instance<AcmeApiClient>(),
-   *   installationId: t.string(),
-   * });
-   */
-  create<S extends ContextSchema>(schema: S): ContextDef<S> {
-    return new ContextDefImpl(schema);
-  },
-});
+/**
+ * Extract the value type from a context class.
+ * Filters out methods, only includes data fields.
+ */
+export type ContextValues<C extends Context> = {
+  [K in keyof C as C[K] extends Function ? never : K]: C[K];
+};
+
+/**
+ * Type alias for context classes (for use in generics).
+ */
+export type ContextClass = typeof Context;
 
 // ============================================================================
-// Namespace for type utilities
+// Legacy exports for compatibility
 // ============================================================================
 
-export namespace ContextDef {
-  /**
-   * Infer the context type from a ContextDef.
-   *
-   * @example
-   * type Ctx = ContextDef.Infer<typeof AcmeContext>;
-   */
-  export type Infer<C extends ContextDefAny> = InferContext<C>;
-}
+export type ContextSchema = Record<string, TypeDesc>;
+export type ContextDefAny = Context;
+export type InferContext<C extends Context> = ContextValues<C>
+
+
+type PrivateConstructor<TClass = any> = {prototype:TClass};
+type AbstractConstructor<TClass> = (abstract new(...args:any) => TClass)
+type StandardConstructor<TClass> = (new(...args:any) => TClass)
+
+export type ClassOf<T, TOptionalStatics extends Record<string,any> = {}> = (
+  | PrivateConstructor<T>
+  | AbstractConstructor<T>
+  | StandardConstructor<T>
+  ) & TOptionalStatics

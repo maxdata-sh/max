@@ -10,7 +10,7 @@ import {
   type LoaderName,
 } from "@max/core";
 import { AcmeUser } from "../entities.js";
-import { AcmeContext } from "../context.js";
+import { AcmeAppContext } from "../context.js";
 
 // ============================================================================
 // Loaders
@@ -21,7 +21,7 @@ import { AcmeContext } from "../context.js";
  */
 export const BasicUserLoader = Loader.entityBatched({
   name: "acme:user:basic" as LoaderName,
-  context: AcmeContext,
+  context: AcmeAppContext,
   entity: AcmeUser,
   strategy: "autoload",
 
@@ -47,7 +47,7 @@ export const BasicUserLoader = Loader.entityBatched({
  */
 export const UserAgeLoader = Loader.entity({
   name: "acme:user:age" as LoaderName,
-  context: AcmeContext,
+  context: AcmeAppContext,
   entity: AcmeUser,
   strategy: "manual",
 

@@ -19,17 +19,23 @@ pnpm install && pnpm run build
 
 # Initialize a new project
 cd my-project
-max init
+max init              # Initialises current folder with .max/
 
-# Connect Google Drive (requires OAuth setup - see below)
-max connect gdrive
+# Getting connected              
+max connect gdrive    # Connect to <app> - gdrive/linear etc
+max sync gdrive       # Pull <app> data into max
 
-# Sync all data
-max sync gdrive
+# Suggested: Install completions
+max completions zsh > _max
+source _max # or add to your shell setup
 
-# Search for documents
-max search gdrive --type=document
+# Inform your agent
+"Hey claude, set yourself up a `max` skill, that runs !`max llm-bootstrap`"
 
+# Explore manually
+max search gdrive -o ndjson \
+    --limit 500 \
+    --filter='ownerEmail=rob@gmail.com AND title~="Rob"'
 ```
 
 ## Limitations (v0.1)

@@ -48,9 +48,13 @@ export type { FieldsProxy, EntityResultAny } from "./entity-result.js";
 export { Fields } from "./fields-selector.js";
 export type { FieldsSelect, FieldsAll, FieldSelector } from "./fields-selector.js";
 
-// Pagination (Page is both type and value)
-export { Page } from "./pagination.js";
-export type { PageRequest } from "./pagination.js";
+// Pagination (Page and PageRequest are both type and value)
+export { Page, PageRequest } from "./pagination.js";
+export type { ResolvedPageRequest } from "./pagination.js";
+
+// MaxPage (MaxPage is both type and value)
+export { MaxPage } from "./max-page.js";
+export type { MaxPageAny } from "./max-page.js";
 
 // Engine
 export type { Engine, QueryBuilder, QueryBuilderAny } from "./engine.js";

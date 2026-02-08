@@ -123,6 +123,10 @@ export type { SyncMeta } from "./sync-meta.js";
 export { NoOpFlowController } from "./flow-controller.js";
 export type { FlowController, FlowToken, OperationKind } from "./flow-controller.js";
 
+// Error system (MaxError and Facet are both type and value)
+export { MaxError, ErrFacet } from "./max-error.js";
+export type { ErrMarkerFacet, ErrDataFacet, ErrFacetAny, FacetProps, MergeFacetProps, ErrorDef, MaxErrorJSON } from "./max-error.js";
+
 // Utilities
 export { StaticTypeCompanion } from "./companion.js";
 export { Lazy } from "./lazy.js";

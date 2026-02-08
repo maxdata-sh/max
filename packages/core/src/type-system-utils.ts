@@ -24,3 +24,9 @@ export type ClassOf<T, TOptionalStatics extends Record<string, any> = {}> = (
  *
  *  */
 export type BivariantFunction<T> = (...args:any[]) => T
+/** Convert a union to an intersection */
+export type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (
+    x: infer I,
+  ) => void
+  ? I
+  : never;

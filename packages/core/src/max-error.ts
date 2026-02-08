@@ -93,12 +93,17 @@ export interface MaxErrorJSON {
 // Helpers
 // ============================================================================
 
-/** Extract stack frames, stripping the redundant "ErrorName: message" first line */
+/** Extract stack frames, stripping the error message line and the internal create() frame */
 function stackFrames(stack: string | undefined): string {
   if (!stack) return "";
-  const idx = stack.indexOf("\n    at ");
-  if (idx === -1) return "";
-  return stack.slice(idx + 1);
+  const first = stack.indexOf("\n    at ");
+  if (first === -1) return "";
+  // If the first frame is the internal create() call, skip it
+  const secondFrame = stack.indexOf("\n    at ", first + 1);
+  if (secondFrame !== -1 && stack.slice(first, secondFrame).includes("at create (")) {
+    return stack.slice(secondFrame + 1);
+  }
+  return stack.slice(first + 1);
 }
 
 // ============================================================================
@@ -113,11 +118,13 @@ class MaxErrorImpl extends Error implements MaxError {
   readonly facetNames: ReadonlySet<string>;
 
   static {
-    Inspect(this, (self) => {
+    Inspect(this, (self, opts) => {
       const hasData = Object.keys(self.data).length > 0;
       const frames = stackFrames(self.stack);
 
-      let format = `MaxError[${self.code}]: ${self.message}`;
+      const red = opts.colors ? "\x1b[31m" : "";
+      const reset = opts.colors ? "\x1b[0m" : "";
+      let format = `${red}MaxError[${self.code}]${reset}: ${self.message}`;
       const params: any[] = [];
 
       if (hasData) {

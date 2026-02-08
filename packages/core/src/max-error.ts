@@ -133,10 +133,32 @@ class MaxErrorImpl extends Error implements MaxError {
   }
 
   [Symbol.for("nodejs.util.inspect.custom")](): string {
-    const dataStr = Object.keys(this.data).length > 0
-      ? ` ${JSON.stringify(this.data)}`
-      : "";
-    return `MaxError[${this.code}]${dataStr}: ${this.message}`;
+    const header = `MaxError[${this.code}]: ${this.message}`;
+
+    // Data block — compact if short, expanded if long, omitted if empty
+    let dataBlock = "";
+    const keys = Object.keys(this.data);
+    if (keys.length > 0) {
+      const compact = JSON.stringify(this.data);
+      if (compact.length <= 60) {
+        dataBlock = `\n  ${compact}`;
+      } else {
+        const expanded = JSON.stringify(this.data, null, 2).replace(/\n/g, "\n  ");
+        dataBlock = `\n  ${expanded}`;
+      }
+    }
+
+    // Stack frames — strip the redundant first line(s) before "    at "
+    let frames = "";
+    if (this.stack) {
+      const lines = this.stack.split("\n");
+      const firstFrameIdx = lines.findIndex((l) => l.trimStart().startsWith("at "));
+      if (firstFrameIdx !== -1) {
+        frames = "\n" + lines.slice(firstFrameIdx).join("\n");
+      }
+    }
+
+    return header + dataBlock + frames;
   }
 }
 

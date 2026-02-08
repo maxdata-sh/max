@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { MaxError, ErrFacet, type ErrDataFacet, type MaxErrorJSON } from "../max-error.js";
+import {MaxError, ErrFacet, type ErrDataFacet, type MaxErrorJSON, ErrorDef} from "../max-error.js";
 
 // -- Test facets and error definitions -----------------------------------------
 
@@ -9,22 +9,22 @@ const Retryable = ErrFacet.marker("Retryable");
 const HasRef = ErrFacet.data<{ ref: string }>("HasRef");
 const HasInstallation = ErrFacet.data<{ installationId: string; name?: string }>("HasInstallation");
 
-const EntityNotFound = MaxError.define("storage.entity_not_found", {
+const ErrEntityNotFound = MaxError.define("storage.entity_not_found", {
   facets: [NotFound, HasRef],
   message: (d) => `Entity not found: ${d.ref}`,
 });
 
-const ConnectionFailed = MaxError.define("network.connection_failed", {
+const ErrConnectionFailed = MaxError.define("network.connection_failed", {
   facets: [Retryable],
   message: () => "Connection failed",
 });
 
-const MarkerOnly = MaxError.define("test.marker_only", {
+const ErrMarkerOnly = MaxError.define("test.marker_only", {
   facets: [NotFound],
   message: () => "Something was not found",
 });
 
-const MultiData = MaxError.define("storage.multi_data", {
+const ErrMultiData = MaxError.define("storage.multi_data", {
   facets: [HasRef, HasInstallation],
   message: (d) => `Entity ${d.ref} in installation ${d.installationId}`,
 });
@@ -50,12 +50,12 @@ describe("Facet", () => {
 
 describe("MaxError.define()", () => {
   test("creates ErrorDef with code and domain", () => {
-    expect(EntityNotFound.code).toBe("storage.entity_not_found");
-    expect(EntityNotFound.domain).toBe("storage");
+    expect(ErrEntityNotFound.code).toBe("storage.entity_not_found");
+    expect(ErrEntityNotFound.domain).toBe("storage");
   });
 
   test("domain derived from code prefix", () => {
-    expect(ConnectionFailed.domain).toBe("network");
+    expect(ErrConnectionFailed.domain).toBe("network");
   });
 
   test("single-segment code uses itself as domain", () => {
@@ -69,7 +69,7 @@ describe("MaxError.define()", () => {
 
 describe("ErrorDef.create()", () => {
   test("creates MaxError with correct code, message, data", () => {
-    const err = EntityNotFound.create({ ref: "User:u1" });
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
 
     expect(err.code).toBe("storage.entity_not_found");
     expect(err.domain).toBe("storage");
@@ -78,21 +78,21 @@ describe("ErrorDef.create()", () => {
   });
 
   test("context supplements message with ' — '", () => {
-    const err = EntityNotFound.create({ ref: "User:u1" }, "during sync");
+    const err = ErrEntityNotFound.create({ ref: "User:u1" }, "during sync");
 
     expect(err.message).toBe("Entity not found: User:u1 — during sync");
     expect(err.context).toBe("during sync");
   });
 
   test("works with marker-only facets: create({})", () => {
-    const err = MarkerOnly.create({});
+    const err = ErrMarkerOnly.create({});
 
     expect(err.code).toBe("test.marker_only");
     expect(err.message).toBe("Something was not found");
   });
 
   test("instanceof Error, has stack trace", () => {
-    const err = EntityNotFound.create({ ref: "User:u1" });
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
 
     expect(err).toBeInstanceOf(Error);
     expect(err.stack).toBeDefined();
@@ -100,14 +100,14 @@ describe("ErrorDef.create()", () => {
   });
 
   test("Error.name is MaxError[code]", () => {
-    const err = EntityNotFound.create({ ref: "User:u1" });
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
 
     expect(err.name).toBe("MaxError[storage.entity_not_found]");
   });
 
   test("data is a shallow copy", () => {
     const data = { ref: "User:u1" };
-    const err = EntityNotFound.create(data);
+    const err = ErrEntityNotFound.create(data);
     data.ref = "mutated";
 
     expect(err.data.ref).toBe("User:u1");
@@ -116,30 +116,30 @@ describe("ErrorDef.create()", () => {
 
 describe("ErrorDef.is()", () => {
   test("matches same definition", () => {
-    const err = EntityNotFound.create({ ref: "User:u1" });
-    expect(EntityNotFound.is(err)).toBe(true);
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
+    expect(ErrEntityNotFound.is(err)).toBe(true);
   });
 
   test("rejects different definition", () => {
-    const err = ConnectionFailed.create({});
-    expect(EntityNotFound.is(err)).toBe(false);
+    const err = ErrConnectionFailed.create({});
+    expect(ErrEntityNotFound.is(err)).toBe(false);
   });
 
   test("rejects plain Error", () => {
-    expect(EntityNotFound.is(new Error("nope"))).toBe(false);
+    expect(ErrEntityNotFound.is(new Error("nope"))).toBe(false);
   });
 
   test("rejects non-errors", () => {
-    expect(EntityNotFound.is(null)).toBe(false);
-    expect(EntityNotFound.is(undefined)).toBe(false);
-    expect(EntityNotFound.is("string")).toBe(false);
-    expect(EntityNotFound.is(42)).toBe(false);
+    expect(ErrEntityNotFound.is(null)).toBe(false);
+    expect(ErrEntityNotFound.is(undefined)).toBe(false);
+    expect(ErrEntityNotFound.is("string")).toBe(false);
+    expect(ErrEntityNotFound.is(42)).toBe(false);
   });
 
   test("narrows data type (compile-time DX check)", () => {
-    const err: unknown = EntityNotFound.create({ ref: "User:u1" });
+    const err: unknown = ErrEntityNotFound.create({ ref: "User:u1" });
 
-    if (EntityNotFound.is(err)) {
+    if (ErrEntityNotFound.is(err)) {
       // This line is a compile-time check — if it compiles, the type narrowing works
       const ref: string = err.data.ref;
       expect(ref).toBe("User:u1");
@@ -151,17 +151,17 @@ describe("ErrorDef.is()", () => {
 
 describe("MaxError.has()", () => {
   test("detects marker facets", () => {
-    const err = EntityNotFound.create({ ref: "User:u1" });
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
     expect(MaxError.has(err, NotFound)).toBe(true);
   });
 
   test("detects data facets", () => {
-    const err = EntityNotFound.create({ ref: "User:u1" });
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
     expect(MaxError.has(err, HasRef)).toBe(true);
   });
 
   test("returns false for absent facets", () => {
-    const err = EntityNotFound.create({ ref: "User:u1" });
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
     expect(MaxError.has(err, Retryable)).toBe(false);
     expect(MaxError.has(err, HasInstallation)).toBe(false);
   });
@@ -173,7 +173,7 @@ describe("MaxError.has()", () => {
   });
 
   test("narrows data type for data facets", () => {
-    const err: unknown = EntityNotFound.create({ ref: "User:u1" });
+    const err: unknown = ErrEntityNotFound.create({ ref: "User:u1" });
 
     if (MaxError.isMaxError(err) && MaxError.has(err, HasRef)) {
       // Compile-time check: data is narrowed to include { ref: string }
@@ -185,7 +185,7 @@ describe("MaxError.has()", () => {
   });
 
   test("chained has() narrows progressively", () => {
-    const err: unknown = MultiData.create({
+    const err: unknown = ErrMultiData.create({
       ref: "User:u1",
       installationId: "inst-1",
     });
@@ -204,19 +204,19 @@ describe("MaxError.has()", () => {
 
 describe("MaxError.inDomain()", () => {
   test("matches same domain", () => {
-    const err = EntityNotFound.create({ ref: "User:u1" });
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
     expect(MaxError.inDomain(err, "storage")).toBe(true);
   });
 
   test("rejects different domain", () => {
-    const err = EntityNotFound.create({ ref: "User:u1" });
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
     expect(MaxError.inDomain(err, "network")).toBe(false);
   });
 });
 
 describe("MaxError.enrich()", () => {
   test("adds optional fields to error data", () => {
-    const err = MultiData.create({
+    const err = ErrMultiData.create({
       ref: "User:u1",
       installationId: "inst-1",
     });
@@ -227,7 +227,7 @@ describe("MaxError.enrich()", () => {
   });
 
   test("preserves existing required fields", () => {
-    const err = MultiData.create({
+    const err = ErrMultiData.create({
       ref: "User:u1",
       installationId: "inst-1",
     });
@@ -242,7 +242,7 @@ describe("MaxError.enrich()", () => {
 
 describe("MaxError.wrap()", () => {
   test("passes through MaxErrors unchanged", () => {
-    const err = EntityNotFound.create({ ref: "User:u1" });
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
     const wrapped = MaxError.wrap(err);
 
     expect(wrapped).toBe(err);
@@ -270,7 +270,7 @@ describe("MaxError.wrap()", () => {
 
 describe("toJSON()", () => {
   test("returns structured, JSON.stringify-safe object", () => {
-    const err = EntityNotFound.create({ ref: "User:u1" }, "during sync");
+    const err = ErrEntityNotFound.create({ ref: "User:u1" }, "during sync");
     const json = err.toJSON();
 
     expect(json.code).toBe("storage.entity_not_found");
@@ -287,7 +287,7 @@ describe("toJSON()", () => {
   });
 
   test("omits context when not provided", () => {
-    const err = EntityNotFound.create({ ref: "User:u1" });
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
     const json = err.toJSON();
 
     expect(json.context).toBeUndefined();
@@ -297,20 +297,20 @@ describe("toJSON()", () => {
 describe("DX: full error handling flow", () => {
   test("define → throw → catch by exact type → read data", () => {
     try {
-      throw EntityNotFound.create({ ref: "User:u1" }, "loading profile");
+      throw ErrEntityNotFound.create({ ref: "User:u1" }, "loading profile");
     } catch (err) {
-      if (EntityNotFound.is(err)) {
+      if (ErrEntityNotFound.is(err)) {
         expect(err.data.ref).toBe("User:u1");
         expect(err.context).toBe("loading profile");
         return;
       }
-      throw new Error("Should have matched EntityNotFound");
+      throw new Error("Should have matched ErrEntityNotFound");
     }
   });
 
   test("define → throw → catch by facet (any not-found)", () => {
     try {
-      throw EntityNotFound.create({ ref: "Team:t1"});
+      throw ErrEntityNotFound.create({ ref: "Team:t1"});
     } catch (err) {
       if (MaxError.has(err, NotFound)) {
         // Matched by facet — any NotFound error, regardless of code
@@ -323,7 +323,7 @@ describe("DX: full error handling flow", () => {
 
   test("define → throw → enrich at boundary → catch with enriched data", () => {
     try {
-      const err = MultiData.create({
+      const err = ErrMultiData.create({
         ref: "User:u1",
         installationId: "inst-1",
       });
@@ -333,13 +333,89 @@ describe("DX: full error handling flow", () => {
 
       throw err;
     } catch (err) {
-      if (MultiData.is(err)) {
+      if (ErrMultiData.is(err)) {
         expect(err.data.ref).toBe("User:u1");
         expect(err.data.installationId).toBe("inst-1");
         expect(err.data.name).toBe("Acme Corp");
         return;
       }
-      throw new Error("Should have matched MultiData");
+      throw new Error("Should have matched ErrMultiData");
     }
+  });
+
+
+  test("DX", () => {
+    try{
+      throw ErrEntityNotFound.create({ ref:"123" })
+    }catch (e){
+      console.error(e)
+    }
+  })
+});
+
+describe("inspect output", () => {
+  // Helper to invoke the custom inspect symbol
+  const inspect = (err: MaxError): string => {
+    const fn = (err as any)[Symbol.for("nodejs.util.inspect.custom")];
+    return fn.call(err);
+  };
+
+  test("header line: code + message first", () => {
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
+    const output = inspect(err);
+    const firstLine = output.split("\n")[0];
+
+    expect(firstLine).toBe("MaxError[storage.entity_not_found]: Entity not found: User:u1");
+  });
+
+  test("compact data on one line when short", () => {
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
+    const output = inspect(err);
+    const lines = output.split("\n");
+
+    // Second line should be the compact data
+    expect(lines[1]).toBe('  {"ref":"User:u1"}');
+  });
+
+  test("expanded data when over 60 chars", () => {
+    const err = ErrMultiData.create({
+      ref: "User:u1",
+      installationId: "inst-very-long-installation-id-that-pushes-over-threshold",
+    });
+    const output = inspect(err);
+
+    // Should contain indented multiline JSON
+    expect(output).toContain('  {\n');
+    expect(output).toContain('    "ref": "User:u1"');
+  });
+
+  test("no data block for marker-only errors", () => {
+    const err = ErrMarkerOnly.create({});
+    const output = inspect(err);
+    const lines = output.split("\n");
+
+    // First line is header, next should be a stack frame (starts with "    at")
+    expect(lines[0]).toBe("MaxError[test.marker_only]: Something was not found");
+    expect(lines[1].trimStart().startsWith("at ")).toBe(true);
+  });
+
+  test("stack frames present without redundant first line", () => {
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
+    const output = inspect(err);
+
+    // Should contain stack frames
+    expect(output).toContain("    at ");
+    // Should NOT contain the raw Error name:message line that .stack normally starts with
+    expect(output).not.toContain("MaxError[storage.entity_not_found]: Entity not found: User:u1\n    at ");
+    // But the header IS our first line (not duplicated from .stack)
+    expect(output.startsWith("MaxError[storage.entity_not_found]: Entity not found: User:u1\n")).toBe(true);
+  });
+
+  test("context in header message", () => {
+    const err = ErrEntityNotFound.create({ ref: "User:u1" }, "during sync");
+    const output = inspect(err);
+    const firstLine = output.split("\n")[0];
+
+    expect(firstLine).toBe("MaxError[storage.entity_not_found]: Entity not found: User:u1 — during sync");
   });
 });

@@ -1,0 +1,26 @@
+{
+  "name": "@max/acme",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    "types": "./src/index.ts",
+    "default": "./src/index.ts"
+  },
+  "bin": {
+    "acme": "./src/cli.ts"
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target bun",
+		"compile": "bun build ./src/cli.ts --outfile acme --target bun",
+    "dev": "bun --watch src/cli.ts start --tenant ${TENANT:-default} --port 4567",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@faker-js/faker": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "catalog:"
+  }
+}

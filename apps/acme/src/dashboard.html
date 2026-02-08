@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acme Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f1117; color: #e1e4e8; padding: 24px; line-height: 1.5; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #fff; }
+  h2 { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+  .stat { font-size: 28px; font-weight: 700; color: #58a6ff; }
+  .stat-label { font-size: 12px; color: #8b949e; }
+  .mono { font-family: "SF Mono", "Fira Code", monospace; font-size: 13px; background: #0d1117; border: 1px solid #30363d; border-radius: 4px; padding: 8px 12px; word-break: break-all; }
+  .copy-btn { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; margin-left: 8px; }
+  .copy-btn:hover { background: #30363d; }
+  button { background: #238636; border: none; color: #fff; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-size: 13px; font-weight: 500; }
+  button:hover { background: #2ea043; }
+  button.danger { background: #da3633; }
+  button.danger:hover { background: #f85149; }
+  button.secondary { background: #21262d; border: 1px solid #30363d; color: #c9d1d9; }
+  button.secondary:hover { background: #30363d; }
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 6px 8px; border-bottom: 1px solid #30363d; color: #8b949e; font-weight: 500; }
+  td { padding: 6px 8px; border-bottom: 1px solid #21262d; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; }
+  .badge.create { background: #0d419d; color: #58a6ff; }
+  .badge.update { background: #3d2e00; color: #d29922; }
+  .badge.delete { background: #490202; color: #f85149; }
+  #log { max-height: 400px; overflow-y: auto; }
+  .empty { color: #484f58; font-style: italic; padding: 16px; text-align: center; }
+  .gen-indicator { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 10px; font-size: 12px; font-weight: 500; }
+  .gen-indicator.active { background: #0d2818; color: #3fb950; }
+  .gen-indicator.inactive { background: #21262d; color: #484f58; }
+  .gen-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .gen-indicator.active .gen-dot { background: #3fb950; animation: pulse 1s infinite; }
+  .gen-indicator.inactive .gen-dot { background: #484f58; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+</style>
+</head>
+<body>
+<h1>Acme Dashboard <span id="tenant-name" style="color:#58a6ff"></span></h1>
+<div id="app">Loading...</div>
+<script>
+const $ = (s) => document.querySelector(s);
+let API_KEY = '';
+let TENANT_NAME = '';
+let pollTimer = null;
+let generating = false;
+
+async function init() {
+  const meta = await fetch('/api/meta').then(r => r.json());
+  API_KEY = meta.apiKey;
+  TENANT_NAME = meta.tenant;
+  $('#tenant-name').textContent = '/ ' + TENANT_NAME;
+  render();
+  refresh();
+}
+
+function api(path, opts = {}) {
+  return fetch(path, { ...opts, headers: { 'Authorization': 'Bearer ' + API_KEY, 'Content-Type': 'application/json', ...opts.headers } });
+}
+
+function render() {
+  $('#app').innerHTML = `
+    <div class="grid">
+      <div class="card">
+        <h2>API Key</h2>
+        <div style="display:flex;align-items:center;margin-top:8px">
+          <span class="mono" id="apikey">${API_KEY}</span>
+          <button class="copy-btn" onclick="navigator.clipboard.writeText(API_KEY)">Copy</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Stats</h2>
+        <div class="grid" style="grid-template-columns:repeat(3,1fr);gap:8px" id="stats"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <h2>Controls</h2>
+      <div class="controls" style="margin-top:8px">
+        <button onclick="doSeed()">Seed Data</button>
+        <button class="secondary" onclick="doSeed({tasksPerProject:100})">Seed (100 tasks/project)</button>
+        <button class="secondary" onclick="startGen()">Start Generation</button>
+        <button class="danger" onclick="stopGen()">Stop Generation</button>
+        <span id="gen-status"></span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Recent Changes</h2>
+      <div id="log"></div>
+    </div>
+  `;
+}
+
+async function refresh() {
+  await Promise.all([refreshStats(), refreshChangelog()]);
+}
+
+async function refreshStats() {
+  const s = await api('/api/stats').then(r => r.json());
+  generating = s.generating;
+  const el = $('#stats');
+  if (!el) return;
+  const items = [
+    [s.workspaces,'Workspaces'],[s.users,'Users'],[s.projects,'Projects'],
+    [s.tasks,'Tasks'],[s.files,'Files'],[s.changelogSize,'Changes']
+  ];
+  el.innerHTML = items.map(([v,l]) => `<div><div class="stat">${v}</div><div class="stat-label">${l}</div></div>`).join('');
+
+  const statusEl = $('#gen-status');
+  if (statusEl) {
+    statusEl.innerHTML = generating
+      ? '<span class="gen-indicator active"><span class="gen-dot"></span>Generating</span>'
+      : '<span class="gen-indicator inactive"><span class="gen-dot"></span>Idle</span>';
+  }
+}
+
+async function refreshChangelog() {
+  const events = await api('/api/changes/recent?limit=50').then(r => r.json());
+  const el = $('#log');
+  if (!el) return;
+  if (!events || events.length === 0) {
+    el.innerHTML = '<div class="empty">No changes yet. Seed some data to get started.</div>';
+    return;
+  }
+  el.innerHTML = '<table><tr><th>#</th><th>Action</th><th>Type</th><th>ID</th><th>Time</th></tr>' +
+    events.map(e =>
+      `<tr><td>${e.sequence}</td><td><span class="badge ${e.action}">${e.action}</span></td><td>${e.entityType}</td><td style="font-family:monospace;font-size:12px">${e.entityId.slice(0,20)}...</td><td>${new Date(e.timestamp).toLocaleTimeString()}</td></tr>`
+    ).join('') + '</table>';
+}
+
+async function doSeed(opts = {}) {
+  await api('/api/seed', { method: 'POST', body: JSON.stringify(opts) });
+  refresh();
+}
+
+function startPolling() {
+  if (pollTimer) return;
+  pollTimer = setInterval(refresh, 2000);
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+async function startGen() {
+  await api('/api/generate/start', { method: 'POST', body: '{}' });
+  startPolling();
+  refresh();
+}
+
+async function stopGen() {
+  await api('/api/generate/stop', { method: 'POST' });
+  stopPolling();
+  refresh();
+}
+
+init();
+</script>
+</body>
+</html>

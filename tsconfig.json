@@ -10,6 +10,7 @@
       { "path": "./connectors/connector-acme" },
       { "path": "./connectors/connector-gdrive" },
       { "path": "./connectors/connector-linear" },
-      { "path": "./connectors/connector-hubspot" }
+      { "path": "./connectors/connector-hubspot" },
+      { "path": "./apps/acme" }
     ]
   }

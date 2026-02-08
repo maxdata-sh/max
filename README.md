@@ -38,6 +38,10 @@ max search gdrive -o ndjson \
     --filter='ownerEmail=rob@gmail.com AND title~="Rob"'
 ```
 
+## Apps
+
+- **[Acme](./apps/acme/)** — A fake SaaS app for testing Maxwell sync, auth, and real-time capabilities. Run `bun run dev` from `apps/acme/` to get started.
+
 ## Limitations (v0.1)
 
 - No incremental sync (full sync each time)

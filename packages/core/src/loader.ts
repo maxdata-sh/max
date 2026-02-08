@@ -280,12 +280,6 @@ export type LoaderAny = Loader<ContextDefAny>;
 // Loader Implementation
 // ============================================================================
 
-/**
- * To prevent infinite type recursion, we internally block context inference.
- * Type inference continues to be applied at the interface level.
- * */
-type InferContextUnknown<C extends ContextDefAny> = unknown
-
 class EntityLoaderImpl<E extends EntityDefAny, TContext extends ContextDefAny>
   implements EntityLoader<E, TContext>
 {
@@ -299,17 +293,17 @@ class EntityLoaderImpl<E extends EntityDefAny, TContext extends ContextDefAny>
     readonly dependsOn: readonly LoaderAny[],
     private loadFn: (
       ref: Ref<E>,
-      ctx: InferContextUnknown<TContext>,
+      ctx: InferContext<TContext>,
       deps: LoaderResults
     ) => Promise<EntityInput<E>>
   ) {}
 
   load(
     ref: Ref<E>,
-    ctx: InferContextUnknown<TContext>,
+    ctx: InferContext<TContext>,
     deps: LoaderResults
   ): Promise<EntityInput<E>> {
-    return this.loadFn(ref, ctx as unknown, deps);
+    return this.loadFn(ref, ctx, deps);
   }
 
   field(sourceField?: string): FieldAssignment<E> {
@@ -330,14 +324,14 @@ class EntityLoaderBatchedImpl<E extends EntityDefAny, TContext extends ContextDe
     readonly dependsOn: readonly LoaderAny[],
     private loadFn: (
       refs: readonly Ref<E>[],
-      ctx: InferContextUnknown<TContext>,
+      ctx: InferContext<TContext>,
       deps: LoaderResults
     ) => Promise<Batch<EntityInput<E>, Ref<E>>>
   ) {}
 
   load(
     refs: readonly Ref<E>[],
-    ctx: InferContextUnknown<TContext>,
+    ctx: InferContext<TContext>,
     deps: LoaderResults
   ): Promise<Batch<EntityInput<E>, Ref<E>>> {
     return this.loadFn(refs, ctx, deps);
@@ -366,7 +360,7 @@ class CollectionLoaderImpl<
     private loadFn: (
       ref: Ref<E>,
       page: PageRequest,
-      ctx: InferContextUnknown<TContext>,
+      ctx: InferContext<TContext>,
       deps: LoaderResults
     ) => Promise<Page<EntityInput<TTarget>>>
   ) {}
@@ -374,7 +368,7 @@ class CollectionLoaderImpl<
   load(
     ref: Ref<E>,
     page: PageRequest,
-    ctx: InferContextUnknown<TContext>,
+    ctx: InferContext<TContext>,
     deps: LoaderResults
   ): Promise<Page<EntityInput<TTarget>>> {
     return this.loadFn(ref, page, ctx, deps);
@@ -398,12 +392,12 @@ class RawLoaderImpl<TData, TContext extends ContextDefAny>
     readonly strategy: LoaderStrategy,
     readonly dependsOn: readonly LoaderAny[],
     private loadFn: (
-      ctx: InferContextUnknown<TContext>,
+      ctx: InferContext<TContext>,
       deps: LoaderResults
     ) => Promise<TData>
   ) {}
 
-  load(ctx: InferContextUnknown<TContext>, deps: LoaderResults): Promise<TData> {
+  load(ctx: InferContext<TContext>, deps: LoaderResults): Promise<TData> {
     return this.loadFn(ctx, deps);
   }
 }
@@ -434,7 +428,7 @@ export const Loader = StaticTypeCompanion({
       config.entity,
       config.strategy ?? "autoload",
       config.dependsOn ?? [],
-      config.load as InferContextUnknown<TContext> as any
+      config.load
     );
   },
 
@@ -459,7 +453,7 @@ export const Loader = StaticTypeCompanion({
       config.entity,
       config.strategy ?? "autoload",
       config.dependsOn ?? [],
-      config.load as InferContextUnknown<TContext> as any
+      config.load
     );
   },
 
@@ -491,7 +485,7 @@ export const Loader = StaticTypeCompanion({
       config.target,
       config.strategy ?? "autoload",
       config.dependsOn ?? [],
-      config.load as InferContextUnknown<TContext> as any
+      config.load
     );
   },
 
@@ -513,7 +507,7 @@ export const Loader = StaticTypeCompanion({
       config.context,
       config.strategy ?? "autoload",
       config.dependsOn ?? [],
-      config.load as InferContextUnknown<TContext> as any
+      config.load
     );
   },
 });

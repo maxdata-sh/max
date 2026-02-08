@@ -97,6 +97,9 @@
     "packages/core": {
       "name": "@max/core",
       "version": "0.1.0",
+      "dependencies": {
+        "node-inspect-extracted": "^3.3.0",
+      },
       "devDependencies": {
         "@types/bun": "latest",
         "typescript": "catalog:",
@@ -260,6 +263,8 @@
     "ms": ["ms@2.1.3", "", {}, "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=="],
 
     "node-fetch": ["node-fetch@2.7.0", "", { "dependencies": { "whatwg-url": "^5.0.0" }, "peerDependencies": { "encoding": "^0.1.0" }, "optionalPeers": ["encoding"] }, "sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A=="],
+
+    "node-inspect-extracted": ["node-inspect-extracted@3.3.0", "", {}, "sha512-Fn5DDCDThvcGdjcXwxlqeLwifgfLgXulStrDG5DE9yp13sicf9Dl5TJdEsBub4vr1qLfDaBxYkTFUEJfKETveA=="],
 
     "object-inspect": ["object-inspect@1.13.4", "", {}, "sha512-W67iLl4J2EXEGTbfeHCffrjDfitvLANg0UlX3wFUUSTx92KXRFegMHUVgSqE+wvhAbi4WqjGg9czysTV2Epbew=="],
 

@@ -7,6 +7,7 @@
 
 import {StaticTypeCompanion} from "./companion.js";
 import {UnionToIntersection} from "./type-system-utils.js";
+import {inspect, Inspect} from "./inspect.js";
 
 // ============================================================================
 // Facet Types
@@ -89,6 +90,18 @@ export interface MaxErrorJSON {
 }
 
 // ============================================================================
+// Helpers
+// ============================================================================
+
+/** Extract stack frames, stripping the redundant "ErrorName: message" first line */
+function stackFrames(stack: string | undefined): string {
+  if (!stack) return "";
+  const idx = stack.indexOf("\n    at ");
+  if (idx === -1) return "";
+  return stack.slice(idx + 1);
+}
+
+// ============================================================================
 // MaxError Implementation (internal)
 // ============================================================================
 
@@ -98,6 +111,26 @@ class MaxErrorImpl extends Error implements MaxError {
   readonly context?: string;
   readonly data: Record<string, unknown>;
   readonly facetNames: ReadonlySet<string>;
+
+  static {
+    Inspect(this, (self) => {
+      const hasData = Object.keys(self.data).length > 0;
+      const frames = stackFrames(self.stack);
+
+      let format = `MaxError[${self.code}]: ${self.message}`;
+      const params: any[] = [];
+
+      if (hasData) {
+        format += "\n  %O";
+        params.push(self.data);
+      }
+      if (frames) {
+        format += "\n" + frames;
+      }
+
+      return { format, params };
+    });
+  }
 
   constructor(
     code: string,
@@ -132,34 +165,7 @@ class MaxErrorImpl extends Error implements MaxError {
     return json;
   }
 
-  [Symbol.for("nodejs.util.inspect.custom")](): string {
-    const header = `MaxError[${this.code}]: ${this.message}`;
 
-    // Data block — compact if short, expanded if long, omitted if empty
-    let dataBlock = "";
-    const keys = Object.keys(this.data);
-    if (keys.length > 0) {
-      const compact = JSON.stringify(this.data);
-      if (compact.length <= 60) {
-        dataBlock = `\n  ${compact}`;
-      } else {
-        const expanded = JSON.stringify(this.data, null, 2).replace(/\n/g, "\n  ");
-        dataBlock = `\n  ${expanded}`;
-      }
-    }
-
-    // Stack frames — strip the redundant first line(s) before "    at "
-    let frames = "";
-    if (this.stack) {
-      const lines = this.stack.split("\n");
-      const firstFrameIdx = lines.findIndex((l) => l.trimStart().startsWith("at "));
-      if (firstFrameIdx !== -1) {
-        frames = "\n" + lines.slice(firstFrameIdx).join("\n");
-      }
-    }
-
-    return header + dataBlock + frames;
-  }
 }
 
 // ============================================================================

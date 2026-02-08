@@ -2,7 +2,6 @@
   "name": "@max/core",
   "version": "0.1.0",
   "type": "module",
-
   "exports": {
     "types": "./src/index.ts",
     "default": "./src/index.ts"
@@ -15,5 +14,8 @@
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "catalog:"
+  },
+  "dependencies": {
+    "node-inspect-extracted": "^3.3.0"
   }
 }

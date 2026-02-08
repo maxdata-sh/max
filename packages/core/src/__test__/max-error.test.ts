@@ -357,7 +357,7 @@ describe("inspect output", () => {
   // Helper to invoke the custom inspect symbol
   const inspect = (err: MaxError): string => {
     const fn = (err as any)[Symbol.for("nodejs.util.inspect.custom")];
-    return fn.call(err);
+    return fn.call(err, 2, {});
   };
 
   test("header line: code + message first", () => {
@@ -368,25 +368,24 @@ describe("inspect output", () => {
     expect(firstLine).toBe("MaxError[storage.entity_not_found]: Entity not found: User:u1");
   });
 
-  test("compact data on one line when short", () => {
+  test("data formatted via %O when present", () => {
     const err = ErrEntityNotFound.create({ ref: "User:u1" });
     const output = inspect(err);
-    const lines = output.split("\n");
 
-    // Second line should be the compact data
-    expect(lines[1]).toBe('  {"ref":"User:u1"}');
+    // Data appears on line after header, indented
+    expect(output).toContain("  { ref: 'User:u1' }");
   });
 
-  test("expanded data when over 60 chars", () => {
+  test("large data auto-expands to multiline", () => {
     const err = ErrMultiData.create({
       ref: "User:u1",
       installationId: "inst-very-long-installation-id-that-pushes-over-threshold",
     });
     const output = inspect(err);
 
-    // Should contain indented multiline JSON
-    expect(output).toContain('  {\n');
-    expect(output).toContain('    "ref": "User:u1"');
+    // %O expands long objects across lines
+    expect(output).toContain("ref: 'User:u1'");
+    expect(output).toContain("installationId:");
   });
 
   test("no data block for marker-only errors", () => {

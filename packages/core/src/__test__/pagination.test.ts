@@ -195,13 +195,13 @@ describe("PageRequest", () => {
     test("parses cursor as number", () => {
       const req = PageRequest.at("42");
 
-      expect(req.offset(0)).toBe(42);
+      expect(req.parseAsNumericOffset(0)).toBe(42);
     });
 
     test("returns default when no cursor", () => {
       const req = Page.begin();
 
-      expect(req.offset(0)).toBe(0);
+      expect(req.parseAsNumericOffset(0)).toBe(0);
     });
   });
 
@@ -237,7 +237,7 @@ describe("DX: offset-based pagination flow", () => {
 
   function getUsers(req: PageRequest): Page<string> {
     const r = req.defaultLimit(2);
-    const offset = r.offset(0);
+    const offset = r.parseAsNumericOffset(0);
     const results = slackApi.getUsers(offset, r.fetchSize);
     return Page.fromOffset(results, offset, r.limit);
   }

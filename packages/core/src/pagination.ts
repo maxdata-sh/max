@@ -163,7 +163,7 @@ export interface PageRequest {
    * @example
    * const offset = req.offset(0)
    */
-  offset(defaultValue: number): number;
+  parseAsNumericOffset(defaultValue: number): number;
 }
 
 /**
@@ -196,7 +196,7 @@ class PageRequestImpl implements PageRequest {
     return fn(this.cursor);
   }
 
-  offset(defaultValue: number): number {
+  parseAsNumericOffset(defaultValue: number = 0): number {
     return this.parseCursor(Number, defaultValue);
   }
 }

@@ -22,7 +22,7 @@ import type {
   CollectionLoader,
   NoOpFlowController,
 } from "@max/core";
-import {Ref as RefStatic} from "@max/core";
+import {PageRequest, Ref as RefStatic} from "@max/core";
 
 import type {
   TaskRunner,
@@ -314,7 +314,7 @@ export class DefaultTaskRunner implements TaskRunner {
     const token = await this.flowController.acquire(loader.name as any);
 
     try {
-      const page = await collectionLoader.load(ref, { cursor, limit: PAGE_SIZE }, ctx as any, emptyDeps);
+      const page = await collectionLoader.load(ref, PageRequest.from({ cursor, limit: PAGE_SIZE }), ctx as any, emptyDeps);
 
       for (const input of page.items) {
         await this.engine.store(input);

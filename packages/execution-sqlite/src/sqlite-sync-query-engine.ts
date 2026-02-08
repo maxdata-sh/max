@@ -6,8 +6,8 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { Page, Ref } from "@max/core";
-import type { EntityDefAny, PageRequest, Duration, LoaderName } from "@max/core";
+import { Page, PageRequest, Ref } from "@max/core";
+import type { EntityDefAny, Duration, LoaderName } from "@max/core";
 import type { SyncQueryEngine } from "@max/execution";
 import type { SqliteSchema } from "@max/storage-sqlite";
 
@@ -30,8 +30,8 @@ export class SqliteSyncQueryEngine implements SyncQueryEngine {
     const tableDef = this.schema.getTable(entity);
     const entityType = entity.name;
     const cutoff = Date.now() - (maxAge as number);
-    const limit = page?.limit ?? 100;
-    const offset = page?.cursor ? parseInt(page.cursor, 10) : 0;
+    const r = PageRequest.from(page).defaultLimit(100);
+    const offset = r.offset(0);
 
     const rows = this.db
       .query(
@@ -44,14 +44,10 @@ export class SqliteSyncQueryEngine implements SyncQueryEngine {
          )
          LIMIT ? OFFSET ?`,
       )
-      .all(entityType, loaderName, cutoff, limit + 1, offset) as { id: string }[];
+      .all(entityType, loaderName, cutoff, r.fetchSize, offset) as { id: string }[];
 
-    const hasMore = rows.length > limit;
-    const items = rows.slice(0, limit);
-    const refs = items.map((r) => Ref.local(entity, r.id as any) as Ref<E>);
-    const cursor = hasMore ? String(offset + limit) : undefined;
-
-    return Page.from(refs, hasMore, cursor);
+    const refs = rows.map((r) => Ref.local(entity, r.id as any) as Ref<E>);
+    return Page.fromOffset(refs, offset, r.limit);
   }
 
   async unloadedRefs<E extends EntityDefAny>(
@@ -61,8 +57,8 @@ export class SqliteSyncQueryEngine implements SyncQueryEngine {
   ): Promise<Page<Ref<E>>> {
     const tableDef = this.schema.getTable(entity);
     const entityType = entity.name;
-    const limit = page?.limit ?? 100;
-    const offset = page?.cursor ? parseInt(page.cursor, 10) : 0;
+    const r = PageRequest.from(page).defaultLimit(100);
+    const offset = r.offset(0);
 
     const rows = this.db
       .query(
@@ -74,13 +70,9 @@ export class SqliteSyncQueryEngine implements SyncQueryEngine {
          )
          LIMIT ? OFFSET ?`,
       )
-      .all(entityType, loaderName, limit + 1, offset) as { id: string }[];
+      .all(entityType, loaderName, r.fetchSize, offset) as { id: string }[];
 
-    const hasMore = rows.length > limit;
-    const items = rows.slice(0, limit);
-    const refs = items.map((r) => Ref.local(entity, r.id as any) as Ref<E>);
-    const cursor = hasMore ? String(offset + limit) : undefined;
-
-    return Page.from(refs, hasMore, cursor);
+    const refs = rows.map((r) => Ref.local(entity, r.id as any) as Ref<E>);
+    return Page.fromOffset(refs, offset, r.limit);
   }
 }

@@ -7,11 +7,10 @@
  * Future optimisation: use SQLite JOINs for efficient filtering at DB level.
  */
 
-import {Page} from "@max/core";
+import {Page, PageRequest} from "@max/core";
 import type {
   EntityDefAny,
   Ref,
-  PageRequest,
   Engine,
   SyncMeta,
   Duration,
@@ -72,11 +71,8 @@ export class LocalSyncQueryEngine implements SyncQueryEngine {
   }
 
   private paginate<T>(items: T[], page?: PageRequest): Page<T> {
-    const limit = page?.limit ?? items.length;
-    const offset = page?.cursor ? parseInt(page.cursor, 10) : 0;
-    const slice = items.slice(offset, offset + limit);
-    const hasMore = offset + limit < items.length;
-    const cursor = hasMore ? String(offset + limit) : undefined;
-    return Page.from(slice, hasMore, cursor);
+    const r = PageRequest.from(page).defaultLimit(items.length);
+    const offset = r.offset(0);
+    return Page.fromOffset(items.slice(offset, offset + r.fetchSize), offset, r.limit);
   }
 }

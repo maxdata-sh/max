@@ -16,15 +16,8 @@ Items are grouped by area. Within each group, items near the top are more pressi
 
 ## General / utility
 
-### A standard MaxError ontology
-Self-explanatory. `Error` is not acceptable. Consult maxwell approach.
-
-### Standard pagnination lib
-See maxwell
-
 ### Serialisation
 Codec-based strategy for serialising/deserialising types across boundaries (Temporal, storage, IPC). Approach decided, implementation deferred to first real boundary. See [docs/developer/serialisation.md](docs/developer/serialisation.md).
-
 
 ---
 

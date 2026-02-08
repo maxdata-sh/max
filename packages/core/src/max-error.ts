@@ -1,8 +1,9 @@
 /**
- * MaxError - Composable error system with facets.
+ * MaxError - Composable error system with facets and boundaries.
  *
  * Errors are composed from facets (marker traits and data traits) instead of
  * class inheritance. Three discrimination axes: exact type (code), facet, domain.
+ * Boundaries own error definitions and provide wrap() for cause chains.
  */
 
 import {StaticTypeCompanion} from "./companion.js";
@@ -62,8 +63,34 @@ export interface ErrorDef<Fs extends readonly ErrFacetAny[] = readonly ErrFacetA
   readonly code: string;
   readonly domain: string;
   readonly facets: Fs;
-  create(data: MergeFacetProps<Fs>, context?: string): MaxError<Fs>;
+  create(data: MergeFacetProps<Fs>, context?: string, cause?: MaxError): MaxError<Fs>;
   is(err: unknown): err is MaxError<Fs>;
+}
+
+// ============================================================================
+// ErrorBoundary Interface
+// ============================================================================
+
+export interface ErrorBoundary {
+  readonly domain: string;
+  /** Define an error within this boundary. Code is prefixed with the domain. */
+  define<const Fs extends readonly ErrFacetAny[]>(
+    code: string,
+    opts: { facets: Fs; message: (data: MergeFacetProps<Fs>) => string },
+  ): ErrorDef<Fs>;
+  /** Check if an error belongs to this boundary's domain */
+  is(err: unknown): boolean;
+  /**
+   * Wrap a function in this boundary. If it throws:
+   * - Same-domain MaxErrors pass through unwrapped
+   * - Everything else is wrapped with a cause chain
+   *
+   * Two overloads:
+   * - wrap(fn) — safety net, uses generic "{domain}.error"
+   * - wrap(errDef, fn) — intent wrap, uses the specified error
+   */
+  wrap<T>(fn: () => T): T;
+  wrap<T>(errDef: ErrorDef, fn: () => T): T;
 }
 
 // ============================================================================
@@ -76,6 +103,7 @@ export interface MaxError<Fs extends readonly ErrFacetAny[] = readonly ErrFacetA
   readonly context?: string;
   readonly data: MergeFacetProps<Fs>;
   readonly facetNames: ReadonlySet<string>;
+  readonly cause?: MaxError;
   toJSON(): MaxErrorJSON;
 }
 
@@ -87,6 +115,7 @@ export interface MaxErrorJSON {
   data: Record<string, unknown>;
   facets: string[];
   stack?: string;
+  cause?: MaxErrorJSON;
 }
 
 // ============================================================================
@@ -106,6 +135,33 @@ function stackFrames(stack: string | undefined): string {
   return stack.slice(first + 1);
 }
 
+/** Format a cause chain for inspect output */
+function formatCauseChain(err: MaxErrorImpl, indent: string, opts: { colors?: boolean }): string {
+  const dim = opts.colors ? "\x1b[2m" : "";
+  const red = opts.colors ? "\x1b[31m" : "";
+  const reset = opts.colors ? "\x1b[0m" : "";
+
+  let result = "";
+  let current: MaxErrorImpl | undefined = err.cause as MaxErrorImpl | undefined;
+  let depth = indent;
+
+  while (current) {
+    const hasData = Object.keys(current.data).length > 0;
+    result += `\n${depth}${dim}caused by:${reset} ${red}MaxError[${current.code}]${reset}: ${current.message}`;
+    if (hasData) {
+      result += `\n${depth}  ${JSON.stringify(current.data)}`;
+    }
+    const frames = stackFrames(current.stack);
+    if (frames) {
+      result += "\n" + frames.split("\n").map(line => depth + line).join("\n");
+    }
+    current = current.cause as MaxErrorImpl | undefined;
+    depth += "  ";
+  }
+
+  return result;
+}
+
 // ============================================================================
 // MaxError Implementation (internal)
 // ============================================================================
@@ -116,6 +172,7 @@ class MaxErrorImpl extends Error implements MaxError {
   readonly context?: string;
   readonly data: Record<string, unknown>;
   readonly facetNames: ReadonlySet<string>;
+  override cause?: MaxErrorImpl;
 
   static {
     Inspect(this, (self, opts) => {
@@ -134,6 +191,9 @@ class MaxErrorImpl extends Error implements MaxError {
       if (frames) {
         format += "\n" + frames;
       }
+      if (self.cause) {
+        format += formatCauseChain(self, "  ", opts);
+      }
 
       return { format, params };
     });
@@ -146,6 +206,7 @@ class MaxErrorImpl extends Error implements MaxError {
     facetNames: ReadonlySet<string>,
     data: Record<string, unknown>,
     context?: string,
+    cause?: MaxErrorImpl,
   ) {
     const fullMessage = context ? `${message} — ${context}` : message;
     super(fullMessage);
@@ -155,6 +216,7 @@ class MaxErrorImpl extends Error implements MaxError {
     this.context = context;
     this.data = { ...data };
     this.facetNames = facetNames;
+    if (cause) this.cause = cause;
   }
 
   toJSON(): MaxErrorJSON {
@@ -169,10 +231,82 @@ class MaxErrorImpl extends Error implements MaxError {
     if (this.context !== undefined) {
       json.context = this.context;
     }
+    if (this.cause) {
+      json.cause = this.cause.toJSON();
+    }
     return json;
   }
+}
 
+// ============================================================================
+// Internal: create an ErrorDef
+// ============================================================================
 
+function defineError<const Fs extends readonly ErrFacetAny[]>(
+  fullCode: string,
+  domain: string,
+  opts: { facets: Fs; message: (data: MergeFacetProps<Fs>) => string },
+): ErrorDef<Fs> {
+  const facetNames = Object.freeze(new Set(opts.facets.map((f) => f.name)));
+
+  return Object.freeze({
+    code: fullCode,
+    domain,
+    facets: opts.facets,
+
+    create(data: MergeFacetProps<Fs>, context?: string, cause?: MaxError): MaxError<Fs> {
+      const message = opts.message(data);
+      return new MaxErrorImpl(
+        fullCode,
+        domain,
+        message,
+        facetNames,
+        data as Record<string, unknown>,
+        context,
+        cause as MaxErrorImpl | undefined,
+      ) as unknown as MaxError<Fs>;
+    },
+
+    is(err: unknown): err is MaxError<Fs> {
+      return err instanceof MaxErrorImpl && (err as MaxErrorImpl).code === fullCode;
+    },
+  });
+}
+
+// ============================================================================
+// Internal: create a boundary wrap function
+// ============================================================================
+
+function boundaryWrap<T>(domain: string, genericDef: ErrorDef, errDefOrFn: ErrorDef | (() => T), maybeFn?: () => T): T {
+  const errDef = typeof errDefOrFn === "function" ? genericDef : errDefOrFn;
+  const fn = typeof errDefOrFn === "function" ? errDefOrFn : maybeFn!;
+
+  try {
+    const result = fn();
+    // Handle async: if the result is a promise, catch its rejection
+    if (result && typeof (result as any).then === "function") {
+      return (result as any).then(undefined, (thrown: unknown) => {
+        throw wrapAtBoundary(domain, errDef, thrown);
+      }) as T;
+    }
+    return result;
+  } catch (thrown) {
+    throw wrapAtBoundary(domain, errDef, thrown);
+  }
+}
+
+function wrapAtBoundary(domain: string, errDef: ErrorDef, thrown: unknown): MaxError {
+  // Same-domain MaxErrors pass through unwrapped
+  if (thrown instanceof MaxErrorImpl && thrown.domain === domain) {
+    throw thrown;
+  }
+
+  // Ensure the cause is a MaxError
+  const cause = thrown instanceof MaxErrorImpl
+    ? thrown as MaxError
+    : MaxError.wrap(thrown);
+
+  return errDef.create({} as any, undefined, cause);
 }
 
 // ============================================================================
@@ -184,6 +318,8 @@ export const MaxError = StaticTypeCompanion({
   /**
    * Define a new error type with a code, facets, and message function.
    * The code's prefix before the first "." becomes the domain.
+   *
+   * Prefer using boundary.define() instead for domain-owned errors.
    */
   define<const Fs extends readonly ErrFacetAny[]>(
     code: string,
@@ -194,29 +330,38 @@ export const MaxError = StaticTypeCompanion({
   ): ErrorDef<Fs> {
     const dotIdx = code.indexOf(".");
     const domain = dotIdx === -1 ? code : code.slice(0, dotIdx);
-    const facetNames = Object.freeze(new Set(opts.facets.map((f) => f.name)));
+    return defineError(code, domain, opts);
+  },
 
-    return Object.freeze({
-      code,
-      domain,
-      facets: opts.facets,
-
-      create(data: MergeFacetProps<Fs>, context?: string): MaxError<Fs> {
-        const message = opts.message(data);
-        return new MaxErrorImpl(
-          code,
-          domain,
-          message,
-          facetNames,
-          data as Record<string, unknown>,
-          context,
-        ) as MaxError<Fs>;
-      },
-
-      is(err: unknown): err is MaxError<Fs> {
-        return err instanceof MaxErrorImpl && (err as MaxErrorImpl).code === code;
-      },
+  /**
+   * Create an error boundary for a domain. Errors defined via the boundary
+   * are automatically prefixed with the domain and bound to it.
+   */
+  boundary(domain: string): ErrorBoundary {
+    // Auto-create the generic boundary error for wrap() safety net
+    const genericDef = defineError(`${domain}.error`, domain, {
+      facets: [] as const,
+      message: () => `${domain} error`,
     });
+
+    return {
+      domain,
+
+      define<const Fs extends readonly ErrFacetAny[]>(
+        code: string,
+        opts: { facets: Fs; message: (data: MergeFacetProps<Fs>) => string },
+      ): ErrorDef<Fs> {
+        return defineError(`${domain}.${code}`, domain, opts);
+      },
+
+      is(err: unknown): boolean {
+        return err instanceof MaxErrorImpl && (err as MaxErrorImpl).domain === domain;
+      },
+
+      wrap<T>(errDefOrFn: ErrorDef | (() => T), maybeFn?: () => T): T {
+        return boundaryWrap(domain, genericDef, errDefOrFn, maybeFn);
+      },
+    };
   },
 
   /** Check if a value is any MaxError */

@@ -191,47 +191,89 @@ The format string uses `util.formatWithOptions` specifiers:
 
 ## MaxError
 
-Composable error system. Errors are built from **facets** (traits) instead of class inheritance, with three ways to discriminate: exact code, facet, or domain.
+Composable error system with **boundaries** and **cause chains**. Errors are built from facets (traits) instead of class inheritance, with three discrimination axes: exact code, facet, or domain.
 
-### Designing an error
+### 1. Create your boundary
 
-Think about three things:
-
-1. **Code** — a stable, hierarchical identifier like `"storage.entity_not_found"`. The prefix before the first `.` becomes the domain. Use your package/module name as the domain.
-2. **Facets** — what categories does this error belong to? Compose from standard markers (`NotFound`, `BadInput`, `Invariant`, `NotImplemented`) and data facets (`HasEntityRef`, or define your own).
-3. **Message** — a function that builds a human-readable string from the error data. Keep it short; callers add detail via `context`.
-
-### Defining errors
+Every domain that throws errors defines a boundary. This is the first line of your `errors.ts`:
 
 ```typescript
-import { MaxError, ErrFacet, NotFound, HasEntityRef } from "@max/core";
+// connector-linear/src/errors.ts
+import { MaxError, ErrFacet, NotFound, BadInput } from "@max/core";
 
-// Use a standard error directly
-throw ErrNotFound.create({}, "config key 'api_url'");
+const Linear = MaxError.boundary("linear");
+```
 
-// Or define a domain-specific error
-const ErrFileNotFound = MaxError.define("gdrive.file_not_found", {
-  facets: [NotFound, HasEntityRef],
-  message: (d) => `File not found: ${d.entityId}`,
+The boundary owns all errors in your domain. It prefixes codes automatically and provides `is()` and `wrap()`.
+
+### 2. Define your errors
+
+Think about three things per error:
+- **Code** — the suffix (boundary prefixes the domain): `"auth_failed"` → `"linear.auth_failed"`
+- **Facets** — what categories? Compose from standard markers and data facets
+- **Message** — a function from data → string. Keep it short; callers add detail via `context`
+
+```typescript
+// Domain-specific data facet
+const HasIssueRef = ErrFacet.data<{ issueId: string }>("HasIssueRef");
+
+export const ErrAuthFailed = Linear.define("auth_failed", {
+  facets: [BadInput],
+  message: () => "Not authenticated — run 'max connect linear' first",
 });
 
-throw ErrFileNotFound.create(
-  { entityType: "File", entityId: "abc-123" },
-  "during sync",  // optional context, appended with " — "
+export const ErrIssueNotFound = Linear.define("issue_not_found", {
+  facets: [NotFound, HasIssueRef],
+  message: (d) => `Issue not found: ${d.issueId}`,
+});
+
+export { Linear };  // re-export for wrap() and is()
+```
+
+### 3. Throw errors
+
+```typescript
+throw ErrIssueNotFound.create(
+  { issueId: "ISS-123" },         // data — typed from facets
+  "during sync",                   // context — appended with " — "
 );
 ```
 
-### Catching errors
+### 4. Wrap boundaries
+
+Use `wrap()` at domain entry points to build cause chains. Two forms:
+
+```typescript
+// Intent wrap — "I was trying to sync"
+await Linear.wrap(ErrLinearSyncFailed, async () => {
+  await Storage.wrap(ErrWriteFailed, async () => {
+    await db.insertMany(issues);
+  });
+});
+
+// Safety net — catches anything that escapes without an intent wrap
+// Uses generic "linear.error" code
+await Linear.wrap(async () => {
+  await handleRequest(req);
+});
+```
+
+Rules:
+- Same-domain errors **pass through** unwrapped (no double-wrapping)
+- Cross-domain errors are wrapped with the original as `cause`
+- Plain `Error` / strings are first wrapped into a generic MaxError, then used as cause
+
+### 5. Catch errors
 
 Three discrimination axes — use the narrowest one that fits:
 
 ```typescript
 try {
-  await sync();
+  await linear.sync();
 } catch (err) {
   // Exact type — "is this specific error?"
-  if (ErrFileNotFound.is(err)) {
-    console.log(err.data.entityId);  // typed
+  if (ErrIssueNotFound.is(err)) {
+    console.log(err.data.issueId);  // typed
   }
 
   // By facet — "is this any kind of not-found?"
@@ -239,30 +281,32 @@ try {
     return 404;
   }
 
-  // By domain — "did this come from gdrive?"
-  if (MaxError.inDomain(err, "gdrive")) {
-    reportToGDriveMonitor(err);
+  // By boundary — "did Linear fail?"
+  if (Linear.is(err)) {
+    reportToLinearMonitor(err);
+  }
+
+  // Walk the cause chain
+  if (MaxError.isMaxError(err) && err.cause) {
+    console.log("caused by:", err.cause.code);
   }
 }
 ```
 
-### Enriching at boundaries
+### 6. Import shared boundaries
 
-Add data as errors propagate up the stack:
+Cross-cutting boundaries (storage, serialization, etc.) are imported and used like any other:
 
 ```typescript
-const HasInstallation = ErrFacet.data<{
-  installationId: string;
-  name?: string;
-}>("HasInstallation");
+import { Storage, ErrWriteFailed } from "@max/storage-sqlite";
+import { Linear, ErrLinearSyncFailed } from "./errors.js";
 
-// In middleware / boundary layer
-catch (err) {
-  if (MaxError.isMaxError(err)) {
-    MaxError.enrich(err, HasInstallation, { installationId: ctx.installationId });
-  }
-  throw err;
-}
+await Linear.wrap(ErrLinearSyncFailed, async () => {
+  await Storage.wrap(ErrWriteFailed, async () => {
+    await db.insertMany(issues);
+  });
+});
+// Chain: linear.sync_failed → storage.write_failed → <cause>
 ```
 
 ### Standard facets and errors
@@ -277,7 +321,7 @@ catch (err) {
 | `Invariant` | marker | — |
 | `HasEntityRef` | data | `{ entityType, entityId }` |
 
-**Ready-to-use errors:**
+**Core errors** (use sparingly — prefer defining domain-owned errors):
 
 | Error | Code | Facets |
 |-------|------|--------|
@@ -287,26 +331,24 @@ catch (err) {
 | `ErrNotImplemented` | `core.not_implemented` | `NotImplemented` |
 | `ErrInvariant` | `core.invariant` | `Invariant` |
 
-All accept an optional `context` string at the throw site for specifics:
-
-```typescript
-throw ErrBadInput.create({}, "API key is required");
-throw ErrNotImplemented.create({}, "loadCollection");
-throw ErrInvariant.create({}, "batch was empty after resolve");
-```
-
 ### Serialization
 
-`err.toJSON()` returns a structured object safe for logging pipelines:
+`err.toJSON()` returns a structured object safe for logging pipelines. Cause chains are serialized recursively:
 
 ```json
 {
-  "code": "storage.entity_not_found",
-  "domain": "storage",
-  "message": "File not found: abc-123 — during sync",
-  "context": "during sync",
-  "data": { "entityType": "File", "entityId": "abc-123" },
-  "facets": ["NotFound", "HasEntityRef"]
+  "code": "linear.sync_failed",
+  "domain": "linear",
+  "message": "Sync failed",
+  "data": {},
+  "facets": [],
+  "cause": {
+    "code": "storage.write_failed",
+    "domain": "storage",
+    "message": "Write failed",
+    "data": { "entityType": "LinearIssue", "entityId": "ISS-123" },
+    "facets": ["HasEntityRef"]
+  }
 }
 ```
 

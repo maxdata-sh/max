@@ -9,22 +9,26 @@ const Retryable = ErrFacet.marker("Retryable");
 const HasRef = ErrFacet.data<{ ref: string }>("HasRef");
 const HasInstallation = ErrFacet.data<{ installationId: string; name?: string }>("HasInstallation");
 
-const ErrEntityNotFound = MaxError.define("storage.entity_not_found", {
+const Storage = MaxError.boundary("storage");
+const Network = MaxError.boundary("network");
+const TestBoundary = MaxError.boundary("test");
+
+const ErrEntityNotFound = Storage.define("entity_not_found", {
   facets: [NotFound, HasRef],
   message: (d) => `Entity not found: ${d.ref}`,
 });
 
-const ErrConnectionFailed = MaxError.define("network.connection_failed", {
+const ErrConnectionFailed = Network.define("connection_failed", {
   facets: [Retryable],
   message: () => "Connection failed",
 });
 
-const ErrMarkerOnly = MaxError.define("test.marker_only", {
+const ErrMarkerOnly = TestBoundary.define("marker_only", {
   facets: [NotFound],
   message: () => "Something was not found",
 });
 
-const ErrMultiData = MaxError.define("storage.multi_data", {
+const ErrMultiData = Storage.define("multi_data", {
   facets: [HasRef, HasInstallation],
   message: (d) => `Entity ${d.ref} in installation ${d.installationId}`,
 });
@@ -48,22 +52,39 @@ describe("Facet", () => {
   });
 });
 
-describe("MaxError.define()", () => {
-  test("creates ErrorDef with code and domain", () => {
+describe("MaxError.boundary()", () => {
+  test("creates boundary with domain", () => {
+    expect(Storage.domain).toBe("storage");
+  });
+
+  test("define() prefixes code with domain", () => {
     expect(ErrEntityNotFound.code).toBe("storage.entity_not_found");
     expect(ErrEntityNotFound.domain).toBe("storage");
   });
 
-  test("domain derived from code prefix", () => {
-    expect(ErrConnectionFailed.domain).toBe("network");
+  test("is() checks domain", () => {
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
+    expect(Storage.is(err)).toBe(true);
+    expect(Network.is(err)).toBe(false);
   });
+});
 
-  test("single-segment code uses itself as domain", () => {
+describe("MaxError.define()", () => {
+  test("still works for standalone definitions", () => {
     const Simple = MaxError.define("simple", {
       facets: [],
       message: () => "simple error",
     });
     expect(Simple.domain).toBe("simple");
+    expect(Simple.code).toBe("simple");
+  });
+
+  test("derives domain from code prefix", () => {
+    const Err = MaxError.define("mydom.something", {
+      facets: [],
+      message: () => "x",
+    });
+    expect(Err.domain).toBe("mydom");
   });
 });
 
@@ -111,6 +132,14 @@ describe("ErrorDef.create()", () => {
     data.ref = "mutated";
 
     expect(err.data.ref).toBe("User:u1");
+  });
+
+  test("accepts a cause", () => {
+    const inner = ErrConnectionFailed.create({});
+    const outer = ErrEntityNotFound.create({ ref: "User:u1" }, "during sync", inner);
+
+    expect(outer.cause).toBe(inner);
+    expect(outer.cause!.code).toBe("network.connection_failed");
   });
 });
 
@@ -268,6 +297,147 @@ describe("MaxError.wrap()", () => {
   });
 });
 
+describe("boundary.wrap()", () => {
+  const Execution = MaxError.boundary("execution");
+  const ErrSyncFailed = Execution.define("sync_failed", {
+    facets: [],
+    message: () => "Sync failed",
+  });
+
+  test("returns value on success", () => {
+    const result = Execution.wrap(ErrSyncFailed, () => 42);
+    expect(result).toBe(42);
+  });
+
+  test("returns value on success (safety net overload)", () => {
+    const result = Execution.wrap(() => 42);
+    expect(result).toBe(42);
+  });
+
+  test("same-domain errors pass through unwrapped", () => {
+    const inner = ErrSyncFailed.create({});
+    try {
+      Execution.wrap(ErrSyncFailed, () => { throw inner; });
+    } catch (err) {
+      expect(err).toBe(inner);
+      return;
+    }
+    throw new Error("Should have thrown");
+  });
+
+  test("cross-domain errors are wrapped with cause", () => {
+    const storageErr = ErrEntityNotFound.create({ ref: "User:u1" });
+    try {
+      Execution.wrap(ErrSyncFailed, () => { throw storageErr; });
+    } catch (err) {
+      if (!MaxError.isMaxError(err)) throw new Error("Expected MaxError");
+      expect(err.code).toBe("execution.sync_failed");
+      expect(err.cause).toBe(storageErr);
+      expect(err.cause!.code).toBe("storage.entity_not_found");
+      return;
+    }
+    throw new Error("Should have thrown");
+  });
+
+  test("plain errors are wrapped as unknown cause", () => {
+    try {
+      Execution.wrap(ErrSyncFailed, () => { throw new Error("raw"); });
+    } catch (err) {
+      if (!MaxError.isMaxError(err)) throw new Error("Expected MaxError");
+      expect(err.code).toBe("execution.sync_failed");
+      expect(err.cause).toBeDefined();
+      expect(err.cause!.code).toBe("unknown");
+      expect(err.cause!.message).toBe("raw");
+      return;
+    }
+    throw new Error("Should have thrown");
+  });
+
+  test("safety net uses generic domain.error code", () => {
+    const storageErr = ErrEntityNotFound.create({ ref: "User:u1" });
+    try {
+      Execution.wrap(() => { throw storageErr; });
+    } catch (err) {
+      if (!MaxError.isMaxError(err)) throw new Error("Expected MaxError");
+      expect(err.code).toBe("execution.error");
+      expect(err.cause).toBe(storageErr);
+      return;
+    }
+    throw new Error("Should have thrown");
+  });
+
+  test("handles async functions", async () => {
+    const storageErr = ErrEntityNotFound.create({ ref: "User:u1" });
+    try {
+      await Execution.wrap(ErrSyncFailed, async () => { throw storageErr; });
+    } catch (err) {
+      if (!MaxError.isMaxError(err)) throw new Error("Expected MaxError");
+      expect(err.code).toBe("execution.sync_failed");
+      expect(err.cause).toBe(storageErr);
+      return;
+    }
+    throw new Error("Should have thrown");
+  });
+
+  test("async same-domain errors pass through", async () => {
+    const execErr = ErrSyncFailed.create({});
+    try {
+      await Execution.wrap(ErrSyncFailed, async () => { throw execErr; });
+    } catch (err) {
+      expect(err).toBe(execErr);
+      return;
+    }
+    throw new Error("Should have thrown");
+  });
+});
+
+describe("cause chain", () => {
+  const Serialization = MaxError.boundary("serialization");
+  const ErrInvalidJson = Serialization.define("invalid_json", {
+    facets: [],
+    message: () => "Invalid JSON",
+  });
+
+  const ErrWriteFailed = Storage.define("write_failed", {
+    facets: [],
+    message: () => "Write failed",
+  });
+
+  const Execution = MaxError.boundary("execution");
+  const ErrSyncFailed = Execution.define("sync_failed", {
+    facets: [],
+    message: () => "Sync failed",
+  });
+
+  test("nested wraps build a cause chain", () => {
+    try {
+      Execution.wrap(ErrSyncFailed, () => {
+        Storage.wrap(ErrWriteFailed, () => {
+          throw ErrInvalidJson.create({});
+        });
+      });
+    } catch (err) {
+      if (!MaxError.isMaxError(err)) throw new Error("Expected MaxError");
+
+      // Top: execution.sync_failed
+      expect(err.code).toBe("execution.sync_failed");
+
+      // Middle: storage.write_failed
+      expect(err.cause).toBeDefined();
+      expect(err.cause!.code).toBe("storage.write_failed");
+
+      // Bottom: serialization.invalid_json
+      expect(err.cause!.cause).toBeDefined();
+      expect(err.cause!.cause!.code).toBe("serialization.invalid_json");
+
+      // No further causes
+      expect(err.cause!.cause!.cause).toBeUndefined();
+      return;
+    }
+    throw new Error("Should have thrown");
+  });
+});
+
 describe("toJSON()", () => {
   test("returns structured, JSON.stringify-safe object", () => {
     const err = ErrEntityNotFound.create({ ref: "User:u1" }, "during sync");
@@ -291,6 +461,89 @@ describe("toJSON()", () => {
     const json = err.toJSON();
 
     expect(json.context).toBeUndefined();
+  });
+
+  test("serializes cause chain", () => {
+    const inner = ErrConnectionFailed.create({});
+    const outer = ErrEntityNotFound.create({ ref: "User:u1" }, undefined, inner);
+    const json = outer.toJSON();
+
+    expect(json.cause).toBeDefined();
+    expect(json.cause!.code).toBe("network.connection_failed");
+  });
+});
+
+describe("inspect output", () => {
+  // Helper to invoke the custom inspect symbol
+  const inspectErr = (err: MaxError): string => {
+    const fn = (err as any)[Symbol.for("nodejs.util.inspect.custom")];
+    return fn.call(err, 2, {});
+  };
+
+  test("header line: code + message first", () => {
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
+    const output = inspectErr(err);
+    const firstLine = output.split("\n")[0];
+
+    expect(firstLine).toBe("MaxError[storage.entity_not_found]: Entity not found: User:u1");
+  });
+
+  test("data formatted via %O when present", () => {
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
+    const output = inspectErr(err);
+
+    // Data appears on line after header, indented
+    expect(output).toContain("  { ref: 'User:u1' }");
+  });
+
+  test("large data auto-expands to multiline", () => {
+    const err = ErrMultiData.create({
+      ref: "User:u1",
+      installationId: "inst-very-long-installation-id-that-pushes-over-threshold",
+    });
+    const output = inspectErr(err);
+
+    // %O expands long objects across lines
+    expect(output).toContain("ref: 'User:u1'");
+    expect(output).toContain("installationId:");
+  });
+
+  test("no data block for marker-only errors", () => {
+    const err = ErrMarkerOnly.create({});
+    const output = inspectErr(err);
+    const lines = output.split("\n");
+
+    // First line is header, next should be a stack frame (starts with "    at")
+    expect(lines[0]).toBe("MaxError[test.marker_only]: Something was not found");
+    expect(lines[1].trimStart().startsWith("at ")).toBe(true);
+  });
+
+  test("stack frames present without redundant first line", () => {
+    const err = ErrEntityNotFound.create({ ref: "User:u1" });
+    const output = inspectErr(err);
+
+    // Should contain stack frames
+    expect(output).toContain("    at ");
+    // But the header IS our first line (not duplicated from .stack)
+    expect(output.startsWith("MaxError[storage.entity_not_found]: Entity not found: User:u1\n")).toBe(true);
+  });
+
+  test("context in header message", () => {
+    const err = ErrEntityNotFound.create({ ref: "User:u1" }, "during sync");
+    const output = inspectErr(err);
+    const firstLine = output.split("\n")[0];
+
+    expect(firstLine).toBe("MaxError[storage.entity_not_found]: Entity not found: User:u1 — during sync");
+  });
+
+  test("cause chain rendered", () => {
+    const inner = ErrConnectionFailed.create({});
+    const outer = ErrEntityNotFound.create({ ref: "User:u1" }, undefined, inner);
+    const output = inspectErr(outer);
+
+    expect(output).toContain("caused by:");
+    expect(output).toContain("MaxError[network.connection_failed]");
+    expect(output).toContain("Connection failed");
   });
 });
 
@@ -321,6 +574,18 @@ describe("DX: full error handling flow", () => {
     }
   });
 
+  test("define → throw → catch by boundary", () => {
+    try {
+      throw ErrEntityNotFound.create({ ref: "User:u1" });
+    } catch (err) {
+      if (Storage.is(err)) {
+        expect(MaxError.isMaxError(err)).toBe(true);
+        return;
+      }
+      throw new Error("Should have matched Storage boundary");
+    }
+  });
+
   test("define → throw → enrich at boundary → catch with enriched data", () => {
     try {
       const err = ErrMultiData.create({
@@ -343,78 +608,24 @@ describe("DX: full error handling flow", () => {
     }
   });
 
-
-  test("DX", () => {
-    try{
-      throw ErrEntityNotFound.create({ ref:"123" })
-    }catch (e){
-      console.error(e)
-    }
-  })
-});
-
-describe("inspect output", () => {
-  // Helper to invoke the custom inspect symbol
-  const inspect = (err: MaxError): string => {
-    const fn = (err as any)[Symbol.for("nodejs.util.inspect.custom")];
-    return fn.call(err, 2, {});
-  };
-
-  test("header line: code + message first", () => {
-    const err = ErrEntityNotFound.create({ ref: "User:u1" });
-    const output = inspect(err);
-    const firstLine = output.split("\n")[0];
-
-    expect(firstLine).toBe("MaxError[storage.entity_not_found]: Entity not found: User:u1");
-  });
-
-  test("data formatted via %O when present", () => {
-    const err = ErrEntityNotFound.create({ ref: "User:u1" });
-    const output = inspect(err);
-
-    // Data appears on line after header, indented
-    expect(output).toContain("  { ref: 'User:u1' }");
-  });
-
-  test("large data auto-expands to multiline", () => {
-    const err = ErrMultiData.create({
-      ref: "User:u1",
-      installationId: "inst-very-long-installation-id-that-pushes-over-threshold",
+  test("boundary.wrap → cause chain → catch", () => {
+    const Execution = MaxError.boundary("execution");
+    const ErrSyncFailed = Execution.define("sync_failed", {
+      facets: [],
+      message: () => "Sync failed",
     });
-    const output = inspect(err);
 
-    // %O expands long objects across lines
-    expect(output).toContain("ref: 'User:u1'");
-    expect(output).toContain("installationId:");
-  });
-
-  test("no data block for marker-only errors", () => {
-    const err = ErrMarkerOnly.create({});
-    const output = inspect(err);
-    const lines = output.split("\n");
-
-    // First line is header, next should be a stack frame (starts with "    at")
-    expect(lines[0]).toBe("MaxError[test.marker_only]: Something was not found");
-    expect(lines[1].trimStart().startsWith("at ")).toBe(true);
-  });
-
-  test("stack frames present without redundant first line", () => {
-    const err = ErrEntityNotFound.create({ ref: "User:u1" });
-    const output = inspect(err);
-
-    // Should contain stack frames
-    expect(output).toContain("    at ");
-    // Should NOT contain the raw Error name:message line that .stack normally starts with
-    expect(output).not.toContain("MaxError[storage.entity_not_found]: Entity not found: User:u1\n    at ");
-    // But the header IS our first line (not duplicated from .stack)
-    expect(output.startsWith("MaxError[storage.entity_not_found]: Entity not found: User:u1\n")).toBe(true);
-  });
-
-  test("context in header message", () => {
-    const err = ErrEntityNotFound.create({ ref: "User:u1" }, "during sync");
-    const output = inspect(err);
-    const firstLine = output.split("\n")[0];
-
-    expect(firstLine).toBe("MaxError[storage.entity_not_found]: Entity not found: User:u1 — during sync");
+    try {
+      Execution.wrap(ErrSyncFailed, () => {
+        throw ErrEntityNotFound.create({ ref: "User:u1" });
+      });
+    } catch (err) {
+      if (ErrSyncFailed.is(err) && MaxError.isMaxError(err)) {
+        expect(err.cause).toBeDefined();
+        expect(err.cause!.code).toBe("storage.entity_not_found");
+        return;
+      }
+      throw new Error("Should have matched ErrSyncFailed");
+    }
   });
 });

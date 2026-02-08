@@ -125,7 +125,7 @@ export type { FlowController, FlowToken, OperationKind } from "./flow-controller
 
 // Error system (MaxError and ErrFacet are both type and value)
 export { MaxError, ErrFacet } from "./max-error.js";
-export type { ErrMarkerFacet, ErrDataFacet, ErrFacetAny, FacetProps, MergeFacetProps, ErrorDef, MaxErrorJSON } from "./max-error.js";
+export type { ErrMarkerFacet, ErrDataFacet, ErrFacetAny, FacetProps, MergeFacetProps, ErrorDef, ErrorBoundary, MaxErrorJSON } from "./max-error.js";
 
 // Standard facets and error definitions
 export * from "./errors/basic-errors.js";

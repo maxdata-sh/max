@@ -26,7 +26,8 @@ import type {EntityInput} from "./entity-input.js";
 import type {Ref} from "./ref.js";
 import type {Page, PageRequest} from "./pagination.js";
 import type {Batch} from "./batch.js";
-import type {ClassOf, ContextDefAny, InferContext} from "./context-def.js";
+import type {ContextDefAny, InferContext} from "./context-def.js";
+import {ClassOf} from "./type-system-utils.js";
 
 // ============================================================================
 // Branded Types

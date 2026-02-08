@@ -73,21 +73,29 @@ export const RefKey = StaticTypeCompanion({
    * Throws if the format is invalid.
    */
   parse(key: RefKey): ParsedRefKey {
-    const parts = (key as string).split(DELIMITER);
+    const str = key as string;
+    const d1 = str.indexOf(DELIMITER);
+    if (d1 === -1) throw new Error(`Invalid RefKey format: ${key}`);
 
-    if (parts[0] === "local" && parts.length === 3) {
+    const scope = str.substring(0, d1);
+    const d2 = str.indexOf(DELIMITER, d1 + 1);
+    if (d2 === -1) throw new Error(`Invalid RefKey format: ${key}`);
+
+    if (scope === "local") {
       return {
         scope: { kind: "local" },
-        entityType: parts[1] as EntityType,
-        entityId: parts[2] as EntityId,
+        entityType: str.substring(d1 + 1, d2) as EntityType,
+        entityId: str.substring(d2 + 1) as EntityId,
       };
     }
 
-    if (parts[0] === "system" && parts.length === 4) {
+    if (scope === "system") {
+      const d3 = str.indexOf(DELIMITER, d2 + 1);
+      if (d3 === -1) throw new Error(`Invalid RefKey format: ${key}`);
       return {
-        scope: { kind: "system", installationId: parts[1] as InstallationId },
-        entityType: parts[2] as EntityType,
-        entityId: parts[3] as EntityId,
+        scope: { kind: "system", installationId: str.substring(d1 + 1, d2) as InstallationId },
+        entityType: str.substring(d2 + 1, d3) as EntityType,
+        entityId: str.substring(d3 + 1) as EntityId,
       };
     }
 

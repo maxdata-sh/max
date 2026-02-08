@@ -113,7 +113,6 @@ export { Seeder } from "./seeder.js";
 export type { SeederAny } from "./seeder.js";
 
 // SyncMeta
-export { Duration } from "./sync-meta.js";
 export type { SyncMeta } from "./sync-meta.js";
 
 // FlowController
@@ -123,3 +122,4 @@ export type { FlowController, FlowToken, OperationKind } from "./flow-controller
 // Utilities
 export { StaticTypeCompanion } from "./companion.js";
 export { Lazy } from "./lazy.js";
+export {Duration} from "./duration.js";

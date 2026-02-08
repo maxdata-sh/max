@@ -46,6 +46,18 @@ export const AcmeTeam: AcmeTeam = EntityDef.create("AcmeTeam", {
 });
 
 // ============================================================================
+// AcmeRoot (singleton entry point)
+// ============================================================================
+
+export interface AcmeRoot extends EntityDef<{
+  teams: CollectionField<typeof AcmeTeam>;
+}> {}
+
+export const AcmeRoot: AcmeRoot = EntityDef.create("AcmeRoot", {
+  teams: { kind: "collection", target: AcmeTeam },
+});
+
+// ============================================================================
 // AcmeProject
 // ============================================================================
 

@@ -1,5 +1,5 @@
 {
-  "name": "@max/execution-local",
+  "name": "@max/execution-sqlite",
   "version": "0.1.0",
   "type": "module",
   "exports": {
@@ -13,12 +13,13 @@
   },
   "dependencies": {
     "@max/core": "workspace:*",
-    "@max/execution": "workspace:*"
+    "@max/execution": "workspace:*",
+    "@max/storage-sqlite": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "catalog:",
-    "@max/storage-sqlite": "workspace:*",
-    "@max/connector-acme": "workspace:*"
+    "@max/connector-acme": "workspace:*",
+    "@max/execution-local": "workspace:*"
   }
 }

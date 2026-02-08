@@ -13,6 +13,11 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@max/core": "workspace:*",
+    "@max/execution": "workspace:*",
+    "@max/execution-local": "workspace:*",
+    "@max/execution-sqlite": "workspace:*",
+    "@max/storage-sqlite": "workspace:*",
     "@max/connector-acme": "workspace:*",
     "typescript": "catalog:"
   },

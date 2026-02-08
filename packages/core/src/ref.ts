@@ -136,4 +136,10 @@ export const Ref = StaticTypeCompanion({
   ): Ref<E, S> {
     return new RefImpl(def, id, scope);
   },
+
+  /** Reconstruct a ref from a RefKey and an EntityDef */
+  fromKey<E extends EntityDefAny>(def: E, key: RefKey): Ref<E> {
+    const parsed = RefKeyUtil.parse(key);
+    return new RefImpl(def, parsed.entityId, parsed.scope);
+  },
 })

@@ -28,6 +28,8 @@
 // Type Descriptors
 // ============================================================================
 
+import {ClassOf} from "./type-system-utils.js";
+
 /**
  * Base interface for type descriptors.
  */
@@ -170,11 +172,12 @@ export class Context {
    * });
    */
   static build<C extends Context>(
-    ContextClass: new () => C,
+    ContextClass: ClassOf<C>,
     values: ContextValues<C>
   ): C {
     // Create temporary instance to extract schema
     Context.buildInProgress = true;
+    // @ts-ignore protected constructor
     const schemaInstance = new ContextClass();
     Context.buildInProgress = false;
 
@@ -187,7 +190,7 @@ export class Context {
       // Validate: all fields must be type descriptors
       if (!isTypeDesc(value)) {
         throw new Error(
-          `Context field '${key}' in ${ContextClass.name} is not a valid type descriptor. ` +
+          `Context field '${key}' in ${ContextClass} is not a valid type descriptor. ` +
             `Use Context.string, Context.instance<T>(), etc.`
         );
       }
@@ -199,13 +202,14 @@ export class Context {
     for (const fieldName of fieldNames) {
       if (!(fieldName in values)) {
         throw new Error(
-          `Missing required context field '${fieldName}' when building ${ContextClass.name}`
+          `Missing required context field '${fieldName}' when building ${ContextClass}`
         );
       }
     }
 
     // Create final instance with actual values
     Context.buildInProgress = true;
+    // @ts-ignore protected constructor
     const instance = new ContextClass();
     Context.buildInProgress = false;
 
@@ -262,14 +266,3 @@ export type ContextClass = typeof Context;
 export type ContextSchema = Record<string, TypeDesc>;
 export type ContextDefAny = Context;
 export type InferContext<C extends Context> = ContextValues<C>
-
-
-type PrivateConstructor<TClass = any> = {prototype:TClass};
-type AbstractConstructor<TClass> = (abstract new(...args:any) => TClass)
-type StandardConstructor<TClass> = (new(...args:any) => TClass)
-
-export type ClassOf<T, TOptionalStatics extends Record<string,any> = {}> = (
-  | PrivateConstructor<T>
-  | AbstractConstructor<T>
-  | StandardConstructor<T>
-  ) & TOptionalStatics

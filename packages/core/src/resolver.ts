@@ -17,6 +17,7 @@ import type { EntityDefAny } from "./entity-def.js";
 import type { EntityFields } from "./field-types.js";
 import type { ContextDefAny } from "./context-def.js";
 import type { FieldAssignment, LoaderAny } from "./loader.js";
+import {BivariantFunction} from "./type-system-utils.js";
 
 // ============================================================================
 // Resolver Interface
@@ -63,7 +64,10 @@ export interface Resolver<
 }
 
 /** Any resolver */
-export type ResolverAny = Resolver<EntityDefAny, ContextDefAny>;
+export interface ResolverAny extends Resolver<EntityDefAny, ContextDefAny>{
+  getLoaderForField: BivariantFunction<LoaderAny | undefined>
+  getFieldsForLoader: BivariantFunction<string[]>
+}
 
 // ============================================================================
 // Resolver Implementation

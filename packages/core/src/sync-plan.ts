@@ -67,6 +67,7 @@ export type StepOperation = LoadFieldsOperation | LoadCollectionOperation;
 // ============================================================================
 
 export interface SyncStep {
+  readonly kind: "step";
   readonly target: StepTarget;
   readonly operation: StepOperation;
 }
@@ -115,6 +116,7 @@ class StepBuilder<E extends EntityDefAny> {
   /** Load scalar/ref fields via resolvers (type-checked against entity) */
   loadFields<K extends NonCollectionKeys<E>>(...fields: [K, ...K[]]): SyncStep {
     return {
+      kind: "step",
       target: this.target,
       operation: { kind: "loadFields", fields: fields as string[] },
     };
@@ -123,6 +125,7 @@ class StepBuilder<E extends EntityDefAny> {
   /** Load a collection field from upstream (type-checked against entity) */
   loadCollection<K extends CollectionKeys<E>>(field: K): SyncStep {
     return {
+      kind: "step",
       target: this.target,
       operation: { kind: "loadCollection", field: field as string },
     };

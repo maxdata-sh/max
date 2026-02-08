@@ -19,9 +19,10 @@
  */
 
 import {StaticTypeCompanion} from "./companion.js";
-import type {ClassOf, ContextDefAny, InferContext} from "./context-def.js";
+import type {ContextDefAny, InferContext} from "./context-def.js";
 import type {Engine} from "./engine.js";
 import type {SyncPlan} from "./sync-plan.js";
+import {ClassOf} from "./type-system-utils.js";
 
 // ============================================================================
 // Seeder Interface

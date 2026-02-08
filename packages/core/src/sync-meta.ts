@@ -1,3 +1,10 @@
+import type {RefAny} from "./ref.js";
+import {Duration} from "./duration.js";
+
+// ============================================================================
+// SyncMeta Interface
+// ============================================================================
+
 /**
  * SyncMeta - Interface for tracking sync metadata per entity.
  *
@@ -5,30 +12,6 @@
  * its fields are populated and non-stale. Stored separately from entity
  * data (companion table), but JOINable for efficient filtered queries.
  */
-
-import {StaticTypeCompanion} from "./companion.js";
-import type {Id} from "./brand.js";
-import type {RefAny} from "./ref.js";
-
-// ============================================================================
-// Duration
-// ============================================================================
-
-/** Duration in milliseconds */
-export type Duration = Id<"duration-ms">;
-
-export const Duration = StaticTypeCompanion({
-  ms(n: number): Duration { return n as Duration; },
-  seconds(n: number): Duration { return (n * 1_000) as Duration; },
-  minutes(n: number): Duration { return (n * 60_000) as Duration; },
-  hours(n: number): Duration { return (n * 3_600_000) as Duration; },
-  days(n: number): Duration { return (n * 86_400_000) as Duration; },
-});
-
-// ============================================================================
-// SyncMeta Interface
-// ============================================================================
-
 export interface SyncMeta {
   /** Record that fields were synced for an entity */
   recordFieldSync(ref: RefAny, fields: string[], timestamp: Date): Promise<void>;

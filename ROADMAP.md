@@ -22,8 +22,8 @@ Self-explanatory. `Error` is not acceptable. Consult maxwell approach.
 ### Standard pagnination lib
 See maxwell
 
-### Decide serialisation standard
-How to _deserialise_ effectively?
+### Serialisation
+Codec-based strategy for serialising/deserialising types across boundaries (Temporal, storage, IPC). Approach decided, implementation deferred to first real boundary. See [docs/developer/serialisation.md](docs/developer/serialisation.md).
 
 
 ---

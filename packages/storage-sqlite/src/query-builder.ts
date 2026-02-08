@@ -12,6 +12,7 @@ import {
   type EntityId,
 } from "@max/core";
 import type { TableDef, ColumnDef } from "./table-def.js";
+import { ErrFieldNotFound } from "./errors.js";
 
 type WhereClause = {
   column: string;
@@ -134,7 +135,7 @@ export class SqliteQueryBuilder<E extends EntityDefAny> implements QueryBuilder<
   private getColumn(fieldName: string): ColumnDef {
     const col = this.tableDef.columns.find(c => c.fieldName === fieldName);
     if (!col) {
-      throw new Error(`Field '${fieldName}' not found on ${this.entityDef.name}`);
+      throw ErrFieldNotFound.create({ entityType: this.entityDef.name, field: fieldName });
     }
     return col;
   }

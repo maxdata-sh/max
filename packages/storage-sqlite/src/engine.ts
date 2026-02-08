@@ -21,6 +21,7 @@ import {
 import type { SqliteSchema } from "./schema.js";
 import type { TableDef, ColumnDef } from "./table-def.js";
 import { SqliteQueryBuilder } from "./query-builder.js";
+import { ErrEntityNotFound, ErrFieldNotFound, ErrCollectionNotSupported } from "./errors.js";
 
 export class SqliteEngine implements Engine {
   constructor(
@@ -86,7 +87,7 @@ export class SqliteEngine implements Engine {
     const row = this.db.query(sql).get(ref.id) as Record<string, unknown> | null;
 
     if (!row) {
-      throw new Error(`Entity not found: ${ref.entityType}#${ref.id}`);
+      throw ErrEntityNotFound.create({ entityType: ref.entityType, entityId: ref.id });
     }
 
     // Convert row to field values
@@ -105,14 +106,14 @@ export class SqliteEngine implements Engine {
     const tableDef = this.schema.getTable(ref.entityDef);
     const col = tableDef.columns.find(c => c.fieldName === field);
     if (!col) {
-      throw new Error(`Field '${String(field)}' not found on ${ref.entityType}`);
+      throw ErrFieldNotFound.create({ entityType: ref.entityType, field: String(field) });
     }
 
     const sql = `SELECT ${col.columnName} FROM ${tableDef.tableName} WHERE id = ?`;
     const row = this.db.query(sql).get(ref.id) as Record<string, unknown> | null;
 
     if (!row) {
-      throw new Error(`Entity not found: ${ref.entityType}#${ref.id}`);
+      throw ErrEntityNotFound.create({ entityType: ref.entityType, entityId: ref.id });
     }
 
     return this.fromSqlValue(row[col.columnName], col, ref.entityDef) as EntityFields<E>[K];
@@ -123,8 +124,7 @@ export class SqliteEngine implements Engine {
     _field: K,
     _options?: PageRequest
   ): Promise<Page<CollectionTargetRef<E, K>>> {
-    // TODO: Implement collection loading
-    throw new Error("loadCollection not yet implemented");
+    throw ErrCollectionNotSupported.create({});
   }
 
   query<E extends EntityDefAny>(def: E): SqliteQueryBuilder<E> {

@@ -12,6 +12,7 @@ import type {
   TaskTemplate,
   SyncId,
 } from "@max/execution";
+import { ErrTaskNotFound } from "@max/execution";
 
 // ============================================================================
 // InMemoryTaskStore
@@ -71,7 +72,7 @@ export class InMemoryTaskStore implements TaskStore {
 
   async complete(id: TaskId): Promise<Task> {
     const idx = this.tasks.findIndex((t) => t.id === id);
-    if (idx === -1) throw new Error(`Task not found: ${id}`);
+    if (idx === -1) throw ErrTaskNotFound.create({ taskId: id });
     this.tasks[idx] = { ...this.tasks[idx]!, state: "completed", completedAt: new Date() };
     return this.tasks[idx]!;
   }
@@ -126,7 +127,7 @@ export class InMemoryTaskStore implements TaskStore {
 
   private updateState(id: TaskId, state: TaskState, extra?: Partial<Task>): void {
     const idx = this.tasks.findIndex((t) => t.id === id);
-    if (idx === -1) throw new Error(`Task not found: ${id}`);
+    if (idx === -1) throw ErrTaskNotFound.create({ taskId: id });
     this.tasks[idx] = { ...this.tasks[idx]!, state, ...extra };
   }
 }

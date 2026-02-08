@@ -29,6 +29,7 @@
 // ============================================================================
 
 import {ClassOf} from "./type-system-utils.js";
+import {ErrContextBuildFailed} from "./errors/basic-errors.js";
 
 /**
  * Base interface for type descriptors.
@@ -143,9 +144,7 @@ export class Context {
    */
   protected constructor() {
     if (!Context.buildInProgress) {
-      throw new Error(
-        "Cannot instantiate Context directly. Use Context.build(ContextClass, values)."
-      );
+      throw ErrContextBuildFailed.create({}, "Cannot instantiate Context directly — use Context.build(ContextClass, values)");
     }
   }
 
@@ -189,10 +188,7 @@ export class Context {
 
       // Validate: all fields must be type descriptors
       if (!isTypeDesc(value)) {
-        throw new Error(
-          `Context field '${key}' in ${ContextClass} is not a valid type descriptor. ` +
-            `Use Context.string, Context.instance<T>(), etc.`
-        );
+        throw ErrContextBuildFailed.create({}, `field '${key}' in ${ContextClass} is not a valid type descriptor — use Context.string, Context.instance<T>(), etc.`);
       }
 
       fieldNames.push(key);
@@ -201,9 +197,7 @@ export class Context {
     // Validate: all required fields are provided
     for (const fieldName of fieldNames) {
       if (!(fieldName in values)) {
-        throw new Error(
-          `Missing required context field '${fieldName}' when building ${ContextClass}`
-        );
+        throw ErrContextBuildFailed.create({}, `missing required field '${fieldName}' when building ${ContextClass}`);
       }
     }
 

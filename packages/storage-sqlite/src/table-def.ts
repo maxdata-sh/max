@@ -4,6 +4,7 @@
 
 import type { EntityDefAny, FieldDef } from "@max/core";
 import { toSnakeCase } from "./utils.js";
+import { ErrInvalidFieldMapping } from "./errors.js";
 
 export type SqlType = "TEXT" | "INTEGER" | "REAL";
 
@@ -35,7 +36,7 @@ function fieldToSqlType(field: FieldDef): SqlType {
     return "TEXT"; // stores the ref ID
   }
   // collection fields are not stored as columns
-  throw new Error(`Cannot map collection field to SQL type`);
+  throw ErrInvalidFieldMapping.create({});
 }
 
 /** Build a TableDef from an EntityDef */

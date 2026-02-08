@@ -1,8 +1,8 @@
 /**
- * Standard facets and error definitions for core.
+ * Standard facets and domain-owned error definitions for the core boundary.
  *
- * Facets are reusable markers/data traits that can be composed into any ErrorDef.
- * Error definitions here are domain-agnostic — connectors and apps define their own.
+ * Facets are reusable markers/data traits composed into any ErrorDef.
+ * Every error here is owned by the Core boundary — no generic catch-alls.
  */
 
 import {ErrFacet, MaxError} from "../max-error.js";
@@ -32,36 +32,48 @@ export const Invariant = ErrFacet.marker("Invariant");
 /** Carries an entity reference (type + id) */
 export const HasEntityRef = ErrFacet.data<{ entityType: string; entityId: string }>("HasEntityRef");
 
+/** Carries an entity type + field name */
+export const HasField = ErrFacet.data<{ entityType: string; field: string }>("HasField");
+
+/** Carries a loader name */
+export const HasLoaderName = ErrFacet.data<{ loaderName: string }>("HasLoaderName");
+
 // ============================================================================
 // Standard Error Definitions
 // ============================================================================
 
-/** Generic not-found error. Use when no entity-specific info is available. */
-export const ErrNotFound = Core.define("not_found", {
-  facets: [NotFound],
-  message: () => "Not found",
-});
-
-/** An entity was not found by type + id */
-export const ErrEntityNotFound = Core.define("entity_not_found", {
-  facets: [NotFound, HasEntityRef],
-  message: (d) => `${d.entityType} not found: ${d.entityId}`,
-});
-
-/** Caller-supplied data failed validation */
-export const ErrBadInput = Core.define("bad_input", {
+/** RefKey string could not be parsed */
+export const ErrInvalidRefKey = Core.define("invalid_ref_key", {
   facets: [BadInput],
-  message: () => "Bad input",
+  message: (d) => `Invalid RefKey format: ${d.key}`,
 });
 
-/** A code path that hasn't been implemented yet */
-export const ErrNotImplemented = Core.define("not_implemented", {
-  facets: [NotImplemented],
-  message: () => "Not implemented",
+/** Accessed a field that was not loaded */
+export const ErrFieldNotLoaded = Core.define("field_not_loaded", {
+  facets: [Invariant, HasField],
+  message: (d) => `Field '${d.field}' not loaded on ${d.entityType}`,
 });
 
-/** An internal invariant was violated. Always indicates a bug. */
-export const ErrInvariant = Core.define("invariant", {
+/** Loader result not available in dependency map */
+export const ErrLoaderResultNotAvailable = Core.define("loader_result_not_available", {
+  facets: [NotFound, HasLoaderName],
+  message: (d) => `Loader result not available: ${d.loaderName}`,
+});
+
+/** Context build failed (direct instantiation, invalid descriptor, or missing field) */
+export const ErrContextBuildFailed = Core.define("context_build_failed", {
+  facets: [BadInput],
+  message: () => "Context build failed",
+});
+
+/** Batch.getOrThrow called with a key that has no value */
+export const ErrBatchKeyMissing = Core.define("batch_key_missing", {
+  facets: [NotFound],
+  message: (d) => `Batch value missing for key: ${d.key}`,
+});
+
+/** Operation attempted on an empty batch */
+export const ErrBatchEmpty = Core.define("batch_empty", {
   facets: [Invariant],
-  message: () => "Invariant violated",
+  message: () => "Empty batch has no keys",
 });

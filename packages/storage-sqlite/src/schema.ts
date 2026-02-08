@@ -5,6 +5,7 @@
 import type { Database } from "bun:sqlite";
 import type { EntityDefAny } from "@max/core";
 import { buildTableDef, generateCreateTableSql, type TableDef } from "./table-def.js";
+import { ErrEntityNotRegistered } from "./errors.js";
 
 export class SqliteSchema {
   private tables = new Map<string, TableDef>();
@@ -20,7 +21,7 @@ export class SqliteSchema {
   getTable(entityDef: EntityDefAny): TableDef {
     const tableDef = this.tables.get(entityDef.name);
     if (!tableDef) {
-      throw new Error(`Entity '${entityDef.name}' not registered in schema`);
+      throw ErrEntityNotRegistered.create({ entityType: entityDef.name });
     }
     return tableDef;
   }

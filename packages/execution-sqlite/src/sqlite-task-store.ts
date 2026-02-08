@@ -15,6 +15,7 @@ import type {
   TaskTemplate,
   SyncId,
 } from "@max/execution";
+import { ErrTaskNotFound } from "@max/execution";
 
 // ============================================================================
 // Row types
@@ -164,7 +165,7 @@ export class SqliteTaskStore implements TaskStore {
     ]);
 
     const row = this.db.query(`SELECT * FROM _max_tasks WHERE id = ?`).get(id) as TaskRow | null;
-    if (!row) throw new Error(`Task not found: ${id}`);
+    if (!row) throw ErrTaskNotFound.create({ taskId: id });
     return rowToTask(row);
   }
 

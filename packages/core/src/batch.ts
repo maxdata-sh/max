@@ -19,6 +19,7 @@
 
 import { StaticTypeCompanion } from "./companion.js";
 import { Lazy } from "./lazy.js";
+import { ErrBatchKeyMissing, ErrBatchEmpty } from "./errors/basic-errors.js";
 
 // ============================================================================
 // Keyable Interface
@@ -203,8 +204,7 @@ class BatchImpl<V, K extends KeyableType> implements Batch<V, K> {
   getOrThrow(key: K): V {
     const value = this.get(key);
     if (value === undefined) {
-      const keyStr = toKeyString(key);
-      throw new Error(`Batch value missing for key: ${keyStr}`);
+      throw ErrBatchKeyMissing.create({ key: toKeyString(key) });
     }
     return value;
   }
@@ -340,7 +340,7 @@ export const Batch = StaticTypeCompanion({
    */
   empty<V, K extends KeyableType = string>(): Batch<V, K> {
     return new BatchImpl<V, K>([], [], () => {
-      throw new Error("Empty batch has no keys");
+      throw ErrBatchEmpty.create({});
     });
   },
 });

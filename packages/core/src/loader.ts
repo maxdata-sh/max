@@ -20,6 +20,7 @@
  */
 
 import {StaticTypeCompanion} from "./companion.js";
+import {ErrLoaderResultNotAvailable} from "./errors/basic-errors.js";
 import type {Id} from "./brand.js";
 import type {EntityDefAny} from "./entity-def.js";
 import type {EntityInput} from "./entity-input.js";
@@ -91,7 +92,7 @@ export class LoaderResultsImpl implements LoaderResults {
   getOrThrow<TData>(loader: RawLoader<TData, ContextDefAny>): TData {
     const result = this.get(loader);
     if (result === undefined) {
-      throw new Error(`Loader result not available: ${loader.name}`);
+      throw ErrLoaderResultNotAvailable.create({ loaderName: loader.name });
     }
     return result;
   }

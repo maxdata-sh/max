@@ -6,6 +6,7 @@ import type { EntityDefAny } from "./entity-def.js";
 import type { EntityFields } from "./field-types.js";
 import type { Ref, RefAny } from "./ref.js";
 import {StaticTypeCompanion} from "./companion.js";
+import {ErrFieldNotLoaded} from "./errors/basic-errors.js";
 
 /**
  * Proxy type for direct field access via .fields
@@ -92,7 +93,7 @@ class EntityResultImpl<
     this.fields = new Proxy({} as FieldsProxy<E, Loaded>, {
       get: (_, prop: string) => {
         if (!this.data.has(prop)) {
-          throw new Error(`Field '${prop}' not loaded`);
+          throw ErrFieldNotLoaded.create({ entityType: this.def.name, field: prop });
         }
         return this.data.get(prop);
       },
@@ -109,7 +110,7 @@ class EntityResultImpl<
 
   get<K extends Loaded>(field: K): EntityFields<E>[K] {
     if (!this.data.has(field as string)) {
-      throw new Error(`Field '${String(field)}' not loaded`);
+      throw ErrFieldNotLoaded.create({ entityType: this.def.name, field: String(field) });
     }
     return this.data.get(field as string) as EntityFields<E>[K];
   }

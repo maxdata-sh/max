@@ -31,6 +31,13 @@ import type {
   TaskPayload,
   ExecutionRegistry,
 } from "@max/execution";
+import {
+  ErrUnknownEntityType,
+  ErrNoResolver,
+  ErrNoCollectionLoader,
+  ErrLoaderDepsNotSupported,
+  ErrNoDepsAvailable,
+} from "@max/execution";
 
 // ============================================================================
 // Constants
@@ -90,7 +97,7 @@ export class DefaultTaskRunner implements TaskRunner {
   private async executeSyncStep(payload: TaskPayload & { kind: "sync-step" }): Promise<TaskRunResult> {
     const {target, operation} = payload.step;
     const entityDef = this.registry.getEntity(target.entityType);
-    if (!entityDef) throw new Error(`Unknown entity type: ${target.entityType}`);
+    if (!entityDef) throw ErrUnknownEntityType.create({ entityType: target.entityType });
 
     if (target.kind === "forRoot" || target.kind === "forOne") {
       // Single ref: execute directly, no children needed
@@ -220,7 +227,7 @@ export class DefaultTaskRunner implements TaskRunner {
     refs: readonly RefAny[],
   ): Promise<void> {
     const resolver = this.registry.getResolver(target.entityType);
-    if (!resolver) throw new Error(`No resolver for entity: ${target.entityType}`);
+    if (!resolver) throw ErrNoResolver.create({ entityType: target.entityType });
 
     // Group fields by loader
     const loaderFields = new Map<LoaderAny, string[]>();
@@ -268,7 +275,7 @@ export class DefaultTaskRunner implements TaskRunner {
   private async executeLoadFields(payload: TaskPayload & { kind: "load-fields" }): Promise<TaskRunResult> {
     const {entityType, refKeys, fields, cursor} = payload;
     const entityDef = this.registry.getEntity(entityType);
-    if (!entityDef) throw new Error(`Unknown entity type: ${entityType}`);
+    if (!entityDef) throw ErrUnknownEntityType.create({ entityType });
 
     if (refKeys.length > 0) {
       // Direct ref-based load (ForRoot/ForOne style)
@@ -300,11 +307,11 @@ export class DefaultTaskRunner implements TaskRunner {
     cursor?: string,
   ): Promise<TaskRunResult> {
     const resolver = this.registry.getResolver(entityDef.name as EntityType);
-    if (!resolver) throw new Error(`No resolver for entity: ${entityDef.name}`);
+    if (!resolver) throw ErrNoResolver.create({ entityType: entityDef.name });
 
     const loader = resolver.getLoaderForField(field);
     if (!loader || loader.kind !== "collection") {
-      throw new Error(`No collection loader for field: ${field}`);
+      throw ErrNoCollectionLoader.create({ entityType: entityDef.name, field });
     }
 
     this.assertNoDeps(loader);
@@ -351,7 +358,7 @@ export class DefaultTaskRunner implements TaskRunner {
   private async executeLoadCollection(payload: TaskPayload & { kind: "load-collection" }): Promise<TaskRunResult> {
     const {entityType, refKey, field, cursor} = payload;
     const entityDef = this.registry.getEntity(entityType);
-    if (!entityDef) throw new Error(`Unknown entity type: ${entityType}`);
+    if (!entityDef) throw ErrUnknownEntityType.create({ entityType });
 
     return this.executeLoadCollectionForRef(entityDef, refKey, field, cursor);
   }
@@ -362,9 +369,7 @@ export class DefaultTaskRunner implements TaskRunner {
 
   private assertNoDeps(loader: LoaderAny): void {
     if (loader.dependsOn.length > 0) {
-      throw new Error(
-        `Loader "${loader.name}" has dependencies, but loader dependency resolution is not yet supported`
-      );
+      throw ErrLoaderDepsNotSupported.create({ loaderName: loader.name });
     }
   }
 }
@@ -375,6 +380,6 @@ export class DefaultTaskRunner implements TaskRunner {
 
 const emptyDeps = {
   get: () => undefined,
-  getOrThrow: (loader: any) => { throw new Error(`No deps available: ${loader.name}`); },
+  getOrThrow: (loader: any) => { throw ErrNoDepsAvailable.create({ loaderName: loader.name }); },
   has: () => false,
 };

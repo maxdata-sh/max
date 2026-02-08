@@ -8,3 +8,6 @@ export { LocalSyncQueryEngine } from "./local-sync-query-engine.js";
 export { DefaultTaskRunner } from "./default-task-runner.js";
 export type { DefaultTaskRunnerConfig } from "./default-task-runner.js";
 export { ExecutionRegistryImpl } from "./execution-registry-impl.js";
+
+// Errors
+export { ExecutionLocal } from "./errors.js";

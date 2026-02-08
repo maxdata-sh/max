@@ -10,6 +10,7 @@ import { type HardBrand, hardBrand } from "./brand.js";
 import type { Scope, LocalScope, SystemScope } from "./scope.js";
 import type { Id } from "./brand.js";
 import {StaticTypeCompanion} from "./companion.js";
+import {ErrInvalidRefKey} from "./errors/basic-errors.js";
 
 // ============================================================================
 // Types
@@ -75,11 +76,11 @@ export const RefKey = StaticTypeCompanion({
   parse(key: RefKey): ParsedRefKey {
     const str = key as string;
     const d1 = str.indexOf(DELIMITER);
-    if (d1 === -1) throw new Error(`Invalid RefKey format: ${key}`);
+    if (d1 === -1) throw ErrInvalidRefKey.create({ key: key as string });
 
     const scope = str.substring(0, d1);
     const d2 = str.indexOf(DELIMITER, d1 + 1);
-    if (d2 === -1) throw new Error(`Invalid RefKey format: ${key}`);
+    if (d2 === -1) throw ErrInvalidRefKey.create({ key: key as string });
 
     if (scope === "local") {
       return {
@@ -91,7 +92,7 @@ export const RefKey = StaticTypeCompanion({
 
     if (scope === "system") {
       const d3 = str.indexOf(DELIMITER, d2 + 1);
-      if (d3 === -1) throw new Error(`Invalid RefKey format: ${key}`);
+      if (d3 === -1) throw ErrInvalidRefKey.create({ key: key as string });
       return {
         scope: { kind: "system", installationId: str.substring(d1 + 1, d2) as InstallationId },
         entityType: str.substring(d2 + 1, d3) as EntityType,
@@ -99,7 +100,7 @@ export const RefKey = StaticTypeCompanion({
       };
     }
 
-    throw new Error(`Invalid RefKey format: ${key}`);
+    throw ErrInvalidRefKey.create({ key: key as string });
   },
 
   /**

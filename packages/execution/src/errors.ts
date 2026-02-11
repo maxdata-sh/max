@@ -4,7 +4,19 @@
  * Used by @max/execution-local and @max/execution-sqlite.
  */
 
-import {MaxError, NotFound, NotImplemented, Invariant, HasField, HasLoaderName} from "@max/core";
+import {
+  MaxError,
+  NotFound,
+  NotImplemented,
+  InvariantViolated,
+  HasEntityField,
+  HasLoaderName,
+  HasEntityType,
+  ErrFacet
+} from "@max/core";
+
+import {TaskId} from "./task.js";
+
 
 // ============================================================================
 // Boundary
@@ -17,25 +29,23 @@ export const Execution = MaxError.boundary("execution");
 // ============================================================================
 
 /** Entity type not found in the execution registry */
-export const ErrUnknownEntityType = Execution.define("unknown_entity_type", {
-  facets: [NotFound],
-  message: (d) => `Unknown entity type: ${d.entityType}`,
-});
+export {ErrUnknownEntityType} from '@max/core'
 
 /** No resolver registered for entity type */
 export const ErrNoResolver = Execution.define("no_resolver", {
-  facets: [NotFound],
+  facets: [NotFound, HasEntityType],
   message: (d) => `No resolver for entity: ${d.entityType}`,
 });
 
 /** No collection loader for field */
 export const ErrNoCollectionLoader = Execution.define("no_collection_loader", {
-  facets: [NotFound, HasField],
+  facets: [NotFound, HasEntityField],
   message: (d) => `No collection loader for field '${d.field}' on ${d.entityType}`,
 });
 
 /** Task not found in task store */
 export const ErrTaskNotFound = Execution.define("task_not_found", {
+  customProps: ErrFacet.props<{taskId: TaskId}>(),
   facets: [NotFound],
   message: (d) => `Task not found: ${d.taskId}`,
 });
@@ -48,6 +58,6 @@ export const ErrLoaderDepsNotSupported = Execution.define("loader_deps_not_suppo
 
 /** Loader dependency results not available */
 export const ErrNoDepsAvailable = Execution.define("no_deps_available", {
-  facets: [Invariant, HasLoaderName],
+  facets: [InvariantViolated, HasLoaderName],
   message: (d) => `No deps available: ${d.loaderName}`,
 });

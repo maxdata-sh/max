@@ -1,0 +1,18 @@
+// Command system
+export { Command } from "./command.js";
+export type { CommandDef, CommandDefAny, ResolvedParams } from "./command.js";
+export { Param } from "./param.js";
+export type { ParamDef, ParamDefs, ParamDefAny, OneOfDef } from "./param.js";
+export { execute } from "./execute.js";
+
+// Context
+export { DaemonContext } from "./context.js";
+
+// Commands
+export { commands } from "./commands/index.js";
+
+// Errors
+export { Daemon, ErrMissingParam, ErrInvalidParam, ErrUnknownCommand, ErrConnectorNotFound } from "./errors.js";
+
+// Socket protocol types (used by cli)
+export type { Request, Response } from "./types.js";

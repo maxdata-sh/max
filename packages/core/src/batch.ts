@@ -19,7 +19,7 @@
 
 import { StaticTypeCompanion } from "./companion.js";
 import { Lazy } from "./lazy.js";
-import { ErrBatchKeyMissing, ErrBatchEmpty } from "./errors/basic-errors.js";
+import { ErrBatchKeyMissing, ErrBatchEmptyDeriveKey } from "./errors/errors.js";
 
 // ============================================================================
 // Keyable Interface
@@ -136,7 +136,7 @@ class BatchImpl<V, K extends KeyableType> implements Batch<V, K> {
 
       recordOfValues: () => {
         const record: Record<string, V> = {};
-        const inputKeySet = this.lazy.read("inputKeySet");
+        const inputKeySet = this.lazy.read.inputKeySet;
 
         for (let i = 0; i < this._values.length; i++) {
           const value = this._values[i];
@@ -153,7 +153,7 @@ class BatchImpl<V, K extends KeyableType> implements Batch<V, K> {
       },
 
       unresolvableKeys: () => {
-        const record = this.lazy.read("recordOfValues");
+        const record = this.lazy.read.recordOfValues;
         const unresolvable = new Set<string>();
 
         for (const keyStr of this.inputKeyStrings) {
@@ -166,7 +166,7 @@ class BatchImpl<V, K extends KeyableType> implements Batch<V, K> {
       },
 
       unresolvableInputs: () => {
-        const unresolvableKeys = this.lazy.read("unresolvableKeys");
+        const unresolvableKeys = this.lazy.read.unresolvableKeys;
         return this.inputKeys.filter((k) => unresolvableKeys.has(toKeyString(k)));
       },
     });
@@ -185,20 +185,20 @@ class BatchImpl<V, K extends KeyableType> implements Batch<V, K> {
   }
 
   get isFullyResolved(): boolean {
-    return this.lazy.read("unresolvableKeys").size === 0;
+    return this.lazy.read.unresolvableKeys.size === 0;
   }
 
   get unresolvableKeys(): Set<string> {
-    return this.lazy.read("unresolvableKeys");
+    return this.lazy.read.unresolvableKeys;
   }
 
   get unresolvableInputs(): K[] {
-    return this.lazy.read("unresolvableInputs");
+    return this.lazy.read.unresolvableInputs;
   }
 
   get(key: K): V | undefined {
     const keyStr = toKeyString(key);
-    return this.lazy.read("recordOfValues")[keyStr];
+    return this.lazy.read.recordOfValues[keyStr];
   }
 
   getOrThrow(key: K): V {
@@ -211,15 +211,15 @@ class BatchImpl<V, K extends KeyableType> implements Batch<V, K> {
 
   has(key: K): boolean {
     const keyStr = toKeyString(key);
-    return keyStr in this.lazy.read("recordOfValues");
+    return keyStr in this.lazy.read.recordOfValues;
   }
 
   keys(): string[] {
-    return Object.keys(this.lazy.read("recordOfValues"));
+    return Object.keys(this.lazy.read.recordOfValues);
   }
 
   entries(): [string, V][] {
-    return Object.entries(this.lazy.read("recordOfValues"));
+    return Object.entries(this.lazy.read.recordOfValues);
   }
 
   mapValues<U>(fn: (value: V, key: K) => U): Batch<U, K> {
@@ -239,12 +239,12 @@ class BatchImpl<V, K extends KeyableType> implements Batch<V, K> {
   }
 
   toRecord(): Record<string, V> {
-    return this.lazy.read("recordOfValues");
+    return this.lazy.read.recordOfValues;
   }
 
   toRecordWithDefaults(getDefault: (key: K) => V): Record<string, V> {
-    const record = { ...this.lazy.read("recordOfValues") };
-    for (const input of this.lazy.read("unresolvableInputs")) {
+    const record = { ...this.lazy.read.recordOfValues };
+    for (const input of this.lazy.read.unresolvableInputs) {
       record[toKeyString(input)] = getDefault(input);
     }
     return record;
@@ -340,7 +340,7 @@ export const Batch = StaticTypeCompanion({
    */
   empty<V, K extends KeyableType = string>(): Batch<V, K> {
     return new BatchImpl<V, K>([], [], () => {
-      throw ErrBatchEmpty.create({});
+      throw ErrBatchEmptyDeriveKey.create({});
     });
   },
 });

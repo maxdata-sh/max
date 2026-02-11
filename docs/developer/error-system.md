@@ -1,6 +1,6 @@
 # Error System
 
-MaxError is a composable error system with **boundaries** and **cause chains**. Errors are built from facets (traits) instead of class inheritance, with three discrimination axes: exact code, facet, or domain.
+MaxError is a composable error system with **boundaries**, **facets**, and **cause chains**. Errors are built from traits instead of class inheritance, with three discrimination axes: exact code, facet, or domain.
 
 ## Creating a boundary
 
@@ -8,50 +8,93 @@ Every domain that throws errors defines a boundary. This is the first line of yo
 
 ```typescript
 // connector-linear/src/errors.ts
-import { MaxError, ErrFacet, NotFound } from "@max/core";
+import { MaxError } from "@max/core";
 
 export const Linear = MaxError.boundary("linear");
 ```
 
 The boundary owns all errors in your domain. It prefixes codes automatically and provides `is()` and `wrap()`.
 
-## Defining errors
-
-Think about three things per error:
-
-1. **Code** — just the suffix. The boundary prefixes the domain: `"auth_failed"` becomes `"linear.auth_failed"`
-2. **Facets** — what categories does this error belong to? Compose from standard markers (`NotFound`, `BadInput`, etc.) and data facets
-3. **Message** — a function from data to a human-readable string. Keep it short; callers add detail via `context`
+Boundaries can declare contextual data that `wrap()` will require:
 
 ```typescript
-// Domain-specific data facet
-const HasIssue = ErrFacet.data<{ issueId: string }>("HasIssue");
+import { MaxError, ErrFacet } from "@max/core";
 
-export const ErrLinearAuthFailed = Linear.define("auth_failed", {
-  facets: [],
-  message: () => "Not authenticated — run 'max connect linear' first",
-});
-
-export const ErrIssueNotFound = Linear.define("issue_not_found", {
-  facets: [NotFound, HasIssue],
-  message: (d) => `Issue not found: ${d.issueId}`,
-});
-
-export const ErrLinearSyncFailed = Linear.define("sync_failed", {
-  facets: [],
-  message: () => "Linear sync failed",
+export const LinearConnector = MaxError.boundary("linear_connector", {
+  customProps: ErrFacet.props<{ connectorType: string; connectorId: string }>(),
 });
 ```
+
+When wrapping, the boundary data is carried on the thin boundary error (see [Wrapping](#wrapping)).
+
+## Defining errors
+
+Three things per error:
+
+1. **Code** — just the suffix. The boundary prefixes the domain: `"auth_failed"` becomes `"linear.auth_failed"`
+2. **Facets** — what categories does this error belong to? Standard markers (`NotFound`, `BadInput`) and data facets
+3. **Message** — a function from data to a human-readable string. Keep it short; callers add detail via `context`
+
+### Error-local data with customProps
+
+Errors often carry data specific to their message. Use `customProps` to declare it:
+
+```typescript
+export const ErrIssueNotFound = Linear.define("issue_not_found", {
+  customProps: ErrFacet.props<{ issueId: string }>(),
+  facets: [NotFound],
+  message: (d) => `Issue not found: ${d.issueId}`,
+});
+```
+
+The `d` parameter is the intersection of customProps data and all facet data. Both are type-safe — `create()` requires them, `message()` can access them.
+
+```typescript
+// ✅ Typed — requires { issueId: string }
+throw ErrIssueNotFound.create({ issueId: "ISS-123" });
+
+// ❌ Compile error — missing issueId
+throw ErrIssueNotFound.create({});
+```
+
+### When to use customProps vs. data facets
+
+**customProps** — data specific to this error, used in its message. No catch-site discrimination needed.
+
+```typescript
+export const ErrMissingParam = Daemon.define("missing_param", {
+  customProps: ErrFacet.props<{ param: string }>(),
+  facets: [BadInput],
+  message: (d) => `Missing required parameter: ${d.param}`,
+});
+```
+
+**Data facets** — reusable semantic data that catch sites extract. Multiple errors share the same facet, and callers branch on it.
+
+```typescript
+const HasEntityRef = ErrFacet.data<{ entityType: string; entityId: string }>("HasEntityRef");
+
+export const ErrEntityNotFound = Core.define("entity_not_found", {
+  facets: [NotFound, HasEntityRef],
+  message: (d) => `${d.entityType} not found: ${d.entityId}`,
+});
+
+// Catch site extracts structured data via the facet
+if (MaxError.has(err, HasEntityRef)) {
+  logEntityFailure(err.data.entityType, err.data.entityId);
+}
+```
+
+**The upgrade path:** Start with customProps. When you notice multiple errors carrying the same shape of data, and catch sites want to branch on it, extract it into a data facet.
 
 ### Choosing facets
 
 Facets answer "what category of thing happened?" — they're for catch-site logic, not documentation.
 
-- **Use a marker facet** when callers will branch on it: `NotFound` → return 404, `BadInput` → show validation error
-- **Use a data facet** when callers need structured info: `HasIssue` → log the issue ID
-- **Use no facets** when the error is self-explanatory by its code alone: `ErrLinearAuthFailed` doesn't need a marker because callers match it by exact type or by the `Linear` boundary
-
-Don't force-fit a facet. `ErrAuthFailed` isn't `BadInput` — the user didn't provide bad input, the system isn't configured.
+- **Use a marker facet** when callers will branch on it: `NotFound` -> return 404, `BadInput` -> show validation error
+- **Use a data facet** when callers need structured info: `HasEntityRef` -> log the entity ID
+- **Use no facets** when the error is self-explanatory by its code alone
+- **Don't force-fit a facet.** `ErrAuthFailed` isn't `BadInput` — the user didn't provide bad input, the system isn't configured
 
 ### Standard facets
 
@@ -62,11 +105,13 @@ Don't force-fit a facet. `ErrAuthFailed` isn't `BadInput` — the user didn't pr
 | `NotImplemented` | marker | Code path not yet built |
 | `Invariant` | marker | Should never happen — always a bug |
 | `HasEntityRef` | data: `{ entityType, entityId }` | Error relates to a specific entity |
+| `HasField` | data: `{ entityType, field }` | Error relates to a specific field |
+| `HasLoaderName` | data: `{ loaderName }` | Error relates to a specific loader |
 
 ## Throwing errors
 
 ```typescript
-// Data is typed from the facets
+// Data is typed from customProps + facets
 throw ErrIssueNotFound.create({ issueId: "ISS-123" });
 
 // Optional context string — appended with " — "
@@ -77,47 +122,76 @@ throw ErrIssueNotFound.create({ issueId: "ISS-123" }, "during sync");
 throw ErrLinearSyncFailed.create({}, "page 3 of issues", innerError);
 ```
 
-## Wrapping boundaries
+## Wrapping
 
-Use `wrap()` at domain entry points to build cause chains automatically:
+There are two wrapping mechanisms, serving distinct purposes.
+
+### ErrorDef.wrap — intent wrapping
+
+"Run this function. If it fails, the error is X."
+
+This has nothing to do with boundaries. It's a convenience on any `ErrorDef` that try/catches and wraps the thrown error as a cause:
 
 ```typescript
-// connector-linear/src/sync.ts
-import { Linear, ErrLinearSyncFailed } from "./errors.js";
+const issues = await ErrSyncFailed.wrap(async () => {
+  return await linearApi.fetchAllIssues();
+});
+```
 
-export async function sync() {
-  // Intent wrap — "I was trying to sync"
-  await Linear.wrap(ErrLinearSyncFailed, async () => {
+If the API call fails, you get `linear.sync_failed` with the original error as the cause.
+
+If the ErrorDef requires data (from customProps or data facets), pass it as the first argument:
+
+```typescript
+await ErrSyncFailed.wrap({ source: "linear" }, async () => {
+  return await linearApi.fetchAllIssues();
+});
+```
+
+### Boundary.wrap — domain entry
+
+"You're entering this boundary. Here's the context."
+
+Use this at the entry point to a domain. If anything escapes, the boundary wraps it in a thin `{domain}.error` carrying the provided contextual data:
+
+```typescript
+await LinearConnector.wrap(
+  { connectorType: "linear", connectorId: "lin_123" },
+  async () => {
     const issues = await fetchAllIssues();
-    await storeIssues(issues);  // internally uses Storage boundary
-  });
-}
+    await storeIssues(issues);
+  },
+);
 ```
 
-If `storeIssues` throws a storage error, it becomes:
+If `storeIssues` throws a storage error, the cause chain becomes:
 ```
-linear.sync_failed → storage.write_failed → <original cause>
+linear_connector.error { connectorType: "linear", connectorId: "lin_123" }
+  └ caused by: storage.write_failed
+    └ caused by: <original cause>
 ```
 
-You can also use the safety-net form at a domain's top-level entry point:
+For boundaries without declared data, the data argument is omitted:
 
 ```typescript
-// connector-linear/src/index.ts
-export async function handleRequest(req: Request) {
-  // Catches anything that escapes without a specific intent wrap
-  // Uses generic "linear.error" code
-  await Linear.wrap(async () => {
-    await route(req);
-  });
-}
+await Linear.wrap(async () => {
+  await route(req);
+});
 ```
 
 ### Rules
 
-- **Same-domain errors pass through** — if `storeIssues` throws a Linear error, it won't be double-wrapped
+- **Same-domain errors pass through** — if code inside `Linear.wrap()` throws a Linear error, it won't be double-wrapped
 - **Cross-domain errors are wrapped** with the original as `cause`
-- **Plain `Error` / strings** are first wrapped into a generic MaxError, then used as cause
-- **Each code site wraps its own boundary** — you shouldn't see two different boundaries in the same function. If you're calling the database, the storage boundary lives inside the database module, not at your call site
+- **Plain `Error` / strings** are first converted to a generic MaxError, then used as cause
+- **Compose naturally** — use `ErrorDef.wrap()` for specific operations inside a `Boundary.wrap()`:
+
+```typescript
+await LinearConnector.wrap({ connectorType: "linear", connectorId: "lin_123" }, async () => {
+  const issues = await ErrSyncFailed.wrap(() => linearApi.fetchIssues());
+  await ErrStoreFailed.wrap(() => storeIssues(issues));
+});
+```
 
 ## Catching errors
 
@@ -129,7 +203,7 @@ try {
 } catch (err) {
   // Exact type — "is this specific error?"
   if (ErrIssueNotFound.is(err)) {
-    console.log(err.data.issueId);  // typed
+    console.log(err.data.issueId);  // typed from customProps + facets
   }
 
   // By facet — "is this any kind of not-found?"
@@ -149,51 +223,33 @@ try {
 }
 ```
 
-## Shared boundaries
+## Displaying errors
 
-Some boundaries are cross-cutting — storage, serialization, network. These live in their respective packages and are used internally by any domain that needs them:
+### prettyPrint
+
+`prettyPrint()` renders an error with its full cause chain in a readable format:
 
 ```typescript
-// storage-sqlite/src/errors.ts
-export const Storage = MaxError.boundary("storage");
-export const ErrWriteFailed = Storage.define("write_failed", { ... });
-
-// storage-sqlite/src/engine.ts — wraps internally
-import { Storage, ErrWriteFailed } from "./errors.js";
-
-export async function save(entity: Entity) {
-  await Storage.wrap(ErrWriteFailed, async () => {
-    await db.insert(entity);
-  });
+if (MaxError.isMaxError(err)) {
+  console.error(err.prettyPrint({ color: true }));
 }
 ```
 
-From the caller's perspective, they just call `save()`. If it fails, the error chain includes the storage boundary automatically. The caller only wraps their own boundary:
-
-```typescript
-// connector-linear/src/sync.ts
-await Linear.wrap(ErrLinearSyncFailed, async () => {
-  await save(issue);  // Storage boundary is internal to save()
-});
+Output:
+```
+daemon.connector_not_found: Unknown connector: bogus
+  {"connector":"bogus"}
+  └ caused by: linear.sync_failed: Sync failed
+    └ caused by: unknown: ECONNREFUSED
 ```
 
-## Core errors
+Options:
+- `color` — ANSI color codes (error code in red, data and cause labels dimmed)
+- `includeStackTrace` — append the stack trace at the end
 
-The `Core` boundary provides a small set of generic errors. Use these sparingly — prefer defining domain-owned errors:
+### toJSON
 
-| Error | Code | Facets |
-|-------|------|--------|
-| `ErrNotFound` | `core.not_found` | `NotFound` |
-| `ErrEntityNotFound` | `core.entity_not_found` | `NotFound`, `HasEntityRef` |
-| `ErrBadInput` | `core.bad_input` | `BadInput` |
-| `ErrNotImplemented` | `core.not_implemented` | `NotImplemented` |
-| `ErrInvariant` | `core.invariant` | `Invariant` |
-
-Seeing `core.*` errors in production logs is a signal to go define a proper domain error.
-
-## Serialization
-
-`err.toJSON()` returns a structured object safe for logging pipelines. Cause chains are serialized recursively:
+`toJSON()` returns a structured object for logging pipelines. Cause chains serialize recursively:
 
 ```json
 {
@@ -212,14 +268,15 @@ Seeing `core.*` errors in production logs is a signal to go define a proper doma
 }
 ```
 
-## Console output
+## Core errors
 
-Errors render with the code in red, data block, stack frames, and cause chain:
+The `Core` boundary provides infrastructure errors. Prefer defining domain-owned errors — seeing `core.*` in production logs is a signal to go define a proper domain error.
 
-```
-MaxError[linear.sync_failed]: Linear sync failed
-    at sync (/src/connector-linear/sync.ts:12:5)
-  caused by: MaxError[storage.write_failed]: Write failed
-    { entityType: "LinearIssue", entityId: "ISS-123" }
-      at save (/src/storage-sqlite/engine.ts:28:7)
-```
+| Error | Code | Facets | customProps |
+|-------|------|--------|-------------|
+| `ErrInvalidRefKey` | `core.invalid_ref_key` | `BadInput` | `{ key: string }` |
+| `ErrFieldNotLoaded` | `core.field_not_loaded` | `Invariant`, `HasField` | — |
+| `ErrLoaderResultNotAvailable` | `core.loader_result_not_available` | `NotFound`, `HasLoaderName` | — |
+| `ErrContextBuildFailed` | `core.context_build_failed` | `BadInput` | — |
+| `ErrBatchKeyMissing` | `core.batch_key_missing` | `NotFound` | `{ key: string }` |
+| `ErrBatchEmpty` | `core.batch_empty` | `Invariant` | — |

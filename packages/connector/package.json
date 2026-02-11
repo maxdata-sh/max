@@ -1,0 +1,21 @@
+{
+  "name": "@max/connector",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    "types": "./src/index.ts",
+    "default": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target node",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "catalog:"
+  },
+  "dependencies": {
+    "@max/core": "workspace:*"
+  }
+}

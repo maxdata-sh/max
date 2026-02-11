@@ -29,7 +29,7 @@
 // ============================================================================
 
 import {ClassOf} from "./type-system-utils.js";
-import {ErrContextBuildFailed} from "./errors/basic-errors.js";
+import {ErrContextBuildFailed} from "./errors/errors.js";
 
 /**
  * Base interface for type descriptors.

@@ -217,7 +217,7 @@ export class DefaultTaskRunner implements TaskRunner {
     fields: readonly string[],
   ): Promise<void> {
     const ref = RefStatic.fromKey(entityDef, refKey);
-    await this.processLoadFieldsForRefs(entityDef, { entityType: entityDef.name as EntityType }, fields, [ref]);
+    await this.processLoadFieldsForRefs(entityDef, { entityType: entityDef.name }, fields, [ref]);
   }
 
   private async processLoadFieldsForRefs(
@@ -276,6 +276,8 @@ export class DefaultTaskRunner implements TaskRunner {
     const {entityType, refKeys, fields, cursor} = payload;
     const entityDef = this.registry.getEntity(entityType);
     if (!entityDef) throw ErrUnknownEntityType.create({ entityType });
+    // FIXME: We should know our connector here!
+    // Ah. The issue is that the task runner doesn't have a _scope_.
 
     if (refKeys.length > 0) {
       // Direct ref-based load (ForRoot/ForOne style)
@@ -306,7 +308,7 @@ export class DefaultTaskRunner implements TaskRunner {
     field: string,
     cursor?: string,
   ): Promise<TaskRunResult> {
-    const resolver = this.registry.getResolver(entityDef.name as EntityType);
+    const resolver = this.registry.getResolver(entityDef.name);
     if (!resolver) throw ErrNoResolver.create({ entityType: entityDef.name });
 
     const loader = resolver.getLoaderForField(field);
@@ -337,7 +339,7 @@ export class DefaultTaskRunner implements TaskRunner {
             state: "pending",
             payload: {
               kind: "load-collection",
-              entityType: entityDef.name as EntityType,
+              entityType: entityDef.name,
               refKey,
               field,
               cursor: page.cursor,
@@ -359,6 +361,8 @@ export class DefaultTaskRunner implements TaskRunner {
     const {entityType, refKey, field, cursor} = payload;
     const entityDef = this.registry.getEntity(entityType);
     if (!entityDef) throw ErrUnknownEntityType.create({ entityType });
+    // FIXME: We should know our connector here!
+    // Ah. The issue is that the task runner doesn't have a _scope_.
 
     return this.executeLoadCollectionForRef(entityDef, refKey, field, cursor);
   }

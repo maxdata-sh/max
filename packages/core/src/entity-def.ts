@@ -5,7 +5,7 @@
 import type { FieldDefinitions } from "./field.js";
 import { type Ref, Ref as RefStatic, type LocalRef } from "./ref.js";
 import type { Scope, LocalScope } from "./scope.js";
-import type { EntityId } from "./ref-key.js";
+import type { EntityId, EntityType } from "./ref-key.js";
 import {StaticTypeCompanion} from "./companion.js";
 
 /**
@@ -15,7 +15,7 @@ import {StaticTypeCompanion} from "./companion.js";
  *   const AcmeUser = EntityDef.create("AcmeUser", { name: Field.string(), ... });
  */
 export interface EntityDef<Fields extends FieldDefinitions = FieldDefinitions> {
-  readonly name: string;
+  readonly name: EntityType;
   readonly fields: Fields;
 
   /** Create a local-scoped reference to an entity of this type */

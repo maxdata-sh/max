@@ -1,2 +1,17 @@
 #!/usr/bin/env bash
-bun run "$(dirname "$0")/src/cli/index.ts" "$@"
+set -e
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+BIN="$DIR/packages/cli/cli/target/release/max"
+
+if ! command -v cargo &>/dev/null; then
+  echo "Rust is required. Install via: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh" >&2
+  exit 1
+fi
+
+if [ ! -f "$BIN" ]; then
+  echo "Building max CLI..." >&2
+  (cd "$DIR/packages/cli/cli" && cargo build --release) >&2
+fi
+
+MAX_DEV=1 exec "$BIN" "$@"

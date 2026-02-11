@@ -6,7 +6,7 @@ import type { EntityDefAny } from "./entity-def.js";
 import type { EntityFields } from "./field-types.js";
 import type { Ref, RefAny } from "./ref.js";
 import {StaticTypeCompanion} from "./companion.js";
-import {ErrFieldNotLoaded} from "./errors/basic-errors.js";
+import {ErrFieldNotLoaded} from "./errors/errors.js";
 
 /**
  * Proxy type for direct field access via .fields

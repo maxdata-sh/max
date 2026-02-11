@@ -12,7 +12,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@max/core": "workspace:*"
+    "@max/core": "workspace:*",
+    "@max/connector": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "latest",

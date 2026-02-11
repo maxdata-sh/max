@@ -2,7 +2,7 @@
 
 Quick guide to building a Max connector.
 
-## 1. Define Your Entities
+## Start: Define Your Entities
 
 Entities are the data objects your connector syncs (Users, Files, Teams, etc.).
 
@@ -25,7 +25,7 @@ export const AcmeUser: AcmeUser = EntityDef.create("AcmeUser", {
 
 **Pattern:** Interface + const with same name. Both type and value in one.
 
-## 2. Define Your Context
+## Next: Define Your Context
 
 Context holds dependencies loaders need (API client, config, etc.).
 
@@ -41,7 +41,7 @@ class AcmeAppContext extends Context {
 
 **Pattern:** Extend `Context`, use type descriptors as field initializers.
 
-## 3. Create Loaders
+## Next: Create Loaders
 
 Loaders fetch data from your API.
 
@@ -78,7 +78,7 @@ const BasicUserLoader = Loader.entityBatched({
 - `Loader.collection()` - Parent ref → Page of child refs
 - `Loader.raw()` - Arbitrary data (config, metadata)
 
-## 4. Create Resolver
+## Next: Create Resolver
 
 Resolver maps entity fields to loaders.
 
@@ -92,9 +92,105 @@ const AcmeUserResolver = Resolver.for(AcmeUser, {
 
 **Pattern:** Multiple fields can point to the same loader (batching).
 
-## 5. Wire It Up
+## Next: Define Your Schema
 
-*(Coming soon: Execution layer - how to register and run your connector)*
+ConnectorSchema declares your connector's data model: all entities and which ones are roots (entry points for sync).
+
+```typescript
+// connectors/connector-acme/src/schema.ts
+import { ConnectorSchema } from "@max/connector";
+import { AcmeUser, AcmeTeam, AcmeRoot } from "./entities.js";
+
+export const AcmeSchema = ConnectorSchema.create({
+  namespace: "acme",
+  entities: [AcmeUser, AcmeTeam, AcmeRoot],
+  roots: [AcmeRoot],
+});
+```
+
+The schema provides helpers for navigating the data model:
+
+```typescript
+AcmeSchema.entityTypes;              // ["AcmeUser", "AcmeTeam", "AcmeRoot"]
+AcmeSchema.getDefinition("AcmeUser") // EntityDef | undefined
+AcmeSchema.relationships;            // derived from ref/collection fields
+```
+
+## Next: Set Up Credentials
+
+Credentials are typed references to secrets your connector needs. Two kinds:
+
+**Simple keys** for API tokens:
+
+```typescript
+// connectors/connector-acme/src/credentials.ts
+import { Credential } from "@max/connector";
+
+export const ApiToken = Credential.string("api_token");
+```
+
+**OAuth pairs** for access/refresh token flows:
+
+```typescript
+import { Credential } from "@max/connector";
+
+export const GoogleAuth = Credential.oauth({
+  refreshToken: "refresh_token",
+  accessToken: "access_token",
+  expiresIn: 3500,  // seconds — cache TTL for access token
+  async refresh(refreshToken) {
+    const result = await google.oauth2.refresh(refreshToken);
+    return {
+      accessToken: result.access_token,
+      refreshToken: result.refresh_token,  // if provider rotates
+    };
+  },
+});
+```
+
+In your connector's `initialise`, you receive a `CredentialProvider` which wraps the platform's credential store with caching and automatic refresh:
+
+```typescript
+initialise(config, credentials: CredentialProvider) {
+  // Simple key — handle reads directly from store
+  const apiKey = credentials.get(ApiToken);
+  await apiKey.get();  // "sk-123"
+
+  // OAuth — handle caches access token, refreshes when stale
+  const client = new AcmeClient({
+    token: credentials.get(GoogleAuth.accessToken),
+  });
+
+  // Inside the client, when making API calls:
+  const t = await this.token.get();  // always-valid access token
+}
+```
+
+The framework calls `credentials.startRefreshSchedulers()` during startup to proactively keep tokens fresh.
+
+## Finally: Create ConnectorDef
+
+ConnectorDef is the static descriptor that ties everything together.
+
+```typescript
+// connectors/connector-acme/src/index.ts
+import { ConnectorDef } from "@max/connector";
+import { AcmeSchema } from "./schema.js";
+import { AcmeSeeder } from "./seeder.js";
+import { AcmeUserResolver, AcmeTeamResolver } from "./resolvers/index.js";
+
+export const AcmeDef = ConnectorDef.create({
+  name: "acme",
+  displayName: "Acme",
+  description: "Sync users and teams from Acme",
+  icon: "https://acme.com/icon.svg",
+  version: "1.0.0",
+  scopes: ["read:users", "read:teams"],
+  schema: AcmeSchema,
+  seeder: AcmeSeeder,
+  resolvers: [AcmeUserResolver, AcmeTeamResolver],
+});
+```
 
 ---
 
@@ -104,11 +200,14 @@ const AcmeUserResolver = Resolver.for(AcmeUser, {
 connectors/connector-acme/
 ├── src/
 │   ├── entities.ts          # Entity definitions
+│   ├── schema.ts            # ConnectorSchema
+│   ├── credentials.ts       # Credential declarations
 │   ├── context.ts           # Context definition
+│   ├── seeder.ts            # Seeder (cold-start sync plan)
 │   ├── resolvers/
 │   │   ├── user-resolver.ts # Loaders + resolver for AcmeUser
 │   │   └── index.ts         # Export all resolvers
-│   └── index.ts             # Main exports
+│   └── index.ts             # ConnectorDef + main exports
 └── package.json
 ```
 
@@ -131,4 +230,14 @@ Loader.raw({ context, load: async (ctx, deps) => {...} })
 
 // Resolver
 Resolver.for(User, { name: SomeLoader.field("name") })
+
+// Schema
+ConnectorSchema.create({ namespace: "acme", entities: [...], roots: [...] })
+
+// Credentials
+Credential.string("api_token")
+Credential.oauth({ refreshToken, accessToken, expiresIn, refresh })
+
+// ConnectorDef
+ConnectorDef.create({ name, displayName, description, icon, version, scopes, schema, seeder, resolvers })
 ```

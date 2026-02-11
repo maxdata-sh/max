@@ -6,6 +6,9 @@
  */
 
 import {ErrFacet, MaxError} from "../max-error.js";
+import {Execution} from "@max/execution";
+import {EntityId, EntityType} from "../ref-key.js";
+import {LoaderName} from "../loader.js";
 
 // ============================================================================
 // Core Boundary
@@ -25,18 +28,22 @@ export const BadInput = ErrFacet.marker("BadInput");
 
 /** Code path not yet implemented */
 export const NotImplemented = ErrFacet.marker("NotImplemented");
+export const NotSupported = ErrFacet.marker("NotSupported")
 
 /** Internal invariant violated — always a bug */
-export const Invariant = ErrFacet.marker("Invariant");
+export const InvariantViolated = ErrFacet.marker("InvariantViolated");
 
 /** Carries an entity reference (type + id) */
-export const HasEntityRef = ErrFacet.data<{ entityType: string; entityId: string }>("HasEntityRef");
+export const HasEntityRef = ErrFacet.data<{ entityType: EntityType; entityId: EntityId }>("HasEntityRef");
 
 /** Carries an entity type + field name */
-export const HasField = ErrFacet.data<{ entityType: string; field: string }>("HasField");
+export const HasEntityField = ErrFacet.data<{ entityType: EntityType; field: string }>("HasEntityField");
+export const HasEntityType = ErrFacet.data<{ entityType: EntityType; }>("HasEntityType");
 
 /** Carries a loader name */
-export const HasLoaderName = ErrFacet.data<{ loaderName: string }>("HasLoaderName");
+export const HasLoaderName = ErrFacet.data<{ loaderName: LoaderName }>("HasLoaderName");
+
+export const HasConnector = ErrFacet.data<{ connector: string }>("HasConnector");
 
 // ============================================================================
 // Standard Error Definitions
@@ -44,13 +51,19 @@ export const HasLoaderName = ErrFacet.data<{ loaderName: string }>("HasLoaderNam
 
 /** RefKey string could not be parsed */
 export const ErrInvalidRefKey = Core.define("invalid_ref_key", {
+  customProps: ErrFacet.props<{ key: string }>(),
   facets: [BadInput],
   message: (d) => `Invalid RefKey format: ${d.key}`,
 });
 
+export const ErrNotImplemented = Core.define("not_implemented", {
+  facets:[NotImplemented],
+  message: () => "Not implemented!"
+})
+
 /** Accessed a field that was not loaded */
 export const ErrFieldNotLoaded = Core.define("field_not_loaded", {
-  facets: [Invariant, HasField],
+  facets: [HasEntityField],
   message: (d) => `Field '${d.field}' not loaded on ${d.entityType}`,
 });
 
@@ -68,12 +81,26 @@ export const ErrContextBuildFailed = Core.define("context_build_failed", {
 
 /** Batch.getOrThrow called with a key that has no value */
 export const ErrBatchKeyMissing = Core.define("batch_key_missing", {
+  customProps: ErrFacet.props<{ key: string }>(),
   facets: [NotFound],
   message: (d) => `Batch value missing for key: ${d.key}`,
 });
 
 /** Operation attempted on an empty batch */
-export const ErrBatchEmpty = Core.define("batch_empty", {
-  facets: [Invariant],
-  message: () => "Empty batch has no keys",
+export const ErrBatchEmptyDeriveKey = Core.define("batch_empty_derive_key", {
+  facets: [InvariantViolated],
+  message: () => "Invalid call: Cannot infer key of empty batch",
+});
+
+
+export const ErrUnknownEntityType = Core.define("unknown_entity_type", {
+  facets: [HasEntityType],
+  message: (d) => `Unknown entity type: ${d.entityType}`,
+});
+
+/** Root entity not found in entities list during schema creation */
+export const ErrRootNotInEntities = Core.define("root_not_in_entities", {
+  customProps: ErrFacet.props<{ root: string }>(),
+  facets: [BadInput],
+  message: (d) => `Root entity "${d.root}" is not in the entities list`,
 });

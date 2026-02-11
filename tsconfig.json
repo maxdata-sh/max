@@ -6,6 +6,7 @@
       { "path": "./packages/execution" },
       { "path": "./packages/execution-local" },
       { "path": "./packages/execution-sqlite" },
+      { "path": "./packages/daemon" },
       { "path": "./packages/cli" },
       { "path": "./connectors/connector-acme" },
       { "path": "./connectors/connector-gdrive" },

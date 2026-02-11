@@ -1,2 +1,4 @@
 *.tsbuildinfo
 .private-journal
+.turbo
+.carl

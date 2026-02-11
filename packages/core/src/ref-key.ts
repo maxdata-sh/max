@@ -10,7 +10,7 @@ import { type HardBrand, hardBrand } from "./brand.js";
 import type { Scope, LocalScope, SystemScope } from "./scope.js";
 import type { Id } from "./brand.js";
 import {StaticTypeCompanion} from "./companion.js";
-import {ErrInvalidRefKey} from "./errors/basic-errors.js";
+import {ErrInvalidRefKey} from "./errors/errors.js";
 
 // ============================================================================
 // Types

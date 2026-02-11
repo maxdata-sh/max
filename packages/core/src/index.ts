@@ -32,6 +32,13 @@ export type { FieldType, EntityFields, CollectionTargetRef, CollectionKeys, NonC
 export { EntityDef } from "./entity-def.js";
 export type { EntityDefAny } from "./entity-def.js";
 
+// Schema (Schema is both type and value)
+export { Schema } from "./schema.js";
+export type { EntityRelationship } from "./schema.js";
+
+// Schema formatting
+export { SchemaPrettyPrinter } from "./schema-pretty-printer.js";
+
 // References (Ref is both type and value)
 export { Ref } from "./ref.js";
 export type { RefAny, LocalRef, SystemRef, ScopeUpgradeable } from "./ref.js";
@@ -125,10 +132,16 @@ export type { FlowController, FlowToken, OperationKind } from "./flow-controller
 
 // Error system (MaxError and ErrFacet are both type and value)
 export { MaxError, ErrFacet } from "./max-error.js";
-export type { ErrMarkerFacet, ErrDataFacet, ErrFacetAny, FacetProps, MergeFacetProps, ErrorDef, ErrorBoundary, MaxErrorJSON } from "./max-error.js";
+export type { ErrMarkerFacet, ErrDataFacet, ErrFacetAny, ErrProps, InferPropsData, FacetProps, MergeFacetProps, ErrorDef, ErrorBoundary, MaxErrorJSON } from "./max-error.js";
 
 // Standard facets and error definitions
-export * from "./errors/basic-errors.js";
+export * from "./errors/errors.js";
+
+// Type system utilities
+export type { ClassOf } from "./type-system-utils.js";
+
+// Inspect
+export { Inspect, inspect } from "./inspect.js";
 
 // Utilities
 export { StaticTypeCompanion } from "./companion.js";

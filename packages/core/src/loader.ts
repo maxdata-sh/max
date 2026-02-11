@@ -20,7 +20,7 @@
  */
 
 import {StaticTypeCompanion} from "./companion.js";
-import {ErrLoaderResultNotAvailable} from "./errors/basic-errors.js";
+import {ErrLoaderResultNotAvailable} from "./errors/errors.js";
 import type {Id} from "./brand.js";
 import type {EntityDefAny} from "./entity-def.js";
 import type {EntityInput} from "./entity-input.js";

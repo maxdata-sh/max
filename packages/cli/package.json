@@ -2,9 +2,6 @@
   "name": "@max/cli",
   "version": "0.1.0",
   "type": "module",
-  "bin": {
-    "max": "./dist/index.js"
-  },
   "exports": {
     "types": "./src/index.ts",
     "default": "./src/index.ts"
@@ -12,19 +9,23 @@
   "scripts": {
     "build": "bun build ./src/index.ts --outdir ./dist --target node",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "start": "bun run src/index.ts",
+    "build:rust": "cd cli && cargo build --release"
   },
   "dependencies": {
+    "@max/connector": "workspace:*",
+    "@max/connector-acme": "workspace:*",
+    "@max/connector-linear": "workspace:*",
     "@max/core": "workspace:*",
-    "@max/storage-sqlite": "workspace:*",
-    "@max/execution": "workspace:*",
-    "@max/execution-local": "workspace:*",
-    "@optique/core": "^0.9.1",
-    "@optique/run": "^0.9.1",
-    "yaml": "^2.7.0"
+    "@max/daemon": "workspace:*",
+    "@optique/core": "^0.9.2",
+    "@optique/run": "^0.9.2",
+    "yargs-parser": "^21.1.1"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/yargs-parser": "^21.0.3",
     "typescript": "catalog:"
   }
 }

@@ -1,4 +1,4 @@
-Core boundary — packages/core/src/errors/basic-errors.ts
+Core boundary — packages/core/src/errors/errors.ts
 
   Existing facets stay. Replace the generic errors with specific ones:
   Error: ErrInvalidRefKey
@@ -88,7 +88,7 @@ Core boundary — packages/core/src/errors/basic-errors.ts
   ---
   Data facets to add
 
-  Two new shared data facets in basic-errors.ts:
+  Two new shared data facets in errors.ts:
   ┌───────────────┬───────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────┐
   │     Facet     │                 Data                  │                                          Used by                                          │
   ├───────────────┼───────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────┤

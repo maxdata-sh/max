@@ -297,7 +297,7 @@ describe("MaxError.wrap()", () => {
   });
 });
 
-describe("boundary.wrap()", () => {
+describe("ErrorDef.wrap()", () => {
   const Execution = MaxError.boundary("execution");
   const ErrSyncFailed = Execution.define("sync_failed", {
     facets: [],
@@ -305,30 +305,14 @@ describe("boundary.wrap()", () => {
   });
 
   test("returns value on success", () => {
-    const result = Execution.wrap(ErrSyncFailed, () => 42);
+    const result = ErrSyncFailed.wrap(() => 42);
     expect(result).toBe(42);
   });
 
-  test("returns value on success (safety net overload)", () => {
-    const result = Execution.wrap(() => 42);
-    expect(result).toBe(42);
-  });
-
-  test("same-domain errors pass through unwrapped", () => {
-    const inner = ErrSyncFailed.create({});
-    try {
-      Execution.wrap(ErrSyncFailed, () => { throw inner; });
-    } catch (err) {
-      expect(err).toBe(inner);
-      return;
-    }
-    throw new Error("Should have thrown");
-  });
-
-  test("cross-domain errors are wrapped with cause", () => {
+  test("wraps cross-domain errors with cause", () => {
     const storageErr = ErrEntityNotFound.create({ ref: "User:u1" });
     try {
-      Execution.wrap(ErrSyncFailed, () => { throw storageErr; });
+      ErrSyncFailed.wrap(() => { throw storageErr; });
     } catch (err) {
       if (!MaxError.isMaxError(err)) throw new Error("Expected MaxError");
       expect(err.code).toBe("execution.sync_failed");
@@ -339,9 +323,9 @@ describe("boundary.wrap()", () => {
     throw new Error("Should have thrown");
   });
 
-  test("plain errors are wrapped as unknown cause", () => {
+  test("wraps plain errors as unknown cause", () => {
     try {
-      Execution.wrap(ErrSyncFailed, () => { throw new Error("raw"); });
+      ErrSyncFailed.wrap(() => { throw new Error("raw"); });
     } catch (err) {
       if (!MaxError.isMaxError(err)) throw new Error("Expected MaxError");
       expect(err.code).toBe("execution.sync_failed");
@@ -353,7 +337,63 @@ describe("boundary.wrap()", () => {
     throw new Error("Should have thrown");
   });
 
-  test("safety net uses generic domain.error code", () => {
+  test("handles async functions", async () => {
+    const storageErr = ErrEntityNotFound.create({ ref: "User:u1" });
+    try {
+      await ErrSyncFailed.wrap(async () => { throw storageErr; });
+    } catch (err) {
+      if (!MaxError.isMaxError(err)) throw new Error("Expected MaxError");
+      expect(err.code).toBe("execution.sync_failed");
+      expect(err.cause).toBe(storageErr);
+      return;
+    }
+    throw new Error("Should have thrown");
+  });
+
+  test("accepts data when ErrorDef has customProps", () => {
+    const ErrWithData = Execution.define("with_data", {
+      customProps: ErrFacet.props<{ target: string }>(),
+      facets: [],
+      message: (d) => `Failed for ${d.target}`,
+    });
+
+    try {
+      ErrWithData.wrap({ target: "users" }, () => { throw new Error("boom"); });
+    } catch (err) {
+      if (!MaxError.isMaxError(err)) throw new Error("Expected MaxError");
+      expect(err.code).toBe("execution.with_data");
+      expect(err.message).toBe("Failed for users");
+      expect(err.data.target).toBe("users");
+      return;
+    }
+    throw new Error("Should have thrown");
+  });
+});
+
+describe("boundary.wrap()", () => {
+  const Execution = MaxError.boundary("execution");
+  const ErrSyncFailed = Execution.define("sync_failed", {
+    facets: [],
+    message: () => "Sync failed",
+  });
+
+  test("returns value on success", () => {
+    const result = Execution.wrap(() => 42);
+    expect(result).toBe(42);
+  });
+
+  test("same-domain errors pass through unwrapped", () => {
+    const inner = ErrSyncFailed.create({});
+    try {
+      Execution.wrap(() => { throw inner; });
+    } catch (err) {
+      expect(err).toBe(inner);
+      return;
+    }
+    throw new Error("Should have thrown");
+  });
+
+  test("cross-domain errors wrapped in boundary error", () => {
     const storageErr = ErrEntityNotFound.create({ ref: "User:u1" });
     try {
       Execution.wrap(() => { throw storageErr; });
@@ -366,13 +406,31 @@ describe("boundary.wrap()", () => {
     throw new Error("Should have thrown");
   });
 
+  test("boundary with customProps requires data at wrap site", () => {
+    const Connector = MaxError.boundary("connector", {
+      customProps: ErrFacet.props<{ connectorId: string }>(),
+    });
+
+    const storageErr = ErrEntityNotFound.create({ ref: "User:u1" });
+    try {
+      Connector.wrap({ connectorId: "acme" }, () => { throw storageErr; });
+    } catch (err) {
+      if (!MaxError.isMaxError(err)) throw new Error("Expected MaxError");
+      expect(err.code).toBe("connector.error");
+      expect(err.data.connectorId).toBe("acme");
+      expect(err.cause).toBe(storageErr);
+      return;
+    }
+    throw new Error("Should have thrown");
+  });
+
   test("handles async functions", async () => {
     const storageErr = ErrEntityNotFound.create({ ref: "User:u1" });
     try {
-      await Execution.wrap(ErrSyncFailed, async () => { throw storageErr; });
+      await Execution.wrap(async () => { throw storageErr; });
     } catch (err) {
       if (!MaxError.isMaxError(err)) throw new Error("Expected MaxError");
-      expect(err.code).toBe("execution.sync_failed");
+      expect(err.code).toBe("execution.error");
       expect(err.cause).toBe(storageErr);
       return;
     }
@@ -382,7 +440,7 @@ describe("boundary.wrap()", () => {
   test("async same-domain errors pass through", async () => {
     const execErr = ErrSyncFailed.create({});
     try {
-      await Execution.wrap(ErrSyncFailed, async () => { throw execErr; });
+      await Execution.wrap(async () => { throw execErr; });
     } catch (err) {
       expect(err).toBe(execErr);
       return;
@@ -411,8 +469,8 @@ describe("cause chain", () => {
 
   test("nested wraps build a cause chain", () => {
     try {
-      Execution.wrap(ErrSyncFailed, () => {
-        Storage.wrap(ErrWriteFailed, () => {
+      ErrSyncFailed.wrap(() => {
+        ErrWriteFailed.wrap(() => {
           throw ErrInvalidJson.create({});
         });
       });
@@ -608,7 +666,7 @@ describe("DX: full error handling flow", () => {
     }
   });
 
-  test("boundary.wrap → cause chain → catch", () => {
+  test("ErrorDef.wrap → cause chain → catch", () => {
     const Execution = MaxError.boundary("execution");
     const ErrSyncFailed = Execution.define("sync_failed", {
       facets: [],
@@ -616,7 +674,7 @@ describe("DX: full error handling flow", () => {
     });
 
     try {
-      Execution.wrap(ErrSyncFailed, () => {
+      ErrSyncFailed.wrap(() => {
         throw ErrEntityNotFound.create({ ref: "User:u1" });
       });
     } catch (err) {
@@ -627,5 +685,61 @@ describe("DX: full error handling flow", () => {
       }
       throw new Error("Should have matched ErrSyncFailed");
     }
+  });
+});
+
+describe("prettyPrint()", () => {
+  test("realistic cause chain with boundaries", () => {
+    // Simulate: daemon calls connector sync → connector calls Linear API → API throws
+
+    const Connector = MaxError.boundary("connector", {
+      customProps: ErrFacet.props<{ connectorId: string; connectorType: string }>(),
+    });
+
+    const Linear = MaxError.boundary("linear");
+    const ErrApiTimeout = Linear.define("api_timeout", {
+      customProps: ErrFacet.props<{ endpoint: string }>(),
+      facets: [Retryable],
+      message: (d) => `API timeout: ${d.endpoint}`,
+    });
+
+    const Sync = MaxError.boundary("sync");
+    const ErrSyncFailed = Sync.define("failed", {
+      facets: [],
+      message: () => "Sync failed",
+    });
+
+    function linearFetchIssues() {
+      throw ErrApiTimeout.create({ endpoint: "/issues" });
+    }
+
+    function syncConnector() {
+      return ErrSyncFailed.wrap(() => {
+        linearFetchIssues();
+      });
+    }
+
+    try {
+      Connector.wrap({ connectorId: "lin_456", connectorType: "linear" }, () => {
+        syncConnector();
+      });
+    } catch (err) {
+      if (!MaxError.isMaxError(err)) throw new Error("Expected MaxError");
+
+      const output = err.prettyPrint({ color: true, includeStackTrace: true });
+      console.log("\n--- prettyPrint showcase ---");
+      console.log(output);
+      console.log("--- end ---\n");
+
+      // Verify the chain structure
+      expect(err.code).toBe("connector.error");
+      expect(err.data.connectorId).toBe("lin_456");
+      expect(err.cause!.code).toBe("sync.failed");
+      expect(err.cause!.cause!.code).toBe("linear.api_timeout");
+
+      expect(true).toBe(true);
+      return;
+    }
+    throw new Error("Should have thrown");
   });
 });

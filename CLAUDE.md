@@ -1,19 +1,18 @@
 # Max CLI
 
-A data pipe CLI that syncs and queries data from various sources (Google Drive, Linear, HubSpot).
+A data pipe CLI that syncs and queries data from various sources (Google Drive, Linear, HubSpot etc).
 
 ## Tech Stack
 
 - **Runtime:** Bun (NOT Node.js)
 - **Language:** TypeScript
 - **Database:** SQLite via `bun:sqlite`
-- **CLI Framework:** @optique/core, @optique/run
 
 ## Commands
 
 ```bash
 # Type checking (from worktree root)
-bunx tsc --noEmit
+turbo run typecheck
 
 # Build (from worktree root)
 bun run build
@@ -29,34 +28,6 @@ cd bun-test-project
 ```
 
 The `max` binary is at the worktree root.
-
-## Project Structure
-
-```
-src/
-├── cli/                 # CLI commands and parsers
-│   ├── commands/        # Individual command handlers
-│   └── parsers.ts       # Argument parsers with completions
-├── connectors/          # Data source integrations
-│   ├── gdrive/          # Google Drive
-│   ├── linear/          # Linear
-│   └── hubspot/         # HubSpot
-├── core/                # Core services
-│   ├── entity-store.ts  # SQLite storage
-│   ├── connector-registry.ts
-│   └── config-manager.ts
-└── types/               # TypeScript interfaces
-```
-
-## Adding Connectors
-
-Each connector has 4 files:
-- `index.ts` - Main class implementing `Connector` interface
-- `schema.ts` - Entity schema (types, fields, relationships)
-- `auth.ts` - Authentication logic
-- `content.ts` - Content extraction (optional)
-
-Register new connectors in `src/core/connector-registry.ts`.
 
 ## Key Files
 

@@ -25,6 +25,9 @@ export type {
 export { StubbedCredentialStore } from "./credential-store.js";
 export type { CredentialStore } from "./credential-store.js";
 
+// Credential errors (needed by CredentialStore implementations)
+export { ErrCredentialNotFound } from "./errors.js";
+
 // CredentialProvider (batteries-included connector-facing layer)
 export { CredentialProvider } from "./credential-provider.js";
 export type { CredentialHandle } from "./credential-provider.js";

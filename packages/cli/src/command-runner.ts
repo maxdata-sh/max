@@ -11,28 +11,32 @@ import type { Response } from "@max/daemon";
 import { parserFromCommand } from "./parser-bridge.js";
 import { daemonCommand } from "./meta-commands.js";
 import { DaemonManager } from "./daemon-manager.js";
+import type { DaemonConfig } from "./config.js";
 
 export class CommandRunner {
   private parsers: Map<string, Parser<Mode, Record<string, unknown>, unknown>>;
-  private daemon = new DaemonManager();
+  private daemon: DaemonManager;
 
   private constructor(
     private commands: ReadonlyMap<string, CommandDefAny>,
     private ctx: InferContext<Context>,
     private cliName: string,
+    config: DaemonConfig,
   ) {
     this.parsers = new Map();
     for (const [name, cmd] of commands) {
       this.parsers.set(name, parserFromCommand(cmd, ctx));
     }
+    this.daemon = new DaemonManager(config);
   }
 
   static create(
     commands: ReadonlyMap<string, CommandDefAny>,
     ctx: InferContext<Context>,
     cliName: string = "max",
+    config: DaemonConfig,
   ): CommandRunner {
-    return new CommandRunner(commands, ctx, cliName);
+    return new CommandRunner(commands, ctx, cliName, config);
   }
 
   private static shells: Record<string, ShellCompletion> = {

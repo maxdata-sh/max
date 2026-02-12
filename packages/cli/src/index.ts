@@ -5,6 +5,7 @@ import * as Completion from "@optique/core/completion";
 import type { ShellCompletion } from "@optique/core/completion";
 import { createSocketServer } from "./socket.js";
 import { CommandRunner } from "./command-runner.js";
+import { DaemonConfig } from "./config.js";
 
 const shells: Record<string, ShellCompletion> = {
   zsh: Completion.zsh,
@@ -12,7 +13,7 @@ const shells: Record<string, ShellCompletion> = {
   fish: Completion.fish,
 };
 
-const SOCKET_PATH = "/tmp/max-daemon.sock";
+const config = DaemonConfig.build();
 
 const registry = ConnectorRegistry.create();
 registry.addLocalNamed("acme", () => import("@max/connector-acme"));
@@ -22,24 +23,24 @@ const ctx = Context.build(DaemonContext, {
   connectors: registry,
 });
 
-const runner = CommandRunner.create(commands, ctx);
+const runner = CommandRunner.create(commands, ctx, "max", config);
 
 if (process.argv.includes("--daemonized")) {
   // Check disabled flag
   const { existsSync, writeFileSync } = await import("fs");
-  if (existsSync("/tmp/max-daemon.disabled")) {
+  if (existsSync(config.daemon.disabledPath)) {
     process.exit(0); // disabled — exit silently
   }
 
   // Write PID file
-  writeFileSync("/tmp/max-daemon.pid", String(process.pid));
+  writeFileSync(config.daemon.pidPath, String(process.pid));
 
   // Daemon mode: socket server
   createSocketServer({
-    socketPath: SOCKET_PATH,
+    socketPath: config.daemon.socketPath,
     runner,
   });
-  console.log(`Max daemon listening on ${SOCKET_PATH}`);
+  console.log(`Max daemon listening on ${config.daemon.socketPath}`);
 } else {
   const argv = process.argv.slice(2);
 

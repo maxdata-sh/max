@@ -19,8 +19,8 @@
     "@max/connector-linear": "workspace:*",
     "@max/core": "workspace:*",
     "@max/daemon": "workspace:*",
-    "@optique/core": "^0.9.2",
-    "@optique/run": "^0.9.2",
+    "@optique/core": "0.9.2",
+    "@optique/run": "0.9.2",
     "yargs-parser": "^21.1.1"
   },
   "devDependencies": {

@@ -1,4 +1,5 @@
 use std::env;
+use std::fs::File;
 use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -60,11 +61,14 @@ pub fn spawn() -> Result<(), String> {
         cmd.arg("run");
     }
 
+    let log_file = File::create("/tmp/max-daemon.log")
+        .map_err(|e| format!("Failed to create daemon log: {}", e))?;
+
     cmd.arg(&script)
         .arg("--daemonized")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::inherit())
+        .stderr(Stdio::from(log_file))
         .spawn()
         .map_err(|e| format!("Failed to spawn daemon: {}", e))?;
 

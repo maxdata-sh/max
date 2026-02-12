@@ -31,5 +31,8 @@
   "dependencies": {
     "@optique/core": "^0.9.2",
     "@optique/run": "^0.9.2"
+  },
+  "patchedDependencies": {
+    "@optique/core@0.9.2": "patches/@optique%2Fcore@0.9.2.patch"
   }
 }

@@ -3,6 +3,9 @@ import {or} from "@optique/core/constructs";
 import {message} from "@optique/core/message";
 
 export const daemonCommand = command("daemon", or(
+  command("status", constant("status" as const), {
+    description: message`Show daemon status`,
+  }),
   command("start", constant("start" as const), {
     description: message`Start the background daemon`,
   }),

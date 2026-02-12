@@ -1,6 +1,7 @@
-import { parseAsync, suggestAsync } from "@optique/core/parser";
+import { suggestAsync } from "@optique/core/parser";
 import type { Parser, Mode, Suggestion } from "@optique/core/parser";
-import { formatMessage, message } from "@optique/core/message";
+import { runParserAsync, RunParserError } from "@optique/core/facade";
+import { message } from "@optique/core/message";
 import * as Completion from "@optique/core/completion";
 import type { ShellCompletion } from "@optique/core/completion";
 import type { CommandDefAny } from "@max/daemon";
@@ -12,6 +13,42 @@ import { parserFromCommand } from "./parser-bridge.js";
 import { daemonCommand } from "./meta-commands.js";
 import { DaemonManager } from "./daemon-manager.js";
 import type { DaemonConfig } from "./config.js";
+
+/** Sentinel thrown by runParserAsync callbacks to signal help/error was shown. */
+const HELP_SHOWN = Symbol("help");
+const ERROR_SHOWN = Symbol("error");
+
+type RunResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; response: Response };
+
+/** Run an Optique parser and capture help/error output as a Response. */
+async function runToResponse<T>(
+  parser: Parser<Mode, T, unknown>,
+  programName: string,
+  args: readonly string[],
+): Promise<RunResult<T>> {
+  let stdout = "";
+  let stderr = "";
+
+  try {
+    const value = await runParserAsync(parser, programName, args, {
+      help: { mode: "option", onShow: () => { throw HELP_SHOWN; } },
+      onError: () => { throw ERROR_SHOWN; },
+      stdout: (text) => { stdout += text + "\n"; },
+      stderr: (text) => { stderr += text + "\n"; },
+    });
+    return { ok: true, value: value as T };
+  } catch (e) {
+    if (e === HELP_SHOWN) {
+      return { ok: false, response: { stdout, exitCode: 0 } };
+    }
+    if (e === ERROR_SHOWN || e instanceof RunParserError) {
+      return { ok: false, response: { stderr, exitCode: 1 } };
+    }
+    throw e;
+  }
+}
 
 export class CommandRunner {
   private parsers: Map<string, Parser<Mode, Record<string, unknown>, unknown>>;
@@ -59,16 +96,10 @@ export class CommandRunner {
       return { stderr: `Unsupported shell: ${argv[1] ?? "(none)"}\nSupported: zsh, bash, fish\n`, exitCode: 1 };
     }
 
-    // daemon management — parse through Optique, dispatch to DaemonManager
+    // daemon management — run through Optique harness, dispatch to DaemonManager
     if (argv[0] === "daemon") {
-      const daemonArgs = argv.slice(1);
-      if (daemonArgs.length === 0 || daemonArgs[0] === "--help" || daemonArgs[0] === "-h") {
-        return this.daemon.status();
-      }
-      const result = await parseAsync(daemonCommand, argv);
-      if (!result.success) {
-        return { stderr: formatMessage(result.error) + "\n", exitCode: 1 };
-      }
+      const result = await runToResponse(daemonCommand, this.cliName, argv);
+      if (!result.ok) return result.response;
       switch (result.value) {
         case "status": return this.daemon.status();
         case "start": return this.daemon.start();
@@ -90,20 +121,10 @@ export class CommandRunner {
     }
 
     const restArgs = argv.slice(1);
-
-    if (restArgs.includes("--help") || restArgs.includes("-h")) {
-      return { stdout: this.generateCommandHelp(cmd), exitCode: 0 };
-    }
+    const result = await runToResponse(parser, `${this.cliName} ${cmdName}`, restArgs);
+    if (!result.ok) return result.response;
 
     try {
-      const result = await parseAsync(parser, restArgs);
-      if (!result.success) {
-        return {
-          stderr: formatMessage(result.error) + "\n",
-          exitCode: 1,
-        };
-      }
-
       const output = await execute(cmd, result.value, this.ctx);
       return { stdout: String(output), exitCode: 0 };
     } catch (err) {
@@ -182,25 +203,6 @@ export class CommandRunner {
     help += `  ${"daemon".padEnd(14)} Manage the background daemon process\n`;
     help += `  ${"completions".padEnd(14)} Output shell completion script\n`;
     help += `\nUse '${this.cliName} <command> --help' for more info.\n`;
-    return help;
-  }
-
-  private generateCommandHelp(cmd: CommandDefAny): string {
-    let help = `${cmd.name} - ${cmd.desc || ""}\n\n`;
-
-    const requiredParams = Object.entries(cmd.params).filter(([, p]) => p.required);
-    if (requiredParams.length > 0) {
-      const positional = requiredParams.map(([name]) => `<${name}>`).join(" ");
-      help += `Usage: ${this.cliName} ${cmd.name} ${positional}\n\n`;
-    }
-
-    const optionalParams = Object.entries(cmd.params).filter(([, p]) => !p.required);
-    if (optionalParams.length > 0) {
-      help += "Options:\n";
-      for (const [name, param] of optionalParams) {
-        help += `  --${name.padEnd(12)} ${param.desc || ""}\n`;
-      }
-    }
     return help;
   }
 }

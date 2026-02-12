@@ -34,7 +34,7 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
         for (const chunk of shell.encodeSuggestions(suggestions)) {
           chunks.push(chunk);
         }
-        return { exitCode: 0, completionOutput: chunks.join("") };
+        return { exitCode: 0, completionOutput: chunks.join("\n") };
       }
       // Fallback: plain string completions
       const completions = suggestions

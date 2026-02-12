@@ -4,7 +4,7 @@
  * All types here are pure DTOs — no methods, no service references, no side effects.
  */
 
-import type { InstallationId } from "@max/core";
+import type { ConnectorType, InstallationId } from "@max/core";
 
 // ============================================================================
 // PendingInstallation
@@ -15,7 +15,7 @@ import type { InstallationId } from "@max/core";
  * Has a connector name and slug but no config, no ID, and is not persisted.
  */
 export interface PendingInstallation {
-  readonly connector: string;
+  readonly connector: ConnectorType;
   readonly name: string;
 }
 
@@ -27,7 +27,7 @@ export interface PendingInstallation {
  * A committed installation with an assigned ID and persisted config.
  */
 export interface ManagedInstallation {
-  readonly connector: string;
+  readonly connector: ConnectorType;
   readonly name: string;
   readonly id: InstallationId;
   readonly config: unknown;
@@ -42,7 +42,7 @@ export interface ManagedInstallation {
  * Lightweight summary for listing. Omits config.
  */
 export interface InstallationInfo {
-  readonly connector: string;
+  readonly connector: ConnectorType;
   readonly name: string;
   readonly id: InstallationId;
   readonly connectedAt: string;

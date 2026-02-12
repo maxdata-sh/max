@@ -12,7 +12,7 @@ export type { LocalScope, SystemScope } from "./scope.js";
 
 // RefKey
 export { RefKey } from "./ref-key.js";
-export type { EntityType, EntityId, InstallationId, ParsedRefKey } from "./ref-key.js";
+export type { EntityType, EntityId, InstallationId, ConnectorType, ParsedRefKey } from "./ref-key.js";
 
 // Fields
 export { Field } from "./field.js";

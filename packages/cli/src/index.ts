@@ -21,7 +21,7 @@ registry.addLocalNamed("linear", () => import("@max/connector-linear"));
 
 const ctx = Context.build(DaemonContext, {
   connectors: registry,
-  project: ProjectManager.create(process.cwd()),
+  project: ProjectManager.create(process.env.MAX_PROJECT_ROOT ?? process.cwd()),
 });
 
 const runner = CommandRunner.create(commands, ctx, "max", config);

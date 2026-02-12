@@ -1,6 +1,6 @@
 import { existsSync, unlinkSync, writeFileSync, readFileSync } from "fs";
 import type { Response } from "@max/daemon";
-import type { DaemonConfig } from "./config.js";
+import type { DaemonConfig } from "@max/daemon";
 
 export class DaemonManager {
   constructor(private config: DaemonConfig) {}

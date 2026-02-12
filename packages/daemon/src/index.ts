@@ -20,5 +20,8 @@ export { FsProjectManager, findProjectRoot } from "./project-manager/index.js";
 export { Project, ErrInstallationNotFound, ErrInstallationAlreadyExists, ErrProjectNotInitialised } from "./project-manager/index.js";
 export type { PendingInstallation, ManagedInstallation, InstallationInfo } from "./project-manager/index.js";
 
+// Config
+export { DaemonConfig } from "./config.js";
+
 // Socket protocol types (used by cli)
 export type { Request, Response } from "./types.js";

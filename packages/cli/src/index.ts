@@ -1,11 +1,10 @@
 import { Context } from "@max/core";
 import { ConnectorRegistry } from "@max/connector";
-import { commands, DaemonContext, FsProjectManager } from "@max/daemon";
+import { commands, DaemonConfig, DaemonContext, FsProjectManager } from "@max/daemon";
 import * as Completion from "@optique/core/completion";
 import type { ShellCompletion } from "@optique/core/completion";
 import { createSocketServer } from "./socket.js";
 import { CommandRunner } from "./command-runner.js";
-import { DaemonConfig } from "./config.js";
 
 const shells: Record<string, ShellCompletion> = {
   zsh: Completion.zsh,
@@ -13,7 +12,7 @@ const shells: Record<string, ShellCompletion> = {
   fish: Completion.fish,
 };
 
-const config = DaemonConfig.build();
+const config = new DaemonConfig();
 
 const registry = ConnectorRegistry.create();
 registry.addLocalNamed("acme", () => import("@max/connector-acme"));
@@ -21,7 +20,7 @@ registry.addLocalNamed("linear", () => import("@max/connector-linear"));
 
 const ctx = Context.build(DaemonContext, {
   connectors: registry,
-  project: new FsProjectManager(process.env.MAX_PROJECT_ROOT ?? process.cwd()),
+  project: new FsProjectManager(config.project.getMaxProjectRoot()),
 });
 
 const runner = CommandRunner.create(commands, ctx, "max", config);

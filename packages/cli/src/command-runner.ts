@@ -12,7 +12,7 @@ import type { Response } from "@max/daemon";
 import { parserFromCommand } from "./parser-bridge.js";
 import { daemonCommand } from "./meta-commands.js";
 import { DaemonManager } from "./daemon-manager.js";
-import type { DaemonConfig } from "./config.js";
+import type { DaemonConfig } from "@max/daemon";
 
 /** Sentinel thrown by runParserAsync callbacks to signal help/error was shown. */
 const HELP_SHOWN = Symbol("help");

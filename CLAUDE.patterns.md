@@ -2,9 +2,9 @@
 
 Conventions for this codebase. Reference when working on Max.
 
-## Type + Companion Object
+## Type + Companion Object (Schematic Types Only)
 
-Infrastructure types use TypeScript namespace merging - one name for both type and value.
+Schematic types — data representations, type constructors, and structural helpers — use TypeScript namespace merging (one name for both type and value).
 
 ```typescript
 // Definition pattern (in core)
@@ -20,6 +20,22 @@ const ref: Ref<AcmeUser> = Ref.local(AcmeUser, "u1");
 
 Applies to: `Ref`, `EntityDef`, `EntityResult`, `EntityInput`, `Page`, `Scope`, `RefKey`, `Fields` (and maybe others).
 StaticTypeCompanion is a self-documenting (transparent) helper function marker from @max/core.
+
+**Do NOT use this pattern for services.** Services (things with side effects, I/O, state) are plain classes with interfaces:
+
+```typescript
+// ✅ Services: interface + class, explicit construction
+export interface ProjectManager { ... }
+export class FsProjectManager implements ProjectManager { ... }
+const pm = new FsProjectManager(startDir);
+
+// ❌ Don't wrap services in companion objects
+export const ProjectManager = StaticTypeCompanion({
+  create(root: string): ProjectManager { ... }
+});
+```
+
+The distinction: schematic types describe *what* something is. Services *do* things.
 
 ## Imports
 

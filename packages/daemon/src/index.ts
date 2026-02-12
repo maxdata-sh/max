@@ -15,7 +15,9 @@ export { commands } from "./commands/index.js";
 export { Daemon, ErrMissingParam, ErrInvalidParam, ErrUnknownCommand, ErrConnectorNotFound } from "./errors.js";
 
 // ProjectManager
-export { ProjectManager, Project, ErrInstallationNotFound, ErrInstallationAlreadyExists, ErrProjectNotInitialised } from "./project-manager/index.js";
+export type { ProjectManager } from "./project-manager/index.js";
+export { FsProjectManager, findProjectRoot } from "./project-manager/index.js";
+export { Project, ErrInstallationNotFound, ErrInstallationAlreadyExists, ErrProjectNotInitialised } from "./project-manager/index.js";
 export type { PendingInstallation, ManagedInstallation, InstallationInfo } from "./project-manager/index.js";
 
 // Socket protocol types (used by cli)

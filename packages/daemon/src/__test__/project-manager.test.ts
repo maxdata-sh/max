@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import type { ConnectorType } from "@max/core";
-import { ProjectManager } from "../project-manager/project-manager.js";
+import { FsProjectManager } from "../project-manager/fs-project-manager.js";
 
 let tmpDir: string;
 
@@ -34,7 +34,7 @@ afterEach(() => {
 describe("prepare", () => {
   test("auto-assigns 'default' slug for first installation", () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     const pending = pm.prepare(acme);
     expect(pending.connector).toBe("acme");
@@ -43,7 +43,7 @@ describe("prepare", () => {
 
   test("uses explicit slug when provided", () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     const pending = pm.prepare(acme, "staging");
     expect(pending.name).toBe("staging");
@@ -51,7 +51,7 @@ describe("prepare", () => {
 
   test("auto-increments slug when default exists", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     await pm.commit(pm.prepare(acme), {});
 
@@ -61,7 +61,7 @@ describe("prepare", () => {
 
   test("auto-increments past multiple existing defaults", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     await pm.commit(pm.prepare(acme), {});
     await pm.commit(pm.prepare(acme), {}); // default-2
@@ -72,7 +72,7 @@ describe("prepare", () => {
 
   test("throws when connector:slug already exists", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     await pm.commit(pm.prepare(acme), {});
     expect(() => pm.prepare(acme, "default")).toThrow("already exists");
@@ -80,7 +80,7 @@ describe("prepare", () => {
 
   test("works without .max directory (no conflicts possible)", () => {
     // No initProject — .max doesn't exist
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     const pending = pm.prepare(acme);
     expect(pending.name).toBe("default");
@@ -94,7 +94,7 @@ describe("prepare", () => {
 describe("commit", () => {
   test("persists installation and returns ManagedInstallation", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     const pending = pm.prepare(acme);
     const managed = await pm.commit(pending, { workspaceId: "ws-1" });
@@ -108,7 +108,7 @@ describe("commit", () => {
 
   test("creates installation.json on disk", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     await pm.commit(pm.prepare(acme), { key: "val" });
 
@@ -121,7 +121,7 @@ describe("commit", () => {
 
   test("auto-creates .max on first commit when not initialised", async () => {
     // No initProject — .max doesn't exist
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     const pending = pm.prepare(acme);
     await pm.commit(pending, {});
@@ -131,7 +131,7 @@ describe("commit", () => {
 
   test("throws on duplicate commit (race guard)", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     const p1 = pm.prepare(acme);
     await pm.commit(p1, {});
@@ -149,7 +149,7 @@ describe("commit", () => {
 describe("get", () => {
   test("loads a committed installation", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     await pm.commit(pm.prepare(acme), { key: "val" });
 
@@ -161,7 +161,7 @@ describe("get", () => {
 
   test("loads by explicit slug", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     await pm.commit(pm.prepare(acme, "staging"), { env: "staging" });
 
@@ -171,7 +171,7 @@ describe("get", () => {
 
   test("resolves the only installation when no default exists", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     await pm.commit(pm.prepare(acme, "staging"), {});
 
@@ -182,13 +182,13 @@ describe("get", () => {
 
   test("throws when connector has no installations", () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     expect(() => pm.get(acme)).toThrow("No installation found");
   });
 
   test("throws when not in a project", () => {
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     expect(() => pm.get(acme)).toThrow("Not a Max project");
   });
@@ -201,7 +201,7 @@ describe("get", () => {
 describe("has", () => {
   test("returns true for existing installation", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     await pm.commit(pm.prepare(acme), {});
 
@@ -211,13 +211,13 @@ describe("has", () => {
 
   test("returns false for missing installation", () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     expect(pm.has(acme)).toBe(false);
   });
 
   test("returns false when not in a project", () => {
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     expect(pm.has(acme)).toBe(false);
   });
@@ -230,14 +230,14 @@ describe("has", () => {
 describe("list", () => {
   test("returns empty array when no installations exist", () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     expect(pm.list()).toEqual([]);
   });
 
   test("returns all installations sorted by connector then slug", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     await pm.commit(pm.prepare(linear), {});
     await pm.commit(pm.prepare(acme, "staging"), {});
@@ -254,7 +254,7 @@ describe("list", () => {
 
   test("omits config from results", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     await pm.commit(pm.prepare(acme), { secret: "data" });
 
@@ -263,7 +263,7 @@ describe("list", () => {
   });
 
   test("returns empty when not in a project", () => {
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     expect(pm.list()).toEqual([]);
   });
@@ -276,7 +276,7 @@ describe("list", () => {
 describe("delete", () => {
   test("removes an installation", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     await pm.commit(pm.prepare(acme), {});
     expect(pm.has(acme)).toBe(true);
@@ -287,7 +287,7 @@ describe("delete", () => {
 
   test("removes credentials alongside installation", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     const pending = pm.prepare(acme);
     const creds = pm.credentialStoreFor(pending);
@@ -303,7 +303,7 @@ describe("delete", () => {
 
   test("cleans up empty connector directory", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     await pm.commit(pm.prepare(acme), {});
     await pm.delete(acme);
@@ -314,13 +314,13 @@ describe("delete", () => {
 
   test("throws for missing installation", () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     expect(pm.delete(acme)).rejects.toThrow("No installation found");
   });
 
   test("throws when not in a project", () => {
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     expect(pm.delete(acme)).rejects.toThrow("Not a Max project");
   });
@@ -333,7 +333,7 @@ describe("delete", () => {
 describe("credentialStoreFor", () => {
   test("reads and writes credentials for a pending installation", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     const pending = pm.prepare(acme);
     const store = pm.credentialStoreFor(pending);
@@ -346,7 +346,7 @@ describe("credentialStoreFor", () => {
 
   test("credentials persist across store instances", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     const pending = pm.prepare(acme);
     const store1 = pm.credentialStoreFor(pending);
@@ -358,7 +358,7 @@ describe("credentialStoreFor", () => {
 
   test("throws for missing credential key", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     const store = pm.credentialStoreFor(pm.prepare(acme));
     expect(store.get("nope")).rejects.toThrow('Credential "nope" not found');
@@ -366,7 +366,7 @@ describe("credentialStoreFor", () => {
 
   test("scopes credentials per installation", async () => {
     initProject(tmpDir);
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
 
     const p1 = pm.prepare(acme);
     const p2 = pm.prepare(linear);
@@ -393,7 +393,7 @@ describe("walk mechanism", () => {
     fs.mkdirSync(subDir, { recursive: true });
 
     // Create PM rooted at the subdirectory
-    const pm = ProjectManager.create(subDir);
+    const pm = new FsProjectManager(subDir);
 
     // commit should write to the parent's .max
     await pm.commit(pm.prepare(acme), {});
@@ -404,13 +404,13 @@ describe("walk mechanism", () => {
 
   test("get works from a subdirectory", async () => {
     initProject(tmpDir);
-    const pm1 = ProjectManager.create(tmpDir);
+    const pm1 = new FsProjectManager(tmpDir);
     await pm1.commit(pm1.prepare(acme), { env: "prod" });
 
     // Access from a subdirectory
     const subDir = path.join(tmpDir, "src");
     fs.mkdirSync(subDir);
-    const pm2 = ProjectManager.create(subDir);
+    const pm2 = new FsProjectManager(subDir);
 
     const installation = pm2.get(acme);
     expect(installation.config).toEqual({ env: "prod" });
@@ -418,7 +418,7 @@ describe("walk mechanism", () => {
 
   test("commit creates .max at startDir when no project found", async () => {
     // No .max anywhere — commit creates it at startDir
-    const pm = ProjectManager.create(tmpDir);
+    const pm = new FsProjectManager(tmpDir);
     await pm.commit(pm.prepare(acme), {});
 
     expect(fs.existsSync(path.join(tmpDir, ".max", "installations", "acme", "default", "installation.json"))).toBe(true);

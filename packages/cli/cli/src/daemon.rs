@@ -1,7 +1,6 @@
 use std::env;
 use std::fs::File;
 use std::os::unix::net::UnixStream;
-use std::path::Path;
 use std::process::{Command, Stdio};
 use std::thread;
 use std::time::Duration;
@@ -75,12 +74,32 @@ pub fn spawn() -> Result<(), String> {
     Ok(())
 }
 
+fn is_daemon_alive() -> bool {
+    let pid_str = match std::fs::read_to_string(PID_PATH) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+    let pid: i32 = match pid_str.trim().parse() {
+        Ok(p) => p,
+        Err(_) => return false,
+    };
+    // kill(pid, 0) checks if process exists without sending a signal
+    extern "C" { fn kill(pid: i32, sig: i32) -> i32; }
+    unsafe { kill(pid, 0) == 0 }
+}
+
+fn clean_stale_files() {
+    let _ = std::fs::remove_file(SOCKET_PATH);
+    let _ = std::fs::remove_file(PID_PATH);
+}
+
 pub fn connect() -> Result<UnixStream, String> {
     if let Ok(stream) = UnixStream::connect(SOCKET_PATH) {
         return Ok(stream);
     }
 
-    if !Path::new(SOCKET_PATH).exists() {
+    if !is_daemon_alive() {
+        clean_stale_files();
         spawn()?;
     }
 

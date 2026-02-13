@@ -60,7 +60,8 @@ fn main() {
     // Try daemon socket; fall back to direct mode
     let mut stream = match daemon::connect() {
         Ok(s) => s,
-        Err(_) => {
+        Err(e) => {
+            eprintln!("\x1b[31mDaemon not responding ({})\x1b[0m", e);
             run_direct(&args);
             return;
         }

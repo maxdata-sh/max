@@ -18,13 +18,13 @@ export class DaemonStatus implements CliPrintable {
   toCliString(fmt: Fmt): string {
     const lines: string[] = [];
     if (this.alive) {
-      lines.push(`${fmt.dim("Daemon:")}  ${fmt.green("●")} running ${fmt.dim(`(pid ${this.pid})`)}`);
-      lines.push(`${fmt.dim("Socket:")}  ${this.socketPath}`);
+      lines.push(`${fmt.normal("Daemon:")}  ${fmt.green("● running")} ${fmt.dim(`(pid ${this.pid})`)}`);
+      lines.push(`${fmt.normal("Socket:")}  ${this.socketPath}`);
     } else {
-      lines.push(`${fmt.dim("Daemon:")}  ○ not running`);
+      lines.push(`${fmt.normal("Daemon:")}  ${fmt.yellow("○ not running")}`);
       if (this.staleSocket) lines.push(`${fmt.yellow("Warning:")} stale socket at ${this.socketPath}`);
     }
-    lines.push(`${fmt.dim("Enabled:")} ${this.enabled ? "yes" : "no"}`);
+    lines.push(`${fmt.normal("Enabled:")} ${this.enabled ? fmt.green("✓ yes") : fmt.red("x no")}`);
     return lines.join("\n");
   }
 }

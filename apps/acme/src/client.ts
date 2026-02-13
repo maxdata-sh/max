@@ -8,12 +8,53 @@ import type {
   WebhookRegistration,
 } from "./types.ts";
 
+export interface AcmeClient {
+  // Workspaces
+  listWorkspaces(): Promise<Workspace[]>;
+  getWorkspace(id: string): Promise<Workspace>;
+  createWorkspace(input: WorkspaceInput): Promise<Workspace>;
+  updateWorkspace(id: string, patch: WorkspacePatch): Promise<Workspace>;
+  deleteWorkspace(id: string): Promise<void>;
+  // Users
+  listUsers(workspaceId?: string): Promise<User[]>;
+  getUser(id: string): Promise<User>;
+  createUser(input: UserInput): Promise<User>;
+  updateUser(id: string, patch: UserPatch): Promise<User>;
+  deleteUser(id: string): Promise<void>;
+  // Projects
+  listProjects(workspaceId?: string): Promise<Project[]>;
+  getProject(id: string): Promise<Project>;
+  createProject(input: ProjectInput): Promise<Project>;
+  updateProject(id: string, patch: ProjectPatch): Promise<Project>;
+  deleteProject(id: string): Promise<void>;
+  // Tasks
+  listTasks(projectId?: string): Promise<Task[]>;
+  getTask(id: string): Promise<Task>;
+  createTask(input: TaskInput): Promise<Task>;
+  updateTask(id: string, patch: TaskPatch): Promise<Task>;
+  deleteTask(id: string): Promise<void>;
+  getTaskHistory(taskId: string, opts?: { before?: number; limit?: number }): Promise<{ entries: TaskHistoryEntry[]; nextCursor: number | null }>;
+  // Files
+  listFiles(projectId?: string): Promise<File[]>;
+  getFile(id: string): Promise<File>;
+  createFile(input: FileInput): Promise<File>;
+  updateFile(id: string, patch: FilePatch): Promise<File>;
+  deleteFile(id: string): Promise<void>;
+  // Changelog
+  getChanges(opts?: { since?: number; limit?: number }): Promise<{ events: ChangeEvent[]; nextCursor: number }>;
+  getRecentChanges(limit?: number): Promise<ChangeEvent[]>;
+  // Webhooks
+  listWebhooks(): Promise<WebhookRegistration[]>;
+  registerWebhook(url: string): Promise<WebhookRegistration>;
+  deleteWebhook(id: string): Promise<void>;
+}
+
 export interface AcmeHttpClientConfig {
   baseUrl: string;
   apiKey: string;
 }
 
-export class AcmeHttpClient {
+export class AcmeHttpClient implements AcmeClient {
   private baseUrl: string;
   private apiKey: string;
 

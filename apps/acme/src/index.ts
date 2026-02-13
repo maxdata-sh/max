@@ -2,7 +2,9 @@
 
 export { Tenant } from "./tenant.ts";
 export { AcmeHttpClient } from "./client.ts";
-export type { AcmeHttpClientConfig } from "./client.ts";
+export { AcmeTestClient } from "./test-client.ts";
+export type { AcmeClient, AcmeHttpClientConfig } from "./client.ts";
+export type { AcmeTestClientConfig } from "./test-client.ts";
 export { startServer } from "./server.ts";
 export { seedTenant } from "./seed.ts";
 

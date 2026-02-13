@@ -25,3 +25,9 @@ export const ErrConnectorNotFound = Daemon.define("connector_not_found", {
   facets: [NotFound],
   message: (d) => `Unknown connector: ${d.connector}`,
 });
+
+export const ErrNoOnboarding = Daemon.define("no_onboarding", {
+  customProps: ErrFacet.props<{ connector: string }>(),
+  facets: [BadInput],
+  message: (d) => `Connector "${d.connector}" does not define an onboarding flow`,
+});

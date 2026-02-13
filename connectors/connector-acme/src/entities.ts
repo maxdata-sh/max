@@ -1,100 +1,100 @@
 /**
- * Acme entity definitions for testing.
+ * Acme entity definitions — aligned with the real @max/acme API.
+ *
+ * Ordered leaf-first to avoid forward references in const declarations.
+ * Interfaces are hoisted and can reference each other freely.
  */
 
 import {
   EntityDef,
+  Field,
   type ScalarField,
   type RefField,
   type CollectionField,
 } from "@max/core";
 
 // ============================================================================
-// AcmeUser
+// AcmeUser (leaf — no refs)
 // ============================================================================
 
 export interface AcmeUser extends EntityDef<{
-  name: ScalarField<"string">;
+  displayName: ScalarField<"string">;
   email: ScalarField<"string">;
-  age: ScalarField<"number">;
-  isAdmin: ScalarField<"boolean">;
+  role: ScalarField<"string">;
+  active: ScalarField<"boolean">;
 }> {}
 
 export const AcmeUser: AcmeUser = EntityDef.create("AcmeUser", {
-  name: { kind: "scalar", type: "string" },
-  email: { kind: "scalar", type: "string" },
-  age: { kind: "scalar", type: "number" },
-  isAdmin: { kind: "scalar", type: "boolean" },
+  displayName: Field.string(),
+  email: Field.string(),
+  role: Field.string(),
+  active: Field.boolean(),
 });
 
 // ============================================================================
-// AcmeTeam
-// ============================================================================
-
-export interface AcmeTeam extends EntityDef<{
-  name: ScalarField<"string">;
-  description: ScalarField<"string">;
-  owner: RefField<typeof AcmeUser>;
-  members: CollectionField<typeof AcmeUser>;
-}> {}
-
-export const AcmeTeam: AcmeTeam = EntityDef.create("AcmeTeam", {
-  name: { kind: "scalar", type: "string" },
-  description: { kind: "scalar", type: "string" },
-  owner: { kind: "ref", target: AcmeUser },
-  members: { kind: "collection", target: AcmeUser },
-});
-
-// ============================================================================
-// AcmeRoot (singleton entry point)
-// ============================================================================
-
-export interface AcmeRoot extends EntityDef<{
-  teams: CollectionField<typeof AcmeTeam>;
-}> {}
-
-export const AcmeRoot: AcmeRoot = EntityDef.create("AcmeRoot", {
-  teams: { kind: "collection", target: AcmeTeam },
-});
-
-// ============================================================================
-// AcmeProject
-// ============================================================================
-
-export interface AcmeProject extends EntityDef<{
-  name: ScalarField<"string">;
-  status: ScalarField<"string">;
-  createdAt: ScalarField<"date">;
-  team: RefField<typeof AcmeTeam>;
-  lead: RefField<typeof AcmeUser>;
-}> {}
-
-export const AcmeProject: AcmeProject = EntityDef.create("AcmeProject", {
-  name: { kind: "scalar", type: "string" },
-  status: { kind: "scalar", type: "string" },
-  createdAt: { kind: "scalar", type: "date" },
-  team: { kind: "ref", target: AcmeTeam },
-  lead: { kind: "ref", target: AcmeUser },
-});
-
-// ============================================================================
-// AcmeTask
+// AcmeTask (refs AcmeUser — already defined above)
 // ============================================================================
 
 export interface AcmeTask extends EntityDef<{
   title: ScalarField<"string">;
   description: ScalarField<"string">;
-  priority: ScalarField<"number">;
-  completed: ScalarField<"boolean">;
-  project: RefField<typeof AcmeProject>;
-  assignee: RefField<typeof AcmeUser>;
+  status: ScalarField<"string">;
+  priority: ScalarField<"string">;
+  assignee: RefField<AcmeUser>;
 }> {}
 
 export const AcmeTask: AcmeTask = EntityDef.create("AcmeTask", {
-  title: { kind: "scalar", type: "string" },
-  description: { kind: "scalar", type: "string" },
-  priority: { kind: "scalar", type: "number" },
-  completed: { kind: "scalar", type: "boolean" },
-  project: { kind: "ref", target: AcmeProject },
-  assignee: { kind: "ref", target: AcmeUser },
+  title: Field.string(),
+  description: Field.string(),
+  status: Field.string(),
+  priority: Field.string(),
+  assignee: Field.ref(AcmeUser),
+});
+
+// ============================================================================
+// AcmeProject (refs AcmeUser, collection of AcmeTask — both defined above)
+// ============================================================================
+
+export interface AcmeProject extends EntityDef<{
+  name: ScalarField<"string">;
+  description: ScalarField<"string">;
+  status: ScalarField<"string">;
+  owner: RefField<AcmeUser>;
+  tasks: CollectionField<AcmeTask>;
+}> {}
+
+export const AcmeProject: AcmeProject = EntityDef.create("AcmeProject", {
+  name: Field.string(),
+  description: Field.string(),
+  status: Field.string(),
+  owner: Field.ref(AcmeUser),
+  tasks: Field.collection(AcmeTask),
+});
+
+// ============================================================================
+// AcmeWorkspace (collections of AcmeUser, AcmeProject — both defined above)
+// ============================================================================
+
+export interface AcmeWorkspace extends EntityDef<{
+  name: ScalarField<"string">;
+  users: CollectionField<AcmeUser>;
+  projects: CollectionField<AcmeProject>;
+}> {}
+
+export const AcmeWorkspace: AcmeWorkspace = EntityDef.create("AcmeWorkspace", {
+  name: Field.string(),
+  users: Field.collection(AcmeUser),
+  projects: Field.collection(AcmeProject),
+});
+
+// ============================================================================
+// AcmeRoot (singleton — collection of AcmeWorkspace)
+// ============================================================================
+
+export interface AcmeRoot extends EntityDef<{
+  workspaces: CollectionField<AcmeWorkspace>;
+}> {}
+
+export const AcmeRoot: AcmeRoot = EntityDef.create("AcmeRoot", {
+  workspaces: Field.collection(AcmeWorkspace),
 });

@@ -12,6 +12,7 @@ import {
   type ResolverAny,
 } from "@max/core";
 import type { Schema } from "@max/core";
+import type { OnboardingFlow } from "./onboarding.js";
 
 // ============================================================================
 // ConnectorDef Interface
@@ -25,6 +26,7 @@ export interface ConnectorDef<TConfig = unknown> {
   readonly version: string;
   readonly scopes: readonly string[];
   readonly schema: Schema;
+  readonly onboarding?: OnboardingFlow<TConfig>;
   readonly seeder: SeederAny;
   readonly resolvers: readonly ResolverAny[];
 }
@@ -43,6 +45,7 @@ class ConnectorDefImpl<TConfig> implements ConnectorDef<TConfig> {
   readonly version: string;
   readonly scopes: readonly string[];
   readonly schema: Schema;
+  readonly onboarding?: OnboardingFlow<TConfig>;
   readonly seeder: SeederAny;
   readonly resolvers: readonly ResolverAny[];
 
@@ -61,6 +64,7 @@ class ConnectorDefImpl<TConfig> implements ConnectorDef<TConfig> {
     version: string;
     scopes: readonly string[];
     schema: Schema;
+    onboarding?: OnboardingFlow<TConfig>;
     seeder: SeederAny;
     resolvers: readonly ResolverAny[];
   }) {
@@ -71,6 +75,7 @@ class ConnectorDefImpl<TConfig> implements ConnectorDef<TConfig> {
     this.version = opts.version;
     this.scopes = Object.freeze([...opts.scopes]);
     this.schema = opts.schema;
+    this.onboarding = opts.onboarding;
     this.seeder = opts.seeder;
     this.resolvers = Object.freeze([...opts.resolvers]);
   }
@@ -90,6 +95,7 @@ export const ConnectorDef = StaticTypeCompanion({
     version: string;
     scopes: string[];
     schema: Schema;
+    onboarding?: OnboardingFlow<TConfig>;
     seeder: SeederAny;
     resolvers: ResolverAny[];
   }): ConnectorDef<TConfig> {

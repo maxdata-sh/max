@@ -10,7 +10,7 @@ import { SqliteEngine, SqliteSchema } from "@max/storage-sqlite";
 import { SqliteExecutionSchema, SqliteTaskStore, SqliteSyncMeta } from "@max/execution-sqlite";
 import { DefaultTaskRunner, ExecutionRegistryImpl } from "@max/execution-local";
 import { SyncExecutor } from "@max/execution";
-import {
+import AcmeConnector, {
   AcmeRoot,
   AcmeUser,
   AcmeTeam,
@@ -19,7 +19,7 @@ import {
   AcmeUserResolver,
   AcmeTeamResolver,
   AcmeSeeder,
-  AcmeApiClientStub,
+  AcmeApiClientStub, AcmeSchema,
 } from "@max/connector-acme";
 
 // -- Config --
@@ -30,10 +30,8 @@ const NUM_TEAMS = 5;
 // -- Setup database --
 const db = new Database(DB_PATH);
 
-const schema = new SqliteSchema()
-  .register(AcmeRoot)
-  .register(AcmeUser)
-  .register(AcmeTeam);
+const schema = new SqliteSchema().registerSchema(AcmeSchema)
+
 schema.ensureTables(db);
 new SqliteExecutionSchema().ensureTables(db);
 
@@ -45,7 +43,7 @@ const taskStore = new SqliteTaskStore(db);
 const api = new AcmeApiClientStub({ users: NUM_USERS, teams: NUM_TEAMS });
 
 // -- Wire up executor --
-const registry = new ExecutionRegistryImpl([AcmeRootResolver, AcmeUserResolver, AcmeTeamResolver]);
+const registry = new ExecutionRegistryImpl(AcmeConnector.def.resolvers);
 const taskRunner = new DefaultTaskRunner({
   engine,
   syncMeta,

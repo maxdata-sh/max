@@ -12,7 +12,7 @@ export { DaemonContext } from "./context.js";
 export { commands } from "./commands/index.js";
 
 // Errors
-export { Daemon, ErrMissingParam, ErrInvalidParam, ErrUnknownCommand, ErrConnectorNotFound } from "./errors.js";
+export { Daemon, ErrMissingParam, ErrInvalidParam, ErrUnknownCommand, ErrConnectorNotFound, ErrNoOnboarding } from "./errors.js";
 
 // ProjectManager
 export type { ProjectManager } from "./project-manager/index.js";

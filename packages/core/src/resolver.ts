@@ -136,10 +136,14 @@ export const Resolver = StaticTypeCompanion({
    */
   for<E extends EntityDefAny, TContext extends ContextDefAny = ContextDefAny>(
     entity: E,
-    fields: Partial<{
+    fields: AllFields<{
       [K in keyof EntityFields<E>]: FieldAssignment<E>;
     }>
   ): Resolver<E, TContext> {
     return new ResolverImpl(entity, fields);
   },
 });
+
+
+/** This was "Partial" before - but I don't think we want more than 1 resolver */
+type AllFields<T> = T

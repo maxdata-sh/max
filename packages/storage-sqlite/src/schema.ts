@@ -3,7 +3,7 @@
  */
 
 import type { Database } from "bun:sqlite";
-import type { EntityDefAny } from "@max/core";
+import type {EntityDefAny, Schema} from "@max/core";
 import { buildTableDef, generateCreateTableSql, type TableDef } from "./table-def.js";
 import { ErrEntityNotRegistered } from "./errors.js";
 
@@ -15,6 +15,11 @@ export class SqliteSchema {
     const tableDef = buildTableDef(entityDef);
     this.tables.set(entityDef.name, tableDef);
     return this;
+  }
+
+  registerSchema(schema: Schema): this {
+    schema.entities.forEach(s => this.register(s))
+    return this
   }
 
   /** Get the TableDef for an entity definition */

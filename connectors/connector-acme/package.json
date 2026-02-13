@@ -13,7 +13,8 @@
   },
   "dependencies": {
     "@max/core": "workspace:*",
-    "@max/connector": "workspace:*"
+    "@max/connector": "workspace:*",
+    "@max/acme": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "latest",

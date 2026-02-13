@@ -39,6 +39,7 @@
       "name": "@max/connector-acme",
       "version": "0.1.0",
       "dependencies": {
+        "@max/acme": "workspace:*",
         "@max/connector": "workspace:*",
         "@max/core": "workspace:*",
       },

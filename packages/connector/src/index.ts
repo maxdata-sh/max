@@ -43,3 +43,13 @@ export type { ConnectorModuleAny } from "./connector-module.js";
 // ConnectorRegistry (maps connector names to lazy-loaded modules)
 export { ConnectorRegistry } from "./connector-registry.js";
 export type { ConnectorRegistryEntry } from "./connector-registry.js";
+
+// Onboarding (step pipeline for connector setup)
+export { OnboardingFlow, InputStep, ValidationStep, SelectStep, CustomStep } from "./onboarding.js";
+export type {
+  OnboardingFlowAny,
+  OnboardingContext,
+  OnboardingStep,
+  FieldDescriptor,
+  SelectOption,
+} from "./onboarding.js";

@@ -6,7 +6,6 @@ import {
   Loader,
   Resolver,
   EntityInput,
-  Batch,
   type LoaderName,
 } from "@max/core";
 import { AcmeUser } from "../entities.js";
@@ -16,46 +15,19 @@ import { AcmeAppContext } from "../context.js";
 // Loaders
 // ============================================================================
 
-/**
- * BasicUserLoader - Fetches core user fields in batch.
- */
-export const BasicUserLoader = Loader.entityBatched({
+export const UserBasicLoader = Loader.entity({
   name: "acme:user:basic" as LoaderName,
   context: AcmeAppContext,
   entity: AcmeUser,
   strategy: "autoload",
 
-  async load(refs, ctx, deps) {
-    const ids = refs.map((r) => r.id);
-    const users = await ctx.api.users.getBatch(ids);
-
-    // Build batch from EntityInputs
-    return Batch.buildFrom(
-      users.map((user) =>
-        EntityInput.create(AcmeUser.ref(user.id), {
-          name: user.name,
-          email: user.email,
-        })
-      )
-    ).withKey((input) => input.ref);
-  },
-});
-
-/**
- * UserAgeLoader - Fetches user age (single ref, manual).
- * Example of a more expensive field that's loaded on-demand.
- */
-export const UserAgeLoader = Loader.entity({
-  name: "acme:user:age" as LoaderName,
-  context: AcmeAppContext,
-  entity: AcmeUser,
-  strategy: "manual",
-
   async load(ref, ctx, deps) {
-    const user = await ctx.api.users.get(ref.id);
-
+    const user = await ctx.api.client.getUser(ref.id);
     return EntityInput.create(ref, {
-      age: user.age,
+      displayName: user.displayName,
+      email: user.email,
+      role: user.role,
+      active: user.active,
     });
   },
 });
@@ -64,25 +36,9 @@ export const UserAgeLoader = Loader.entity({
 // Resolver
 // ============================================================================
 
-/**
- * AcmeUserResolver - Maps AcmeUser fields to loaders.
- */
 export const AcmeUserResolver = Resolver.for(AcmeUser, {
-  name: BasicUserLoader.field("name"),
-  email: BasicUserLoader.field("email"),
-  age: UserAgeLoader.field("age"),
-  isAdmin: BasicUserLoader.field("isAdmin"), // Not actually loaded by BasicUserLoader, but shows the pattern
+  displayName: UserBasicLoader.field("displayName"),
+  email: UserBasicLoader.field("email"),
+  role: UserBasicLoader.field("role"),
+  active: UserBasicLoader.field("active"),
 });
-
-// ============================================================================
-// Type Safety Tests
-// ============================================================================
-
-const _badResolver = Resolver.for(AcmeUser, {
-  // @ts-expect-error - 'foo' is not a field on AcmeUser
-  foo: BasicUserLoader.field("name"),
-});
-
-// Silence unused variable warnings
-void AcmeUserResolver;
-void _badResolver;

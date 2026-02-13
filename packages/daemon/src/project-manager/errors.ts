@@ -34,6 +34,7 @@ export const ErrInstallationAlreadyExists = Project.define("installation_already
 
 /** No .max directory found — not a Max project */
 export const ErrProjectNotInitialised = Project.define("project_not_initialised", {
+  customProps: ErrFacet.props<{ path: string}>(),
   facets: [NotFound],
-  message: () => `Not a Max project — no .max directory found`,
+  message: (d) => `Not a Max project — no .max directory found at ${d.path}}`,
 });

@@ -8,30 +8,36 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { CredentialStore } from "@max/connector";
-import type { ConnectorType, InstallationId } from "@max/core";
-import type { ProjectManager } from "./project-manager.js";
-import type { PendingInstallation, ManagedInstallation, InstallationInfo } from "./types.js";
-import {
-  ErrInstallationNotFound,
-  ErrInstallationAlreadyExists,
-  ErrProjectNotInitialised,
-} from "./errors.js";
-import { FsCredentialStore } from "./fs-credential-store.js";
-import { findProjectRoot } from "./find-project-root.js";
+import type {CredentialStore} from "@max/connector";
+import type {ConnectorType, InstallationId} from "@max/core";
+import type {ProjectManager} from "./project-manager.js";
+import type {InstallationInfo, ManagedInstallation, PendingInstallation} from "./types.js";
+import {ErrInstallationAlreadyExists, ErrInstallationNotFound, ErrProjectNotInitialised,} from "./errors.js";
+import {FsCredentialStore} from "./fs-credential-store.js";
+import {findProjectRoot} from "./find-project-root.js";
 
 export class FsProjectManager implements ProjectManager {
-  constructor(private readonly startDir: string) {}
+  constructor(private readonly maxProjectRoot: string) {
+    const root = findProjectRoot(maxProjectRoot)
+    if (root !== maxProjectRoot){
+      if (!root) throw ErrProjectNotInitialised.create({path:maxProjectRoot});
+    }
+  }
+
+  /** Initialise a new Max project at `dir` and return a ProjectManager for it. */
+  static init(dir: string): FsProjectManager {
+    fs.mkdirSync(path.join(dir, ".max"), { recursive: true });
+    return new FsProjectManager(dir);
+  }
 
   // --------------------------------------------------------------------------
   // Public API
   // --------------------------------------------------------------------------
 
   prepare(connector: ConnectorType, name?: string): PendingInstallation {
-    const root = findProjectRoot(this.startDir);
-    const slug = name ?? this.autoSlug(connector, root);
+    const slug = name ?? this.autoSlug(connector);
 
-    if (root !== null && this.installationExists(root, connector, slug)) {
+    if (this.installationExists(connector, slug)) {
       throw ErrInstallationAlreadyExists.create({ connector, name: slug });
     }
 
@@ -39,10 +45,8 @@ export class FsProjectManager implements ProjectManager {
   }
 
   async commit(pending: PendingInstallation, config: unknown): Promise<ManagedInstallation> {
-    const root = this.writeRoot();
-
     // Race guard: re-check existence at commit time
-    if (this.installationExists(root, pending.connector, pending.name)) {
+    if (this.installationExists(pending.connector, pending.name)) {
       throw ErrInstallationAlreadyExists.create({
         connector: pending.connector,
         name: pending.name,
@@ -60,7 +64,7 @@ export class FsProjectManager implements ProjectManager {
       connectedAt,
     };
 
-    const dir = this.installationDir(root, pending.connector, pending.name);
+    const dir = this.installationDir(pending.connector, pending.name);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(
       path.join(dir, "installation.json"),
@@ -71,18 +75,16 @@ export class FsProjectManager implements ProjectManager {
   }
 
   credentialStoreFor(installation: PendingInstallation | ManagedInstallation): CredentialStore {
-    const root = this.writeRoot();
     const filePath = path.join(
-      this.installationDir(root, installation.connector, installation.name),
+      this.installationDir(installation.connector, installation.name),
       "credentials.json",
     );
     return new FsCredentialStore(filePath);
   }
 
   get(connector: ConnectorType, name?: string): ManagedInstallation {
-    const root = this.requireRoot();
-    const slug = name ?? this.resolveDefaultSlug(root, connector);
-    const filePath = path.join(this.installationDir(root, connector, slug), "installation.json");
+    const slug = name ?? this.resolveDefaultSlug(connector);
+    const filePath = path.join(this.installationDir(connector, slug), "installation.json");
 
     if (!fs.existsSync(filePath)) {
       throw ErrInstallationNotFound.create({ connector, name: slug });
@@ -92,22 +94,16 @@ export class FsProjectManager implements ProjectManager {
   }
 
   has(connector: ConnectorType, name?: string): boolean {
-    const root = findProjectRoot(this.startDir);
-    if (root === null) return false;
-
     try {
-      const slug = name ?? this.resolveDefaultSlug(root, connector);
-      return this.installationExists(root, connector, slug);
+      const slug = name ?? this.resolveDefaultSlug(connector);
+      return this.installationExists(connector, slug);
     } catch {
       return false;
     }
   }
 
   list(): InstallationInfo[] {
-    const root = findProjectRoot(this.startDir);
-    if (root === null) return [];
-
-    const installationsDir = this.installationsDir(root);
+    const installationsDir = this.installationsDir();
     if (!fs.existsSync(installationsDir)) return [];
 
     const results: InstallationInfo[] = [];
@@ -139,9 +135,8 @@ export class FsProjectManager implements ProjectManager {
   }
 
   async delete(connector: ConnectorType, name?: string): Promise<void> {
-    const root = this.requireRoot();
-    const slug = name ?? this.resolveDefaultSlug(root, connector);
-    const dir = this.installationDir(root, connector, slug);
+    const slug = name ?? this.resolveDefaultSlug(connector);
+    const dir = this.installationDir(connector, slug);
 
     if (!fs.existsSync(path.join(dir, "installation.json"))) {
       throw ErrInstallationNotFound.create({ connector, name: slug });
@@ -150,42 +145,26 @@ export class FsProjectManager implements ProjectManager {
     fs.rmSync(dir, { recursive: true });
 
     // Clean up empty connector directory
-    const connectorDir = path.join(this.installationsDir(root), connector);
+    const connectorDir = path.join(this.installationsDir(), connector);
     if (fs.existsSync(connectorDir) && fs.readdirSync(connectorDir).length === 0) {
       fs.rmdirSync(connectorDir);
     }
   }
 
   // --------------------------------------------------------------------------
-  // Root resolution
-  // --------------------------------------------------------------------------
-
-  /** Walk to find project root, or throw if not in a project. */
-  private requireRoot(): string {
-    const root = findProjectRoot(this.startDir);
-    if (root === null) throw ErrProjectNotInitialised.create({});
-    return root;
-  }
-
-  /** Walk to find project root, or fall back to startDir for first-time creation. */
-  private writeRoot(): string {
-    return findProjectRoot(this.startDir) ?? this.startDir;
-  }
-
-  // --------------------------------------------------------------------------
   // Path helpers
   // --------------------------------------------------------------------------
 
-  private installationsDir(root: string): string {
-    return path.join(root, ".max", "installations");
+  private installationsDir(): string {
+    return path.join(this.maxProjectRoot, ".max", "installations");
   }
 
-  private installationDir(root: string, connector: ConnectorType, slug: string): string {
-    return path.join(this.installationsDir(root), connector, slug);
+  private installationDir(connector: ConnectorType, slug: string): string {
+    return path.join(this.installationsDir(), connector, slug);
   }
 
-  private installationExists(root: string, connector: ConnectorType, slug: string): boolean {
-    return fs.existsSync(path.join(this.installationDir(root, connector, slug), "installation.json"));
+  private installationExists(connector: ConnectorType, slug: string): boolean {
+    return fs.existsSync(path.join(this.installationDir(connector, slug), "installation.json"));
   }
 
   // --------------------------------------------------------------------------
@@ -197,10 +176,8 @@ export class FsProjectManager implements ProjectManager {
    * - No existing installations → "default"
    * - "default" taken → "default-2", "default-3", ...
    */
-  private autoSlug(connector: ConnectorType, root: string | null): string {
-    if (root === null) return "default";
-
-    const connectorDir = path.join(this.installationsDir(root), connector);
+  private autoSlug(connector: ConnectorType): string {
+    const connectorDir = path.join(this.installationsDir(), connector);
     if (!fs.existsSync(connectorDir)) return "default";
 
     const slugs = fs
@@ -221,8 +198,8 @@ export class FsProjectManager implements ProjectManager {
    * - If exactly one installation exists, use that
    * - Otherwise, throw
    */
-  private resolveDefaultSlug(root: string, connector: ConnectorType): string {
-    const connectorDir = path.join(this.installationsDir(root), connector);
+  private resolveDefaultSlug(connector: ConnectorType): string {
+    const connectorDir = path.join(this.installationsDir(), connector);
     if (!fs.existsSync(connectorDir)) {
       throw ErrInstallationNotFound.create({ connector });
     }

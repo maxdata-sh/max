@@ -4,8 +4,9 @@ export type { PendingInstallation, ManagedInstallation, InstallationInfo } from 
 // Interface
 export type { ProjectManager } from "./project-manager.js";
 
-// Implementation
+// Implementations
 export { FsProjectManager } from "./fs-project-manager.js";
+export { UninitializedProjectManager } from "./uninitialized-project-manager.js";
 
 // Utilities
 export { findProjectRoot } from "./find-project-root.js";

@@ -1,10 +1,8 @@
-import { object, or } from "@optique/core/constructs";
-import { multiple } from "@optique/core/modifiers";
-import {InferValue, suggest, suggestAsync} from "@optique/core/parser";
-import { argument, command, constant, option} from "@optique/core/primitives";
-import { path, run } from "@optique/run";
+import {object, or} from "@optique/core/constructs";
+import {InferValue, suggestAsync} from "@optique/core/parser";
+import {argument, command, constant, option} from "@optique/core/primitives";
+import {run} from "@optique/run";
 import {choice, string} from "@optique/core/valueparser";
-import {runParser} from "@optique/core";
 
 const parser = or(
   command("add", object({

@@ -16,7 +16,7 @@ export { Daemon, ErrMissingParam, ErrInvalidParam, ErrUnknownCommand, ErrConnect
 
 // ProjectManager
 export type { ProjectManager } from "./project-manager/index.js";
-export { FsProjectManager, findProjectRoot } from "./project-manager/index.js";
+export { FsProjectManager, UninitializedProjectManager, findProjectRoot } from "./project-manager/index.js";
 export { Project, ErrInstallationNotFound, ErrInstallationAlreadyExists, ErrProjectNotInitialised } from "./project-manager/index.js";
 export type { PendingInstallation, ManagedInstallation, InstallationInfo } from "./project-manager/index.js";
 

@@ -17,7 +17,7 @@ export class DaemonConfig {
   private lazy = new Lazy({
     maxProjectRoot: () => {
       const root = findProjectRoot(process.cwd());
-      if (!root) throw ErrProjectNotInitialised.create({});
+      if (!root) throw ErrProjectNotInitialised.create({ path: process.cwd() });
       return root;
     },
   });

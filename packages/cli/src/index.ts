@@ -1,6 +1,6 @@
 import { Context } from "@max/core";
 import { ConnectorRegistry } from "@max/connector";
-import { commands, DaemonConfig, DaemonContext, FsProjectManager } from "@max/daemon";
+import { commands, DaemonConfig, DaemonContext, FsProjectManager, UninitializedProjectManager } from "@max/daemon";
 import * as Completion from "@optique/core/completion";
 import type { ShellCompletion } from "@optique/core/completion";
 import { createSocketServer } from "./socket.js";
@@ -20,7 +20,10 @@ registry.addLocalNamed("linear", () => import("@max/connector-linear"));
 
 const ctx = Context.build(DaemonContext, {
   connectors: registry,
-  project: new FsProjectManager(config.project.getMaxProjectRoot()),
+  project: (() => {
+    try { return new FsProjectManager(config.project.getMaxProjectRoot()); }
+    catch { return new UninitializedProjectManager(config.project.getMaxProjectRoot()); }
+  })(),
 });
 
 const runner = CommandRunner.create(commands, ctx, "max", config);

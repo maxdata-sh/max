@@ -11,7 +11,7 @@ import type { InferContext, Context } from "@max/core";
 import type { Response } from "@max/daemon";
 import { parserFromCommand } from "./parser-bridge.js";
 import { daemonCommand } from "./meta-commands.js";
-import { DaemonManager } from "./daemon-manager.js";
+import { DaemonManager, CliPrinter } from "./daemon-manager.js";
 import type { DaemonConfig } from "@max/daemon";
 
 /** Sentinel thrown by runParserAsync callbacks to signal help/error was shown. */
@@ -59,12 +59,13 @@ export class CommandRunner {
     private ctx: InferContext<Context>,
     private cliName: string,
     config: DaemonConfig,
+    printer: CliPrinter,
   ) {
     this.parsers = new Map();
     for (const [name, cmd] of commands) {
       this.parsers.set(name, parserFromCommand(cmd, ctx));
     }
-    this.daemon = new DaemonManager(config);
+    this.daemon = new DaemonManager(config, printer);
   }
 
   static create(
@@ -72,8 +73,9 @@ export class CommandRunner {
     ctx: InferContext<Context>,
     cliName: string = "max",
     config: DaemonConfig,
+    printer: CliPrinter = new CliPrinter(true),
   ): CommandRunner {
-    return new CommandRunner(commands, ctx, cliName, config);
+    return new CommandRunner(commands, ctx, cliName, config, printer);
   }
 
   private static shells: Record<string, ShellCompletion> = {

@@ -3,7 +3,8 @@ import * as os from "node:os";
 import { existsSync, unlinkSync, writeFileSync, readFileSync, readdirSync } from "fs";
 import type { Response } from "@max/daemon";
 import type { DaemonConfig } from "@max/daemon";
-import { CliPrintable } from "./cli-printable.js";
+import type { CliPrintable, Fmt } from "./cli-printable.js";
+import { CliPrinter } from "./cli-printable.js";
 
 export class DaemonStatus implements CliPrintable {
   constructor(
@@ -14,16 +15,16 @@ export class DaemonStatus implements CliPrintable {
     readonly staleSocket: boolean,
   ) {}
 
-  toCliString(): string {
+  toCliString(fmt: Fmt): string {
     const lines: string[] = [];
     if (this.alive) {
-      lines.push(`Daemon:  running (pid ${this.pid})`);
-      lines.push(`Socket:  ${this.socketPath}`);
+      lines.push(`${fmt.dim("Daemon:")}  ${fmt.green("●")} running ${fmt.dim(`(pid ${this.pid})`)}`);
+      lines.push(`${fmt.dim("Socket:")}  ${this.socketPath}`);
     } else {
-      lines.push("Daemon:  not running");
-      if (this.staleSocket) lines.push(`Warning: stale socket at ${this.socketPath}`);
+      lines.push(`${fmt.dim("Daemon:")}  ○ not running`);
+      if (this.staleSocket) lines.push(`${fmt.yellow("Warning:")} stale socket at ${this.socketPath}`);
     }
-    lines.push(`Enabled: ${this.enabled ? "yes" : "no"}`);
+    lines.push(`${fmt.dim("Enabled:")} ${this.enabled ? "yes" : "no"}`);
     return lines.join("\n");
   }
 }
@@ -32,21 +33,34 @@ export class DaemonEntry implements CliPrintable {
   constructor(
     readonly root: string,
     readonly hash: string,
-    readonly status: "running" | "stopped",
+    readonly status: "running" | "stopped" | "stale",
     readonly pid: number | null,
   ) {}
 
-  toCliString(): string {
-    const status =
-      this.status === "running" ? `running (pid ${this.pid})` : "stopped";
-    return [this.root, `  Hash:   ${this.hash}`, `  Status: ${status}`].join(
-      "\n",
-    );
+  toCliString(fmt: Fmt): string {
+    const indicator =
+      this.status === "running"
+        ? fmt.green("●")
+        : this.status === "stale"
+          ? fmt.red("●")
+          : "○";
+
+    const label = this.status === "running"
+      ? `${fmt.green('running')} ${fmt.dim(`(pid ${this.pid})`)}`
+      : this.status;
+
+    return [
+      this.root,
+      `  ${fmt.normal("Hash:")}   ${this.hash}`,
+      `  ${fmt.normal("Status:")} ${indicator} ${label}`,
+    ].join("\n");
   }
 }
 
+export { CliPrinter } from "./cli-printable.js";
+
 export class DaemonManager {
-  constructor(private config: DaemonConfig) {}
+  constructor(private config: DaemonConfig, private printer: CliPrinter) {}
 
   status(): Response {
     const { socketPath, disabledPath } = this.config.daemon;
@@ -60,7 +74,7 @@ export class DaemonManager {
       !existsSync(disabledPath),
       !alive && existsSync(socketPath),
     );
-    return { stdout: status.toCliString() + "\n", exitCode: 0 };
+    return { stdout: this.printer.print(status) + "\n", exitCode: 0 };
   }
 
   start(): Response {
@@ -100,7 +114,7 @@ export class DaemonManager {
     if (entries.length === 0) {
       return { stdout: "No daemons found.\n", exitCode: 0 };
     }
-    return { stdout: CliPrintable.printAll(entries), exitCode: 0 };
+    return { stdout: this.printer.printAll(entries), exitCode: 0 };
   }
 
   private discoverDaemons(): DaemonEntry[] {
@@ -118,12 +132,8 @@ export class DaemonManager {
       const pid = this.readPidFrom(path.join(dir, "daemon.pid"));
       const alive = pid !== null && this.isProcessAlive(pid);
 
-      entries.push(new DaemonEntry(
-        data.root,
-        entry.name,
-        alive ? "running" : "stopped",
-        pid,
-      ));
+      const status = alive ? "running" : pid !== null ? "stale" : "stopped";
+      entries.push(new DaemonEntry(data.root, entry.name, status, pid));
     }
     return entries;
   }

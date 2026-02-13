@@ -22,7 +22,7 @@ const ctx = Context.build(DaemonContext, {
   connectors: registry,
   project: (() => {
     try { return new FsProjectManager(config.project.getMaxProjectRoot()); }
-    catch { return new UninitializedProjectManager(config.project.getMaxProjectRoot()); }
+    catch { return new UninitializedProjectManager(process.cwd()); }
   })(),
 });
 

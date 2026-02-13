@@ -18,6 +18,6 @@ export class UninitializedProjectManager implements ProjectManager {
   delete(): never { return this.fail(); }
 
   private fail(): never {
-    throw ErrProjectNotInitialised.create({ path: this.path });
+    throw ErrProjectNotInitialised.create({ maxProjectRoot: this.path });
   }
 }

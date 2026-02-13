@@ -14,8 +14,7 @@ function createTmpDir(): string {
 }
 
 function initProject(dir: string): FsProjectManager {
-  fs.mkdirSync(path.join(dir, ".max"), { recursive: true });
-  return new FsProjectManager(dir);
+  return FsProjectManager.init(dir);
 }
 
 const acme: ConnectorType = "acme";
@@ -34,9 +33,15 @@ afterEach(() => {
 // ============================================================================
 
 describe("construction", () => {
-  test("succeeds when .max exists at the given path", () => {
+  test("succeeds when .max and max.json exist at the given path", () => {
     fs.mkdirSync(path.join(tmpDir, ".max"));
+    fs.writeFileSync(path.join(tmpDir, "max.json"), "{}");
     expect(() => new FsProjectManager(tmpDir)).not.toThrow();
+  });
+
+  test("throws when .max exists but max.json is missing", () => {
+    fs.mkdirSync(path.join(tmpDir, ".max"));
+    expect(() => new FsProjectManager(tmpDir)).toThrow("Not a Max project");
   });
 
   test("throws when .max does not exist", () => {

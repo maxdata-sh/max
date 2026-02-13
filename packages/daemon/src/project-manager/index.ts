@@ -16,5 +16,6 @@ export {
   Project,
   ErrInstallationNotFound,
   ErrInstallationAlreadyExists,
+  ErrCannotInitialiseProject,
   ErrProjectNotInitialised,
 } from "./errors.js";

@@ -20,13 +20,17 @@ export class FsProjectManager implements ProjectManager {
   constructor(private readonly maxProjectRoot: string) {
     const root = findProjectRoot(maxProjectRoot)
     if (root !== maxProjectRoot){
-      if (!root) throw ErrProjectNotInitialised.create({path:maxProjectRoot});
+      if (!root) throw ErrProjectNotInitialised.create({maxProjectRoot:maxProjectRoot});
     }
   }
 
   /** Initialise a new Max project at `dir` and return a ProjectManager for it. */
   static init(dir: string): FsProjectManager {
     fs.mkdirSync(path.join(dir, ".max"), { recursive: true });
+    const configPath = path.join(dir, "max.json");
+    if (!fs.existsSync(configPath)) {
+      fs.writeFileSync(configPath, JSON.stringify({}, null, 2));
+    }
     return new FsProjectManager(dir);
   }
 

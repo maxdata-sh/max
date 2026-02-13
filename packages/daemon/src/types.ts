@@ -27,6 +27,7 @@ export type Request = {
   kind: "run" | "complete";
   argv: string[];
   shell?: string;
+  cwd?: string;
 };
 
 export type Response = {

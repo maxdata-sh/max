@@ -1,6 +1,7 @@
+import * as path from "node:path";
 import { Context } from "@max/core";
 import { ConnectorRegistry } from "@max/connector";
-import { commands, DaemonConfig, DaemonContext, FsProjectManager, UninitializedProjectManager } from "@max/daemon";
+import { commands, DaemonConfig, DaemonContext, FsProjectManager, UninitializedProjectManager, findProjectRoot } from "@max/daemon";
 import * as Completion from "@optique/core/completion";
 import type { ShellCompletion } from "@optique/core/completion";
 import { createSocketServer } from "./socket.js";
@@ -12,7 +13,17 @@ const shells: Record<string, ShellCompletion> = {
   fish: Completion.fish,
 };
 
-const config = new DaemonConfig();
+// Resolve project root: --project-root flag (from Rust shim) or walk from CWD
+function getProjectRoot(): string | null {
+  const idx = process.argv.indexOf("--project-root");
+  if (idx !== -1 && process.argv[idx + 1]) {
+    return process.argv[idx + 1];
+  }
+  return findProjectRoot(process.cwd());
+}
+
+const projectRoot = getProjectRoot();
+const config = projectRoot ? new DaemonConfig({ projectRoot }) : null;
 
 const registry = ConnectorRegistry.create();
 registry.addLocalNamed("acme", () => import("@max/connector-acme"));
@@ -20,23 +31,37 @@ registry.addLocalNamed("linear", () => import("@max/connector-linear"));
 
 const ctx = Context.build(DaemonContext, {
   connectors: registry,
-  project: (() => {
-    try { return new FsProjectManager(config.project.getMaxProjectRoot()); }
-    catch { return new UninitializedProjectManager(process.cwd()); }
-  })(),
+  project: projectRoot
+    ? new FsProjectManager(projectRoot)
+    : new UninitializedProjectManager(process.cwd()),
 });
 
-const runner = CommandRunner.create(commands, ctx, "max", config);
+const runner = CommandRunner.create(commands, ctx, "max", config!);
 
 if (process.argv.includes("--daemonized")) {
+  if (!config) {
+    console.error("Cannot daemonize without a project root");
+    process.exit(1);
+  }
+
+  const { existsSync, writeFileSync, mkdirSync } = await import("fs");
+
+  // Ensure daemon directory exists
+  mkdirSync(config.daemon.daemonDir, { recursive: true });
+
   // Check disabled flag
-  const { existsSync, writeFileSync } = await import("fs");
   if (existsSync(config.daemon.disabledPath)) {
     process.exit(0); // disabled — exit silently
   }
 
   // Write PID file
   writeFileSync(config.daemon.pidPath, String(process.pid));
+
+  // Write project.json for discoverability
+  writeFileSync(
+    path.join(config.daemon.daemonDir, "project.json"),
+    JSON.stringify({ root: config.projectRoot }),
+  );
 
   // Daemon mode: socket server
   createSocketServer({
@@ -45,7 +70,12 @@ if (process.argv.includes("--daemonized")) {
   });
   console.log(`Max daemon listening on ${config.daemon.socketPath}`);
 } else {
-  const argv = process.argv.slice(2);
+  // Strip --project-root from argv before passing to commands
+  let argv = process.argv.slice(2);
+  const prIdx = argv.indexOf("--project-root");
+  if (prIdx !== -1) {
+    argv = [...argv.slice(0, prIdx), ...argv.slice(prIdx + 2)];
+  }
 
   // __complete <shell> <args...> — shell completion callback
   if (argv[0] === "__complete") {
@@ -61,7 +91,6 @@ if (process.argv.includes("--daemonized")) {
   }
 
   // Direct mode: parse argv, run command, exit
-  // (includes "completions <shell>" handled by CommandRunner)
   const response = await runner.execute(argv);
   if (response.stdout) process.stdout.write(response.stdout);
   if (response.stderr) process.stderr.write(response.stderr);

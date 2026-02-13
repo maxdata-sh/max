@@ -18,6 +18,9 @@ export const daemonCommand = command("daemon", or(
   command("disable", constant("disable" as const), {
     description: message`Disable daemon and stop if running`,
   }),
+  command("list", constant("list" as const), {
+    description: message`List all known project daemons`,
+  }),
 ), {
   description: message`Manage the background daemon process`,
 });

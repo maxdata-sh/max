@@ -106,6 +106,7 @@ export class CommandRunner {
         case "stop": return this.daemon.stop();
         case "enable": return this.daemon.enable();
         case "disable": return this.daemon.disable();
+        case "list": return this.daemon.list();
       }
     }
 

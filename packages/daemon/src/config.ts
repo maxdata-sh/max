@@ -1,9 +1,15 @@
-import { Lazy } from "@max/core";
-import { findProjectRoot } from "./project-manager/find-project-root.js";
-import { ErrProjectNotInitialised } from "./project-manager/errors.js";
+import * as crypto from "node:crypto";
+import * as path from "node:path";
+import * as os from "node:os";
+
+export function projectHash(projectRoot: string): string {
+  const resolved = path.resolve(projectRoot);
+  const hash = crypto.createHash("sha256").update(resolved).digest("hex");
+  return hash.slice(0, 12);
+}
 
 interface DaemonPaths {
-  readonly tmpRoot: string;
+  readonly daemonDir: string;
   readonly socketPath: string;
   readonly pidPath: string;
   readonly disabledPath: string;
@@ -12,34 +18,23 @@ interface DaemonPaths {
 
 export class DaemonConfig {
   readonly devMode: boolean;
+  readonly projectRoot: string;
   readonly daemon: DaemonPaths;
 
-  private lazy = new Lazy({
-    maxProjectRoot: () => {
-      const root = findProjectRoot(process.cwd());
-      if (!root) throw ErrProjectNotInitialised.create({ maxProjectRoot: process.cwd() });
-      return root;
-    },
-  });
-
-  project = {
-    getMaxProjectRoot: () => this.lazy.read.maxProjectRoot,
-  };
-
-  constructor(opts: Partial<{ devMode: boolean; daemon: { tmpRoot: string } }> = {}) {
+  constructor(opts: { projectRoot: string; devMode?: boolean }) {
+    this.projectRoot = path.resolve(opts.projectRoot);
     this.devMode = opts.devMode
       ?? (process.env.MAX_DEV === "1" || process.env.MAX_DEV === "true");
 
-    const tmpRoot = opts.daemon?.tmpRoot
-      ?? process.env.MAX_DAEMON_TMP
-      ?? "/tmp";
+    const hash = projectHash(this.projectRoot);
+    const daemonDir = path.join(os.homedir(), ".max", "daemons", hash);
 
     this.daemon = {
-      tmpRoot,
-      socketPath: `${tmpRoot}/max-daemon.sock`,
-      pidPath: `${tmpRoot}/max-daemon.pid`,
-      disabledPath: `${tmpRoot}/max-daemon.disabled`,
-      logPath: `${tmpRoot}/max-daemon.log`,
+      daemonDir,
+      socketPath: path.join(daemonDir, "daemon.sock"),
+      pidPath: path.join(daemonDir, "daemon.pid"),
+      disabledPath: path.join(daemonDir, "daemon.disabled"),
+      logPath: path.join(daemonDir, "daemon.log"),
     };
   }
 }

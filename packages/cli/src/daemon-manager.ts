@@ -1,34 +1,76 @@
-import { existsSync, unlinkSync, writeFileSync, readFileSync } from "fs";
+import * as path from "node:path";
+import * as os from "node:os";
+import { existsSync, unlinkSync, writeFileSync, readFileSync, readdirSync } from "fs";
 import type { Response } from "@max/daemon";
 import type { DaemonConfig } from "@max/daemon";
+import { CliPrintable } from "./cli-printable.js";
+
+export class DaemonStatus implements CliPrintable {
+  constructor(
+    readonly alive: boolean,
+    readonly pid: number | null,
+    readonly socketPath: string,
+    readonly enabled: boolean,
+    readonly staleSocket: boolean,
+  ) {}
+
+  toCliString(): string {
+    const lines: string[] = [];
+    if (this.alive) {
+      lines.push(`Daemon:  running (pid ${this.pid})`);
+      lines.push(`Socket:  ${this.socketPath}`);
+    } else {
+      lines.push("Daemon:  not running");
+      if (this.staleSocket) lines.push(`Warning: stale socket at ${this.socketPath}`);
+    }
+    lines.push(`Enabled: ${this.enabled ? "yes" : "no"}`);
+    return lines.join("\n");
+  }
+}
+
+export class DaemonEntry implements CliPrintable {
+  constructor(
+    readonly root: string,
+    readonly hash: string,
+    readonly status: "running" | "stopped",
+    readonly pid: number | null,
+  ) {}
+
+  toCliString(): string {
+    const status =
+      this.status === "running" ? `running (pid ${this.pid})` : "stopped";
+    return [this.root, `  Hash:   ${this.hash}`, `  Status: ${status}`].join(
+      "\n",
+    );
+  }
+}
 
 export class DaemonManager {
   constructor(private config: DaemonConfig) {}
 
   status(): Response {
-    const { socketPath, pidPath, disabledPath } = this.config.daemon;
-    const enabled = !existsSync(disabledPath);
+    const { socketPath, disabledPath } = this.config.daemon;
     const pid = this.readPid();
     const alive = pid !== null && this.isProcessAlive(pid);
-    const socketExists = existsSync(socketPath);
 
-    let out = "";
-    if (alive) {
-      out += `Daemon:  running (pid ${pid})\n`;
-      out += `Socket:  ${socketPath}\n`;
-    } else {
-      out += "Daemon:  not running\n";
-      if (socketExists) out += `Warning: stale socket at ${socketPath}\n`;
-    }
-    out += `Enabled: ${enabled ? "yes" : "no"}\n`;
-    return { stdout: out, exitCode: 0 };
+    const status = new DaemonStatus(
+      alive,
+      pid,
+      socketPath,
+      !existsSync(disabledPath),
+      !alive && existsSync(socketPath),
+    );
+    return { stdout: status.toCliString() + "\n", exitCode: 0 };
   }
 
   start(): Response {
     if (existsSync(this.config.daemon.disabledPath)) {
       return { stderr: "Daemon is disabled. Run 'max daemon enable' first.\n", exitCode: 1 };
     }
-    const proc = Bun.spawn(["bun", "run", import.meta.filename, "--daemonized"], {
+    const proc = Bun.spawn([
+      "bun", "run", import.meta.filename,
+      "--daemonized", "--project-root", this.config.projectRoot,
+    ], {
       stdin: "ignore", stdout: "ignore", stderr: "inherit",
     });
     proc.unref();
@@ -53,9 +95,46 @@ export class DaemonManager {
     return { stdout: "Daemon disabled\n", exitCode: 0 };
   }
 
+  list(): Response {
+    const entries = this.discoverDaemons();
+    if (entries.length === 0) {
+      return { stdout: "No daemons found.\n", exitCode: 0 };
+    }
+    return { stdout: CliPrintable.printAll(entries), exitCode: 0 };
+  }
+
+  private discoverDaemons(): DaemonEntry[] {
+    const daemonsDir = path.join(os.homedir(), ".max", "daemons");
+    if (!existsSync(daemonsDir)) return [];
+
+    const entries: DaemonEntry[] = [];
+    for (const entry of readdirSync(daemonsDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const dir = path.join(daemonsDir, entry.name);
+      const projectJsonPath = path.join(dir, "project.json");
+      if (!existsSync(projectJsonPath)) continue;
+
+      const data = JSON.parse(readFileSync(projectJsonPath, "utf-8"));
+      const pid = this.readPidFrom(path.join(dir, "daemon.pid"));
+      const alive = pid !== null && this.isProcessAlive(pid);
+
+      entries.push(new DaemonEntry(
+        data.root,
+        entry.name,
+        alive ? "running" : "stopped",
+        pid,
+      ));
+    }
+    return entries;
+  }
+
   private readPid(): number | null {
+    return this.readPidFrom(this.config.daemon.pidPath);
+  }
+
+  private readPidFrom(pidPath: string): number | null {
     try {
-      const raw = readFileSync(this.config.daemon.pidPath, "utf-8").trim();
+      const raw = readFileSync(pidPath, "utf-8").trim();
       const pid = parseInt(raw, 10);
       return isNaN(pid) ? null : pid;
     } catch {

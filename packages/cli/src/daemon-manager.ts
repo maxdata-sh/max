@@ -82,7 +82,7 @@ export class DaemonManager {
       return { stderr: "Daemon is disabled. Run 'max daemon enable' first.\n", exitCode: 1 };
     }
     const proc = Bun.spawn([
-      "bun", "run", import.meta.filename,
+      "bun", "run", path.join(path.dirname(import.meta.filename), "index.ts"),
       "--daemonized", "--project-root", this.config.projectRoot,
     ], {
       stdin: "ignore", stdout: "ignore", stderr: "inherit",

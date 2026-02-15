@@ -13,7 +13,7 @@ import {
 import { ConnectorDef } from "../connector-def.js";
 import { ConnectorModule, type ConnectorModuleAny } from "../connector-module.js";
 import { Installation } from "../installation.js";
-import { ConnectorRegistry } from "../connector-registry.js";
+import { ConnectorRegistry, InMemoryConnectorRegistry } from '../connector-registry.js'
 
 // ============================================================================
 // Test Fixtures
@@ -66,9 +66,9 @@ function makeModule(name: string): ConnectorModuleAny {
 // Tests
 // ============================================================================
 
-describe("ConnectorRegistry", () => {
+describe("InMemoryConnectorRegistry", () => {
   test("addLocalNamed and resolve", async () => {
-    const registry = ConnectorRegistry.create();
+    const registry = new InMemoryConnectorRegistry();
     const mod = makeModule("acme");
 
     registry.addLocalNamed("acme", async () => ({ default: mod }));
@@ -81,7 +81,7 @@ describe("ConnectorRegistry", () => {
   test("resolve caches modules", async () => {
     let loadCount = 0;
     const mod = makeModule("acme");
-    const registry = ConnectorRegistry.create();
+    const registry = new InMemoryConnectorRegistry();
 
     registry.addLocalNamed("acme", async () => {
       loadCount++;
@@ -94,14 +94,14 @@ describe("ConnectorRegistry", () => {
   });
 
   test("resolve throws for unknown connector", async () => {
-    const registry = ConnectorRegistry.create();
+    const registry = new InMemoryConnectorRegistry();
     expect(registry.resolve("nope")).rejects.toThrow(
       'Connector "nope" not found in registry'
     );
   });
 
   test("addLocalNamed throws for duplicate name", () => {
-    const registry = ConnectorRegistry.create();
+    const registry = new InMemoryConnectorRegistry();
     registry.addLocalNamed("acme", async () => ({ default: makeModule("acme") }));
 
     expect(() =>
@@ -110,7 +110,7 @@ describe("ConnectorRegistry", () => {
   });
 
   test("list returns registered names without loading", () => {
-    const registry = ConnectorRegistry.create();
+    const registry = new InMemoryConnectorRegistry();
     registry.addLocalNamed("linear", async () => ({ default: makeModule("linear") }));
     registry.addLocalNamed("gdrive", async () => ({ default: makeModule("gdrive") }));
 

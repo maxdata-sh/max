@@ -145,5 +145,5 @@ export { Inspect, inspect } from "./inspect.js";
 
 // Utilities
 export { StaticTypeCompanion } from "./companion.js";
-export { Lazy } from "./lazy.js";
+export * from "./lazy.js";
 export {Duration} from "./duration.js";

@@ -29,11 +29,3 @@ export type Request = {
   shell?: string;
   cwd?: string;
 };
-
-export type Response = {
-  stdout?: string;
-  stderr?: string;
-  exitCode: number;
-  completions?: string[];
-  completionOutput?: string;
-};

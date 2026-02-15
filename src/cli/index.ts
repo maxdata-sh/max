@@ -39,6 +39,8 @@ const result = run(parser, {
   completion: 'both',
 });
 
+
+
 (async () => {
   try {
     switch (result.cmd) {

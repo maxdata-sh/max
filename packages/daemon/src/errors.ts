@@ -2,6 +2,10 @@ import { MaxError, ErrFacet, BadInput, NotFound } from "@max/core";
 
 export const Daemon = MaxError.boundary("daemon");
 
+
+// FIXME: CLAUDE: These errors need distributing - but they're also pretty poorly defined.
+// e.g. what is "missing parameter"? That's very generic. That's not to say it can't exist, it's just that it might not be a "daemon" or "app" concern. Probably wants to be in CLI to be fair.
+
 export const ErrMissingParam = Daemon.define("missing_param", {
   customProps: ErrFacet.props<{ param: string }>(),
   facets: [BadInput],
@@ -18,12 +22,6 @@ export const ErrUnknownCommand = Daemon.define("unknown_command", {
   customProps: ErrFacet.props<{ command: string }>(),
   facets: [NotFound],
   message: (d) => `Unknown command: ${d.command}`,
-});
-
-export const ErrConnectorNotFound = Daemon.define("connector_not_found", {
-  customProps: ErrFacet.props<{ connector: string }>(),
-  facets: [NotFound],
-  message: (d) => `Unknown connector: ${d.connector}`,
 });
 
 export const ErrNoOnboarding = Daemon.define("no_onboarding", {

@@ -1,3 +1,5 @@
+import {StaticTypeCompanion} from "@max/core";
+
 export class Fmt {
   constructor(readonly color: boolean) {}
 
@@ -14,23 +16,29 @@ export class Fmt {
   }
 }
 
-export interface CliPrintable {
-  toCliString(fmt: Fmt): string;
-}
-
 export class CliPrinter {
   readonly fmt: Fmt;
 
-  constructor(color: boolean) {
-    this.fmt = new Fmt(color);
+  constructor(args:{color: boolean}) {
+    this.fmt = new Fmt(args.color);
   }
 
-  print(item: CliPrintable): string {
-    return item.toCliString(this.fmt);
+  print<T>(printer: CliValuePrinter<T>, item: T): string {
+    return printer.print(item, this.fmt)
   }
 
-  printAll(items: CliPrintable[], separator = "\n\n"): string {
-    if (items.length === 0) return "";
-    return items.map((i) => i.toCliString(this.fmt)).join(separator) + "\n";
+  printAll<T>(printer: CliValuePrinter<T>, items:T[], separator: string = '\n\n'): string {
+    return items.map(t => printer.print(t, this.fmt)).join(separator)
   }
+
 }
+
+export interface CliValuePrinter<in T> {
+  print(value:T, fmt: Fmt): string
+}
+
+export const CliValuePrinter = StaticTypeCompanion({
+  of<T>(fn: CliValuePrinter<T>['print']): CliValuePrinter<T> {
+    return { print: fn }
+  }
+})

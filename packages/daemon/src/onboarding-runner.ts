@@ -8,6 +8,8 @@
 import { createInterface } from "node:readline";
 import type { OnboardingFlow, OnboardingContext, OnboardingStep } from "@max/connector";
 
+// FIXME: CLAUDE: Not yet. But - when we've resolved everything else, we need to pull this out and actually use the onboarding runner.
+
 // ============================================================================
 // Terminal I/O
 // ============================================================================

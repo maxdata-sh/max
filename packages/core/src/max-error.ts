@@ -12,6 +12,7 @@
 import {StaticTypeCompanion} from "./companion.js";
 import {UnionToIntersection} from "./type-system-utils.js";
 import {inspect, Inspect} from "./inspect.js";
+import util from "node-inspect-extracted";
 
 // ============================================================================
 // Facet Types
@@ -156,32 +157,7 @@ function stackFrames(stack: string | undefined): string {
   return stack.slice(first + 1);
 }
 
-/** Format a cause chain for inspect output */
-function formatCauseChain(err: MaxErrorImpl, indent: string, opts: { colors?: boolean }): string {
-  const dim = opts.colors ? "\x1b[2m" : "";
-  const red = opts.colors ? "\x1b[31m" : "";
-  const reset = opts.colors ? "\x1b[0m" : "";
 
-  let result = "";
-  let current: MaxErrorImpl | undefined = err.cause as MaxErrorImpl | undefined;
-  let depth = indent;
-
-  while (current) {
-    const hasData = Object.keys(current.data).length > 0;
-    result += `\n${depth}${dim}caused by:${reset} ${red}MaxError[${current.code}]${reset}: ${current.message}`;
-    if (hasData) {
-      result += `\n${depth}  ${JSON.stringify(current.data)}`;
-    }
-    const frames = stackFrames(current.stack);
-    if (frames) {
-      result += "\n" + frames.split("\n").map(line => depth + line).join("\n");
-    }
-    current = current.cause as MaxErrorImpl | undefined;
-    depth += "  ";
-  }
-
-  return result;
-}
 
 /** Convert any thrown value to a MaxError, preserving stack */
 function asMaxError(thrown: unknown): MaxError {
@@ -206,26 +182,10 @@ class MaxErrorImpl extends Error implements MaxError {
 
   static {
     Inspect(this, (self, opts) => {
-      const hasData = Object.keys(self.data).length > 0;
-      const frames = stackFrames(self.stack);
-
-      const red = opts.colors ? "\x1b[31m" : "";
-      const reset = opts.colors ? "\x1b[0m" : "";
-      let format = `${red}MaxError[${self.code}]${reset}: ${self.message}`;
-      const params: any[] = [];
-
-      if (hasData) {
-        format += "\n  %O";
-        params.push(self.data);
+      return {
+        format: self.prettyPrint({color: opts.colors, includeStackTrace: true}),
+        params:[]
       }
-      if (frames) {
-        format += "\n" + frames;
-      }
-      if (self.cause) {
-        format += formatCauseChain(self, "  ", opts);
-      }
-
-      return { format, params };
     });
   }
 
@@ -352,7 +312,7 @@ function defineError<const Fs extends readonly ErrFacetAny[], D extends Record<s
 
   function create(data: MergeFacetProps<Fs> & D, context?: string, cause?: MaxError): MaxError<Fs> {
     const message = opts.message(data);
-    return new MaxErrorImpl(
+    const err = new MaxErrorImpl(
       fullCode,
       domain,
       message,
@@ -361,6 +321,8 @@ function defineError<const Fs extends readonly ErrFacetAny[], D extends Record<s
       context,
       cause as MaxErrorImpl | undefined,
     ) as unknown as MaxError<Fs>;
+    Error.captureStackTrace(err, create)
+    return err
   }
 
   return Object.freeze({

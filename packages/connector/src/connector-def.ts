@@ -9,7 +9,7 @@ import {
   StaticTypeCompanion,
   Inspect,
   type SeederAny,
-  type ResolverAny,
+  type ResolverAny, Id,
 } from "@max/core";
 import type { Schema } from "@max/core";
 import type { OnboardingFlow } from "./onboarding.js";
@@ -18,8 +18,10 @@ import type { OnboardingFlow } from "./onboarding.js";
 // ConnectorDef Interface
 // ============================================================================
 
+export type ConnectorName = Id<'connector-name'>
+
 export interface ConnectorDef<TConfig = unknown> {
-  readonly name: string;
+  readonly name: ConnectorName;
   readonly displayName: string;
   readonly description: string;
   readonly icon: string;
@@ -38,7 +40,7 @@ export type ConnectorDefAny = ConnectorDef<unknown>;
 // ============================================================================
 
 class ConnectorDefImpl<TConfig> implements ConnectorDef<TConfig> {
-  readonly name: string;
+  readonly name: ConnectorName;
   readonly displayName: string;
   readonly description: string;
   readonly icon: string;
@@ -57,7 +59,7 @@ class ConnectorDefImpl<TConfig> implements ConnectorDef<TConfig> {
   }
 
   constructor(opts: {
-    name: string;
+    name: ConnectorName;
     displayName: string;
     description: string;
     icon: string;
@@ -88,7 +90,7 @@ class ConnectorDefImpl<TConfig> implements ConnectorDef<TConfig> {
 export const ConnectorDef = StaticTypeCompanion({
   /** Create a new ConnectorDef */
   create<TConfig = unknown>(opts: {
-    name: string;
+    name: ConnectorName;
     displayName: string;
     description: string;
     icon: string;

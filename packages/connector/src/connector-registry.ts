@@ -46,7 +46,7 @@ export interface ConnectorRegistry {
 
 type ConnectorLoader = () => Promise<{ default: ConnectorModuleAny }>;
 
-class ConnectorRegistryImpl implements ConnectorRegistry {
+export class InMemoryConnectorRegistry implements ConnectorRegistry {
   private loaders = new Map<string, ConnectorLoader>();
   private cache = new Map<string, ConnectorModuleAny>();
 
@@ -86,13 +86,3 @@ class ConnectorRegistryImpl implements ConnectorRegistry {
     }));
   }
 }
-
-// ============================================================================
-// ConnectorRegistry Static Methods
-// ============================================================================
-
-export const ConnectorRegistry = StaticTypeCompanion({
-  create(): ConnectorRegistry {
-    return new ConnectorRegistryImpl();
-  },
-});

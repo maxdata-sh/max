@@ -1,8 +1,13 @@
 import { ProjectConfig } from '../config/project-config.js'
-import { ManagedInstallation, ProjectManager } from '../project-manager/index.js'
-import type { ConnectorRegistry } from '@max/connector'
-import { ErrNotImplemented, Schema } from '@max/core'
+import { ManagedInstallation, PendingInstallation, ProjectManager } from '../project-manager/index.js'
+import type { ConnectorRegistry, CredentialStore, OnboardingFlowAny } from '@max/connector'
+import type { Schema } from '@max/core'
 import { ProjectDaemonManager } from '../project-daemon-manager.js'
+
+export interface PreparedConnection {
+  readonly pending: PendingInstallation
+  readonly credentialStore: CredentialStore
+}
 
 export interface MaxProjectAppDependencies {
   projectConfig: ProjectConfig
@@ -19,22 +24,19 @@ export class MaxProjectApp {
     return mod.def.schema
   }
 
-  async connect(source: string): Promise<ManagedInstallation> {
+  async getOnboardingFlow(source: string): Promise<OnboardingFlowAny> {
     const mod = await this.deps.connectorRegistry.resolve(source)
+    return mod.def.onboarding
+  }
 
+  prepareConnection(source: string): PreparedConnection {
     const pending = this.deps.projectManager.prepare(source)
     const credentialStore = this.deps.projectManager.credentialStoreFor(pending)
+    return { pending, credentialStore }
+  }
 
-    // FIXME: CLAUDE: We can't do this yet. We need to chat about how
-    // const config = await runOnboardingCli(mod.def.onboarding, {
-    //   credentialStore,
-    // });
-    const config = null as any
-    throw ErrNotImplemented.create({})
-
-    const installation = await this.deps.projectManager.commit(pending, config)
-
-    return installation
+  async commitConnection(pending: PendingInstallation, config: unknown): Promise<ManagedInstallation> {
+    return this.deps.projectManager.commit(pending, config)
   }
 
   /** Expose relevant service interfaces */

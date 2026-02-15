@@ -33,7 +33,9 @@ import { CliRequest, CliResponse } from './types.js'
 import { parseAndValidateArgs } from './argv-parser.js'
 import { daemonCommand } from './commands/daemon-command.js'
 import { schemaCommandBuild } from './commands/schema-command.js'
+import { connectCommandBuild } from './commands/connect-command.js'
 import { initCommand } from './commands/init-command.js'
+import { runOnboardingCli } from './onboarding-runner.js'
 import { DaemonPrinters } from './printers/daemon-printers.js'
 import { Mode, Parser } from '@optique/core/parser'
 import {ShellCompletion} from "@optique/core/completion";
@@ -50,6 +52,7 @@ class Commands {
   constructor(private projectCompleters: LazyOne<ProjectCompleters>) {}
   all = makeLazy({
     schema: () => schemaCommandBuild({ completers: this.projectCompleters.get }),
+    connect: () => connectCommandBuild({ completers: this.projectCompleters.get }),
     daemon: () => daemonCommand,
     init: () => initCommand,
   })
@@ -99,6 +102,7 @@ class CLI {
   program = LazyX.once(() =>
     or(
       //
+      this.commands.all.connect,
       this.commands.all.daemon,
       this.commands.all.schema,
       this.commands.all.init
@@ -125,6 +129,14 @@ class CLI {
       case 'ndjson':
         return printer.print(SchemaPrinters.SchemaJsonl, schema)
     }
+  }
+
+  async runConnect(arg: CmdInput<'connect'>, req: RequestContext) {
+    const flow = await this.project.getOnboardingFlow(arg.source)
+    const { pending, credentialStore } = this.project.prepareConnection(arg.source)
+    const config = await runOnboardingCli(flow, { credentialStore })
+    const installation = await this.project.commitConnection(pending, config)
+    return `Connected ${installation.connector} as "${installation.name}"`
   }
 
   runDaemon(arg: CmdInput<'daemon'>, req: RequestContext) {
@@ -214,6 +226,8 @@ class CLI {
       switch (instruction.cmd) {
         case 'schema':
           return this.runSchema(instruction, req)
+        case 'connect':
+          return this.runConnect(instruction, req)
         case 'init':
           return this.runInit(instruction, req)
         case 'daemon':

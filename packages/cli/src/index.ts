@@ -63,12 +63,6 @@ type ParserResultType<X extends Parser<Mode>> =
   X extends Parser<Mode, infer TValue> ? TValue : never
 type CmdInput<k extends keyof Commands['all']> = ParserResultType<Commands['all'][k]>
 
-interface RequestContext {
-  cwd: string
-  color: boolean
-  prompter?: Prompter
-}
-
 class CLI {
   constructor(public cfg: GlobalConfig) {
     const globalDeps: MaxGlobalAppDependencies = makeLazy<MaxGlobalAppDependencies>({
@@ -111,7 +105,7 @@ class CLI {
     )
   )
 
-  runInit(arg: CmdInput<'init'>, req: RequestContext) {
+  runInit(arg: CmdInput<'init'>) {
     const dir = path.resolve(arg.directory)
     return this.global.initProjectAtPath({
       force: arg.force,
@@ -119,8 +113,8 @@ class CLI {
     })
   }
 
-  async runSchema(arg: CmdInput<'schema'>, req: RequestContext) {
-    const printer = this.printerFor(req.color)
+  async runSchema(arg: CmdInput<'schema'>, color: boolean) {
+    const printer = this.printerFor(color)
     const schema = await this.project.getSchema(arg.source)
     switch (arg.output) {
       default:
@@ -133,13 +127,13 @@ class CLI {
     }
   }
 
-  async runConnect(arg: CmdInput<'connect'>, req: RequestContext) {
+  async runConnect(arg: CmdInput<'connect'>, prompter?: Prompter) {
     const flow = await this.project.getOnboardingFlow(arg.source)
     const { pending, credentialStore } = this.project.prepareConnection(arg.source)
-    const ownedPrompter = req.prompter ? null : new DirectPrompter()
-    const prompter = req.prompter ?? ownedPrompter!
+    const ownedPrompter = prompter ? null : new DirectPrompter()
+    const resolved = prompter ?? ownedPrompter!
     try {
-      const config = await runOnboarding(flow, { credentialStore }, prompter)
+      const config = await runOnboarding(flow, { credentialStore }, resolved)
       const installation = await this.project.commitConnection(pending, config)
       return `Connected ${installation.connector} as "${installation.name}"`
     } finally {
@@ -147,8 +141,8 @@ class CLI {
     }
   }
 
-  runDaemon(arg: CmdInput<'daemon'>, req: RequestContext) {
-    const printer = this.printerFor(req.color)
+  runDaemon(arg: CmdInput<'daemon'>, color: boolean) {
+    const printer = this.printerFor(color)
     const daemon = this.project.daemonManager
     const printStatus = () => printer.print(DaemonPrinters.DaemonStatus, daemon.status())
 
@@ -217,13 +211,13 @@ class CLI {
     }
   }
 
-  async parseAndExecute(args: readonly string[], opts?: Partial<RequestContext>): Promise<CliResponse> {
-    const req: RequestContext = {
-      cwd: opts?.cwd ?? process.cwd(),
-      color: opts?.color ?? this.cfg.useColor,
-      prompter: opts?.prompter,
+  async execute(req: CliRequest, prompter?: Prompter): Promise<CliResponse> {
+    if (req.kind === 'complete') {
+      return this.suggest(req)
     }
-    const parsed = await parseAndValidateArgs(this.program.get, 'max', args, req.color)
+
+    const color = req.color ?? this.cfg.useColor
+    const parsed = await parseAndValidateArgs(this.program.get, 'max', req.argv, color)
 
     if (!parsed.ok) {
       return parsed.response
@@ -234,13 +228,13 @@ class CLI {
     const result = await (async () => {
       switch (instruction.cmd) {
         case 'schema':
-          return this.runSchema(instruction, req)
+          return this.runSchema(instruction, color)
         case 'connect':
-          return this.runConnect(instruction, req)
+          return this.runConnect(instruction, prompter)
         case 'init':
-          return this.runInit(instruction, req)
+          return this.runInit(instruction)
         case 'daemon':
-          return this.runDaemon(instruction, req)
+          return this.runDaemon(instruction, color)
       }
 
       throw ErrInvariant.create({ detail: `Unhandled command: ${instruction.cmd}` })
@@ -299,27 +293,23 @@ if (parsed.success) {
 
     createSocketServer({
       socketPath: daemonPaths.socket,
-      runner: async (req, prompter) => {
-        const color = req.color ?? false
-        return cli.parseAndExecute(req.argv, { cwd: req.cwd, color, prompter }).catch((err) => {
+      handler: (req, prompter) =>
+        cli.execute(req, prompter).catch((err) => {
+          const color = req.color ?? false
           const msg = MaxError.isMaxError(err)
             ? err.prettyPrint({ color })
             : err instanceof Error
               ? err.message
               : String(err)
           return { stderr: `${msg}\n`, exitCode: 1 }
-        })
-      },
-      suggest: (req) => {
-        return cli.suggest(req)
-      },
+        }),
     })
 
     console.log(`Max daemon listening on ${daemonPaths.socket}`)
   } else {
-    const response = cli.parseAndExecute(parsed.value.maxCommand, { cwd: process.cwd() })
+    const req: CliRequest = { kind: 'run', argv: parsed.value.maxCommand, cwd: process.cwd(), color: cfg.useColor }
 
-    await response.then(
+    await cli.execute(req).then(
       (response) => {
         if (response.completionOutput) process.stdout.write(response.completionOutput)
         if (response.stdout) process.stdout.write(response.stdout)

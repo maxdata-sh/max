@@ -8,7 +8,7 @@ export type CliResponse = {
 
 export type CliRequest = {
   kind: "run" | "complete";
-  argv: string[];
+  argv: readonly string[];
   shell?: string;
   cwd?: string;
   color?: boolean;

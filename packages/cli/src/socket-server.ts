@@ -1,15 +1,20 @@
 import { unlinkSync } from 'fs'
 import type { CliRequest, CliResponse } from './types.js'
-import { SocketPrompter, type DaemonMessage, type ShimInput, type Prompter } from './prompter.js'
+import {
+  SocketPrompter,
+  type DaemonMessage,
+  type ShimInput,
+  type Prompter,
+  PromptableSocket,
+} from './prompter.js'
 
 export interface SocketServerOptions {
   socketPath: string
-  runner: (req: CliRequest, prompter: Prompter) => Promise<CliResponse>
-  suggest: (req: CliRequest) => Promise<CliResponse>
+  handler: (req: CliRequest, prompter: Prompter) => Promise<CliResponse>
 }
 
 export function createSocketServer(opts: SocketServerOptions): { stop: () => void } {
-  const { socketPath, runner, suggest } = opts
+  const { socketPath, handler } = opts
 
   // Clean up old socket
   try {
@@ -25,7 +30,7 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
    *   - A pending resolver for when the command is waiting on user input
    */
   interface ConnectionState {
-    buffer: string
+    buffer: Uint8Array
     initiated: boolean
     pendingInput: ((msg: ShimInput) => void) | null
   }
@@ -54,14 +59,7 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
     const prompter = new SocketPrompter(socket)
 
     try {
-      let response: CliResponse
-
-      if (request.kind === 'complete') {
-        response = await suggest(request)
-      } else {
-        response = await runner(request, prompter)
-      }
-
+      const response = await handler(request, prompter)
       socket.send({ kind: 'response', ...response })
       raw.end()
     } catch (err) {
@@ -75,32 +73,31 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
     unix: socketPath,
     socket: {
       open(socket) {
-        connections.set(socket, { buffer: '', initiated: false, pendingInput: null })
+        connections.set(socket, { buffer: new Uint8Array(0), initiated: false, pendingInput: null })
       },
       data(socket, data) {
         const state = connections.get(socket)
         if (!state) return
 
-        const text = state.buffer + Buffer.from(data).toString('utf-8')
-        const result = Bun.JSONL.parseChunk(text)
+        state.buffer = Buffer.concat([state.buffer, data])
+        const result = Bun.JSONL.parseChunk(state.buffer)
 
-        if (result.values.length === 0) {
-          state.buffer = text
+        if (!result.values.length) {
           return
         }
 
-        state.buffer = result.rest ?? ''
-        const msg = result.values[0] as Record<string, unknown>
+        state.buffer = state.buffer.subarray(result.read)
 
-        if (!state.initiated) {
-          // First message is the request
-          state.initiated = true
-          processRequest(socket, state, msg as unknown as CliRequest)
-        } else if (state.pendingInput && msg.kind === 'input') {
-          // Subsequent messages are input responses
-          const resolver = state.pendingInput
-          state.pendingInput = null
-          resolver(msg as unknown as ShimInput)
+        for (const input of result.values) {
+          const msg = input as Record<string, unknown>
+          if (!state.initiated) {
+            state.initiated = true
+            processRequest(socket, state, msg as CliRequest)
+          } else if (state.pendingInput && msg.kind === 'input') {
+            const resolver = state.pendingInput
+            state.pendingInput = null
+            resolver(msg as ShimInput)
+          }
         }
       },
       close(socket) {

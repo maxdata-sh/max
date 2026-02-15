@@ -17,7 +17,7 @@ import {
 } from "@max/app";
 import { makeLazy } from "@max/core";
 
-const projectRoot = path.resolve(import.meta.dirname, "../bun-test-project");
+const projectRoot = path.resolve(import.meta.dirname, "../../bun-test-project");
 
 const cfg = new GlobalConfig({
   projectRoot,

@@ -18,4 +18,4 @@ console.log(`\nSync ${result.status} in ${result.duration}ms`);
 console.log(`  Tasks completed: ${result.tasksCompleted}`);
 console.log(`  Tasks failed:    ${result.tasksFailed}`);
 
-await runtime.stop();
+await runtime.lifecycle.stop();

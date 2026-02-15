@@ -4,23 +4,19 @@
  * Usage: bun run examples/acme-sync.ts
  */
 
-import { Database } from "bun:sqlite";
-import { Context, NoOpFlowController } from "@max/core";
-import { SqliteEngine, SqliteSchema } from "@max/storage-sqlite";
-import { SqliteExecutionSchema, SqliteTaskStore, SqliteSyncMeta } from "@max/execution-sqlite";
-import { DefaultTaskRunner, ExecutionRegistryImpl } from "@max/execution-local";
-import { SyncExecutor } from "@max/execution";
+import { Database } from 'bun:sqlite'
+import { Context, NoOpFlowController } from '@max/core'
+import { SqliteEngine, SqliteSchema } from '@max/storage-sqlite'
+import { SqliteExecutionSchema, SqliteSyncMeta, SqliteTaskStore } from '@max/execution-sqlite'
+import { DefaultTaskRunner, ExecutionRegistryImpl } from '@max/execution-local'
+import { SyncExecutor } from '@max/execution'
 import AcmeConnector, {
-  AcmeRoot,
-  AcmeUser,
-  AcmeTeam,
   AcmeAppContext,
-  AcmeRootResolver,
-  AcmeUserResolver,
-  AcmeTeamResolver,
+  AcmeClient,
+  AcmeSchema,
   AcmeSeeder,
-  AcmeApiClientStub, AcmeSchema,
-} from "@max/connector-acme";
+} from '@max/connector-acme'
+import {AcmeTestClient} from "@max/acme";
 
 // -- Config --
 const DB_PATH = "acme.db";
@@ -40,7 +36,11 @@ const syncMeta = new SqliteSyncMeta(db);
 const taskStore = new SqliteTaskStore(db);
 
 // -- Setup API stub --
-const api = new AcmeApiClientStub({ users: NUM_USERS, teams: NUM_TEAMS });
+const api = new AcmeTestClient({ });
+await api.seed({
+  usersPerWorkspace: NUM_USERS,
+  projectsPerWorkspace: NUM_TEAMS
+})
 
 // -- Wire up executor --
 const registry = new ExecutionRegistryImpl(AcmeConnector.def.resolvers);
@@ -49,7 +49,7 @@ const taskRunner = new DefaultTaskRunner({
   syncMeta,
   registry,
   flowController: new NoOpFlowController(),
-  contextProvider: async () => Context.build(AcmeAppContext, { api, installationId: "acme-1" }),
+  contextProvider: async () => Context.build(AcmeAppContext, { api: api as AcmeClient,, installationId: "acme-1" }),
 });
 const executor = new SyncExecutor({ taskRunner, taskStore });
 

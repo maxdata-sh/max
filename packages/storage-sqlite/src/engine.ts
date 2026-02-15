@@ -18,6 +18,7 @@ import {
   type CollectionTargetRef,
   type EntityId,
   type Schema,
+  LifecycleManager,
 } from "@max/core";
 import { SqliteSchema } from "./schema.js";
 import type { TableDef, ColumnDef } from "./table-def.js";
@@ -27,6 +28,10 @@ import { ErrEntityNotFound, ErrFieldNotFound, ErrCollectionNotSupported } from "
 export class SqliteEngine implements Engine {
   readonly db: Database;
   private schema: SqliteSchema;
+
+  lifecycle = LifecycleManager.on({
+    stop: () => { this.db.close(); },
+  });
 
   constructor(db: Database, schema: SqliteSchema) {
     this.db = db;
@@ -143,9 +148,6 @@ export class SqliteEngine implements Engine {
     return new SqliteQueryBuilder(this.db, this.schema.getTable(def), def);
   }
 
-  async close(): Promise<void> {
-    this.db.close();
-  }
 
   /** Convert a TypeScript value to SQL-compatible value */
   private toSqlValue(value: unknown, col: ColumnDef): unknown {

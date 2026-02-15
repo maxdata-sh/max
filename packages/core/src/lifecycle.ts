@@ -1,11 +1,9 @@
 /**
  * Lifecycle — Lightweight start/stop protocol for services.
  *
- * Services implement Lifecycle with LifecycleManager helpers:
- *   - start: run-once guard (idempotent)
- *   - stop: always runs
- *   - none: no-op placeholder
- *   - auto: declarative dependency ordering (start forward, stop reverse)
+ * Services implement Lifecycle by providing a `lifecycle` field:
+ *   - LifecycleManager.on({ start?, stop? }) — manual start/stop
+ *   - LifecycleManager.auto(deps) — derived from dependency ordering
  */
 
 // ============================================================================
@@ -13,6 +11,10 @@
 // ============================================================================
 
 export interface Lifecycle {
+  lifecycle: LifecycleMethods
+}
+
+export interface LifecycleMethods {
   start: LifecycleStep
   stop: LifecycleStep
 }
@@ -29,7 +31,15 @@ export interface LifecycleStep {
 type AutoEntry = Lifecycle | Lifecycle[]
 
 export const LifecycleManager = {
-  /** No-op step — for services that don't need start or stop. */
+  /** Manual lifecycle with explicit start/stop. Omitted methods default to no-ops. */
+  on(opts: { start?: () => void | Promise<void>; stop?: () => void | Promise<void> }): LifecycleMethods {
+    return {
+      start: LifecycleManager.start(opts.start ?? (() => {})),
+      stop: LifecycleManager.stop(opts.stop ?? (() => {})),
+    }
+  },
+
+  /** No-op step. */
   none(): LifecycleStep {
     return () => {}
   },
@@ -53,29 +63,33 @@ export const LifecycleManager = {
   },
 
   /**
-   * Derive start/stop from a dependency list.
+   * Derive lifecycle from a dependency list.
    *
    * Start walks the list forward. Stop walks it in reverse.
    * Array entries run in parallel; single entries run sequentially.
+   * Accepts a thunk to allow referencing `this` in class field initializers.
    */
-  auto(deps: AutoEntry[]): Lifecycle {
+  auto(deps: AutoEntry[] | (() => AutoEntry[])): LifecycleMethods {
+    const resolve = () => typeof deps === "function" ? deps() : deps
+
     const start = LifecycleManager.start(async () => {
-      for (const entry of deps) {
+      for (const entry of resolve()) {
         if (Array.isArray(entry)) {
-          await Promise.all(entry.map((d) => d.start()))
+          await Promise.all(entry.map((d) => d.lifecycle.start()))
         } else {
-          await entry.start()
+          await entry.lifecycle.start()
         }
       }
     })
 
     const stop = LifecycleManager.stop(async () => {
-      for (let i = deps.length - 1; i >= 0; i--) {
-        const entry = deps[i]
+      const resolved = resolve()
+      for (let i = resolved.length - 1; i >= 0; i--) {
+        const entry = resolved[i]
         if (Array.isArray(entry)) {
-          await Promise.all(entry.map((d) => d.stop()))
+          await Promise.all(entry.map((d) => d.lifecycle.stop()))
         } else {
-          await entry.stop()
+          await entry.lifecycle.stop()
         }
       }
     })

@@ -85,7 +85,7 @@ export class MaxProjectApp {
 
   /** Stop all active runtimes (for clean shutdown). */
   async stopAll(): Promise<void> {
-    const stops = [...this.runtimes.values()].map((rt) => rt.stop())
+    const stops = [...this.runtimes.values()].map((rt) => rt.lifecycle.stop())
     await Promise.all(stops)
     this.runtimes.clear()
   }

@@ -5,7 +5,7 @@
  * Operations like sync become a single method call on a warm runtime.
  */
 
-import { NoOpFlowController, type Engine, type SeederAny } from "@max/core";
+import { LifecycleManager, NoOpFlowController, type Engine, type Lifecycle, type LifecycleMethods, type SeederAny } from "@max/core";
 import { CredentialProvider, type ConnectorRegistry, type Installation } from "@max/connector";
 import { SyncExecutor, type SyncHandle } from "@max/execution";
 import { DefaultTaskRunner, ExecutionRegistryImpl } from "@max/execution-local";
@@ -17,7 +17,7 @@ import type { ManagedInstallation, ProjectManager } from "../project-manager/ind
 // InstallationRuntime Interface
 // ============================================================================
 
-export interface InstallationRuntime {
+export interface InstallationRuntime extends Lifecycle {
   /** Installation metadata (connector, name, id, connectedAt) */
   readonly info: ManagedInstallation;
 
@@ -27,8 +27,7 @@ export interface InstallationRuntime {
   /** Kick off a full sync. Seeds on first run, re-seeds on subsequent. */
   sync(): Promise<SyncHandle>;
 
-  /** Tear down: close DB, stop credential refresh, release resources. */
-  stop(): Promise<void>;
+  readonly startedAt: Date;
 }
 
 /** Lightweight snapshot of a running runtime, for listing/introspection. */
@@ -53,6 +52,11 @@ interface InstallationRuntimeConfig {
 export class InstallationRuntimeImpl implements InstallationRuntime {
   private readonly config: InstallationRuntimeConfig;
 
+  lifecycle = LifecycleManager.auto(() => [
+    this.config.installation,
+    this.config.engine,
+  ]);
+
   constructor(config: InstallationRuntimeConfig) {
     this.config = config;
   }
@@ -75,11 +79,6 @@ export class InstallationRuntimeImpl implements InstallationRuntime {
       this.config.engine,
     );
     return this.config.executor.execute(plan);
-  }
-
-  async stop(): Promise<void> {
-    await this.config.installation.stop();
-    await this.config.engine.close();
   }
 
   // --------------------------------------------------------------------------
@@ -131,10 +130,7 @@ export class InstallationRuntimeImpl implements InstallationRuntime {
     // 13. Construct sync executor
     const executor = new SyncExecutor({ taskRunner, taskStore });
 
-    // 14. Start connector lifecycle (credential refresh, etc.)
-    await installation.start();
-
-    return new InstallationRuntimeImpl({
+    const runtime = new InstallationRuntimeImpl({
       managed,
       installation,
       engine,
@@ -142,5 +138,8 @@ export class InstallationRuntimeImpl implements InstallationRuntime {
       executor,
       startedAt: new Date(),
     });
+
+    await runtime.lifecycle.start();
+    return runtime;
   }
 }

@@ -81,8 +81,8 @@ describe("Installation", () => {
     const inst = Installation.create({ context: { apiKey: "test" } });
 
     expect(inst.context).toEqual({ apiKey: "test" });
-    await inst.start();
-    await inst.stop();
+    await inst.lifecycle.start();
+    await inst.lifecycle.stop();
     expect(await inst.health()).toEqual({ status: "healthy" });
   });
 
@@ -97,10 +97,10 @@ describe("Installation", () => {
       async health() { return { status: "degraded", reason: "test" }; },
     });
 
-    await inst.start();
+    await inst.lifecycle.start();
     expect(started).toBe(true);
 
-    await inst.stop();
+    await inst.lifecycle.stop();
     expect(stopped).toBe(true);
 
     expect(await inst.health()).toEqual({ status: "degraded", reason: "test" });

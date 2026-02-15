@@ -5,11 +5,12 @@ import { LifecycleManager, type Lifecycle } from "../lifecycle.js";
 // Helpers
 // ============================================================================
 
-/** A Lifecycle that records calls to start/stop in order. */
 function tracked(name: string, log: string[]): Lifecycle {
   return {
-    start: LifecycleManager.start(() => { log.push(`${name}:start`) }),
-    stop: LifecycleManager.stop(() => { log.push(`${name}:stop`) }),
+    lifecycle: LifecycleManager.on({
+      start: () => { log.push(`${name}:start`) },
+      stop: () => { log.push(`${name}:stop`) },
+    }),
   }
 }
 
@@ -60,13 +61,31 @@ describe("LifecycleManager.stop", () => {
 })
 
 // ============================================================================
+// LifecycleManager.on
+// ============================================================================
+
+describe("LifecycleManager.on", () => {
+  test("defaults missing start/stop to no-ops", async () => {
+    const stopOnly = LifecycleManager.on({ stop: () => {} })
+    await stopOnly.start() // no-op, should not throw
+
+    const startOnly = LifecycleManager.on({ start: () => {} })
+    await startOnly.stop() // no-op, should not throw
+
+    const neither = LifecycleManager.on({})
+    await neither.start()
+    await neither.stop()
+  })
+})
+
+// ============================================================================
 // LifecycleManager.none
 // ============================================================================
 
 describe("LifecycleManager.none", () => {
   test("is a no-op", async () => {
     const step = LifecycleManager.none()
-    await step() // should not throw
+    await step()
   })
 })
 
@@ -77,69 +96,46 @@ describe("LifecycleManager.none", () => {
 describe("LifecycleManager.auto", () => {
   test("starts dependencies in forward order", async () => {
     const log: string[] = []
-    const a = tracked("a", log)
-    const b = tracked("b", log)
-    const c = tracked("c", log)
-
-    const lifecycle = LifecycleManager.auto([a, b, c])
+    const lifecycle = LifecycleManager.auto([tracked("a", log), tracked("b", log), tracked("c", log)])
     await lifecycle.start()
-
     expect(log).toEqual(["a:start", "b:start", "c:start"])
   })
 
   test("stops dependencies in reverse order", async () => {
     const log: string[] = []
-    const a = tracked("a", log)
-    const b = tracked("b", log)
-    const c = tracked("c", log)
-
+    const a = tracked("a", log), b = tracked("b", log), c = tracked("c", log)
     const lifecycle = LifecycleManager.auto([a, b, c])
     await lifecycle.start()
     log.length = 0
-
     await lifecycle.stop()
     expect(log).toEqual(["c:stop", "b:stop", "a:stop"])
   })
 
   test("starts parallel groups concurrently", async () => {
     const log: string[] = []
-    const a = tracked("a", log)
-    const b = tracked("b", log)
-    const c = tracked("c", log)
-
+    const a = tracked("a", log), b = tracked("b", log), c = tracked("c", log)
     const lifecycle = LifecycleManager.auto([a, [b, c]])
     await lifecycle.start()
-
-    // a starts first (sequential), then b and c (parallel — order within group is non-deterministic)
     expect(log[0]).toBe("a:start")
     expect(log.slice(1).sort()).toEqual(["b:start", "c:start"])
   })
 
   test("stops parallel groups concurrently in reverse", async () => {
     const log: string[] = []
-    const a = tracked("a", log)
-    const b = tracked("b", log)
-    const c = tracked("c", log)
-
+    const a = tracked("a", log), b = tracked("b", log), c = tracked("c", log)
     const lifecycle = LifecycleManager.auto([a, [b, c]])
     await lifecycle.start()
     log.length = 0
-
     await lifecycle.stop()
-
-    // [b, c] stop first (parallel), then a
     expect(log.slice(0, 2).sort()).toEqual(["b:stop", "c:stop"])
     expect(log[2]).toBe("a:stop")
   })
 
-  test("start is idempotent (inherited from LifecycleManager.start)", async () => {
+  test("start is idempotent", async () => {
     const log: string[] = []
-    const a = tracked("a", log)
-
-    const lifecycle = LifecycleManager.auto([a])
+    const lifecycle = LifecycleManager.auto([tracked("a", log)])
     await lifecycle.start()
     await lifecycle.start()
-
     expect(log).toEqual(["a:start"])
   })
 
@@ -147,16 +143,11 @@ describe("LifecycleManager.auto", () => {
     const lifecycle = LifecycleManager.auto([])
     await lifecycle.start()
     await lifecycle.stop()
-    // should not throw
   })
 
   test("mixed sequential and parallel", async () => {
     const log: string[] = []
-    const a = tracked("a", log)
-    const b = tracked("b", log)
-    const c = tracked("c", log)
-    const d = tracked("d", log)
-
+    const a = tracked("a", log), b = tracked("b", log), c = tracked("c", log), d = tracked("d", log)
     const lifecycle = LifecycleManager.auto([a, [b, c], d])
     await lifecycle.start()
 
@@ -170,5 +161,16 @@ describe("LifecycleManager.auto", () => {
     expect(log[0]).toBe("d:stop")
     expect(log.slice(1, 3).sort()).toEqual(["b:stop", "c:stop"])
     expect(log[3]).toBe("a:stop")
+  })
+
+  test("accepts a thunk for deferred resolution", async () => {
+    const log: string[] = []
+    const a = tracked("a", log), b = tracked("b", log)
+    const lifecycle = LifecycleManager.auto(() => [a, b])
+    await lifecycle.start()
+    expect(log).toEqual(["a:start", "b:start"])
+    log.length = 0
+    await lifecycle.stop()
+    expect(log).toEqual(["b:stop", "a:stop"])
   })
 })

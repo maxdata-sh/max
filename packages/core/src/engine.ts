@@ -7,10 +7,11 @@ import type { EntityInput } from "./entity-input.js";
 import type { EntityResult } from "./entity-result.js";
 import type { CollectionKeys, CollectionTargetRef, EntityFields } from "./field-types.js";
 import type { FieldsAll, FieldsSelect } from "./fields-selector.js";
+import type { Lifecycle } from "./lifecycle.js";
 import type { Page, PageRequest } from "./pagination.js";
 import type { Ref } from "./ref.js";
 
-export interface Engine {
+export interface Engine extends Lifecycle {
   /**
    * Load specific fields of an entity.
    */
@@ -52,8 +53,7 @@ export interface Engine {
    */
   query<E extends EntityDefAny>(def: E): QueryBuilder<E>;
 
-  /** Release resources (close DB connections, etc.). */
-  close(): Promise<void>;
+
 }
 
 export interface QueryBuilder<E extends EntityDefAny> {

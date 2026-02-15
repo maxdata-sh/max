@@ -4,8 +4,8 @@
  * Built by ConnectorModule.initialise(). Owns its context and lifecycle.
  */
 
-import { StaticTypeCompanion } from "@max/core";
-import type { ContextDefAny, InferContext } from "@max/core";
+import { StaticTypeCompanion, LifecycleManager } from "@max/core";
+import type { Lifecycle, ContextDefAny, InferContext } from "@max/core";
 
 // ============================================================================
 // HealthStatus
@@ -20,15 +20,9 @@ export type HealthStatus =
 // Installation Interface
 // ============================================================================
 
-export interface Installation {
+export interface Installation extends Lifecycle {
   /** Context for this installation (used by the platform to run loaders) */
   readonly context: unknown;
-
-  /** Start the installation (e.g. refresh schedulers, background tasks) */
-  start(): Promise<void>;
-
-  /** Stop the installation */
-  stop(): Promise<void>;
 
   /** Health check */
   health(): Promise<HealthStatus>;
@@ -41,14 +35,16 @@ export interface Installation {
 export const Installation = StaticTypeCompanion({
   create(opts: {
     context: unknown;
-    start?: () => Promise<void>;
-    stop?: () => Promise<void>;
+    start?: () => void | Promise<void>;
+    stop?: () => void | Promise<void>;
     health?: () => Promise<HealthStatus>;
   }): Installation {
     return {
       context: opts.context,
-      start: opts.start ?? (() => Promise.resolve()),
-      stop: opts.stop ?? (() => Promise.resolve()),
+      lifecycle: LifecycleManager.on({
+        start: opts.start,
+        stop: opts.stop,
+      }),
       health: opts.health ?? (() => Promise.resolve({ status: "healthy" })),
     };
   },

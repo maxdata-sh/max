@@ -1,8 +1,9 @@
 import { ProjectConfig } from '../config/project-config.js'
 import { ManagedInstallation, PendingInstallation, ProjectManager } from '../project-manager/index.js'
 import type { ConnectorRegistry, CredentialStore, OnboardingFlowAny } from '@max/connector'
-import type { Schema } from '@max/core'
+import type { InstallationId, Schema } from '@max/core'
 import { ProjectDaemonManager } from '../project-daemon-manager.js'
+import { InstallationRuntimeImpl, type InstallationRuntime, type InstallationRuntimeInfo } from '../runtime/index.js'
 
 export interface PreparedConnection {
   readonly pending: PendingInstallation
@@ -17,6 +18,8 @@ export interface MaxProjectAppDependencies {
 }
 
 export class MaxProjectApp {
+  private runtimes = new Map<InstallationId, InstallationRuntimeImpl>()
+
   constructor(private deps: MaxProjectAppDependencies) {}
 
   async getSchema(source: string): Promise<Schema> {
@@ -52,5 +55,38 @@ export class MaxProjectApp {
 
   get config() {
     return this.deps.projectConfig
+  }
+
+  /** Get or create a runtime for the given installation. */
+  async runtime(connector: string, name?: string): Promise<InstallationRuntime> {
+    const managed = this.deps.projectManager.get(connector, name)
+
+    const cached = this.runtimes.get(managed.id)
+    if (cached) return cached
+
+    const runtime = await InstallationRuntimeImpl.create({
+      projectManager: this.deps.projectManager,
+      connectorRegistry: this.deps.connectorRegistry,
+      connector,
+      name,
+    })
+
+    this.runtimes.set(managed.id, runtime)
+    return runtime
+  }
+
+  /** List all currently active runtimes. */
+  listRuntimes(): InstallationRuntimeInfo[] {
+    return [...this.runtimes.values()].map((rt) => ({
+      info: rt.info,
+      startedAt: rt.startedAt,
+    }))
+  }
+
+  /** Stop all active runtimes (for clean shutdown). */
+  async stopAll(): Promise<void> {
+    const stops = [...this.runtimes.values()].map((rt) => rt.stop())
+    await Promise.all(stops)
+    this.runtimes.clear()
   }
 }

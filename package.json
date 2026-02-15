@@ -15,7 +15,6 @@
   "devDependencies": {
     "@max/connector-acme": "workspace:*",
     "@max/core": "workspace:*",
-    "@max/daemon": "workspace:*",
     "@max/execution": "workspace:*",
     "@max/execution-local": "workspace:*",
     "@max/execution-sqlite": "workspace:*",

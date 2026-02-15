@@ -11,7 +11,6 @@
       "devDependencies": {
         "@max/connector-acme": "workspace:*",
         "@max/core": "workspace:*",
-        "@max/daemon": "workspace:*",
         "@max/execution": "workspace:*",
         "@max/execution-local": "workspace:*",
         "@max/execution-sqlite": "workspace:*",
@@ -90,6 +89,10 @@
       "dependencies": {
         "@max/connector": "workspace:*",
         "@max/core": "workspace:*",
+        "@max/execution": "workspace:*",
+        "@max/execution-local": "workspace:*",
+        "@max/execution-sqlite": "workspace:*",
+        "@max/storage-sqlite": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -105,7 +108,6 @@
         "@max/connector-acme": "workspace:*",
         "@max/connector-linear": "workspace:*",
         "@max/core": "workspace:*",
-        "@max/daemon": "workspace:*",
         "@optique/core": "0.9.2",
         "@optique/run": "0.9.2",
         "yargs-parser": "^21.1.1",
@@ -132,18 +134,6 @@
       "version": "0.1.0",
       "dependencies": {
         "node-inspect-extracted": "^3.3.0",
-      },
-      "devDependencies": {
-        "@types/bun": "latest",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/daemon": {
-      "name": "@max/daemon",
-      "version": "0.1.0",
-      "dependencies": {
-        "@max/connector": "workspace:*",
-        "@max/core": "workspace:*",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -229,8 +219,6 @@
     "@max/connector-linear": ["@max/connector-linear@workspace:connectors/connector-linear"],
 
     "@max/core": ["@max/core@workspace:packages/core"],
-
-    "@max/daemon": ["@max/daemon@workspace:packages/daemon"],
 
     "@max/execution": ["@max/execution@workspace:packages/execution"],
 
@@ -386,8 +374,6 @@
 
     "@max/core/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
 
-    "@max/daemon/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
-
     "@max/execution/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
 
     "@max/execution-local/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
@@ -413,8 +399,6 @@
     "@max/connector/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
 
     "@max/core/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
-
-    "@max/daemon/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
 
     "@max/execution-local/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
 

@@ -7,6 +7,9 @@ import type { ConnectorType } from "@max/core";
 import type { PendingInstallation, ManagedInstallation, InstallationInfo } from "./types.js";
 
 export interface ProjectManager {
+  /** Get the path to the data DB for an installation. */
+  dataPathFor(installation: ManagedInstallation): string;
+
   /** Create a pending installation. Not persisted until commit. */
   prepare(connector: ConnectorType, name?: string): PendingInstallation;
 

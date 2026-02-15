@@ -13,7 +13,11 @@
   },
   "dependencies": {
     "@max/core": "workspace:*",
-    "@max/connector": "workspace:*"
+    "@max/connector": "workspace:*",
+    "@max/execution": "workspace:*",
+    "@max/execution-local": "workspace:*",
+    "@max/execution-sqlite": "workspace:*",
+    "@max/storage-sqlite": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "latest",

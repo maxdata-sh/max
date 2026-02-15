@@ -138,6 +138,10 @@ export class FsProjectManager implements ProjectManager {
     );
   }
 
+  dataPathFor(installation: ManagedInstallation): string {
+    return path.join(this.installationDir(installation.connector, installation.name), "data.db");
+  }
+
   async delete(connector: ConnectorType, name?: string): Promise<void> {
     const slug = name ?? this.resolveDefaultSlug(connector);
     const dir = this.installationDir(connector, slug);

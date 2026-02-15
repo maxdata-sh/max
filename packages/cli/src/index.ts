@@ -35,7 +35,8 @@ import { daemonCommand } from './commands/daemon-command.js'
 import { schemaCommandBuild } from './commands/schema-command.js'
 import { connectCommandBuild } from './commands/connect-command.js'
 import { initCommand } from './commands/init-command.js'
-import { runOnboardingCli } from './onboarding-runner.js'
+import { runOnboarding } from './onboarding-runner.js'
+import { DirectPrompter, type Prompter } from './prompter.js'
 import { DaemonPrinters } from './printers/daemon-printers.js'
 import { Mode, Parser } from '@optique/core/parser'
 import {ShellCompletion} from "@optique/core/completion";
@@ -65,6 +66,7 @@ type CmdInput<k extends keyof Commands['all']> = ParserResultType<Commands['all'
 interface RequestContext {
   cwd: string
   color: boolean
+  prompter?: Prompter
 }
 
 class CLI {
@@ -134,9 +136,15 @@ class CLI {
   async runConnect(arg: CmdInput<'connect'>, req: RequestContext) {
     const flow = await this.project.getOnboardingFlow(arg.source)
     const { pending, credentialStore } = this.project.prepareConnection(arg.source)
-    const config = await runOnboardingCli(flow, { credentialStore })
-    const installation = await this.project.commitConnection(pending, config)
-    return `Connected ${installation.connector} as "${installation.name}"`
+    const ownedPrompter = req.prompter ? null : new DirectPrompter()
+    const prompter = req.prompter ?? ownedPrompter!
+    try {
+      const config = await runOnboarding(flow, { credentialStore }, prompter)
+      const installation = await this.project.commitConnection(pending, config)
+      return `Connected ${installation.connector} as "${installation.name}"`
+    } finally {
+      ownedPrompter?.close()
+    }
   }
 
   runDaemon(arg: CmdInput<'daemon'>, req: RequestContext) {
@@ -213,6 +221,7 @@ class CLI {
     const req: RequestContext = {
       cwd: opts?.cwd ?? process.cwd(),
       color: opts?.color ?? this.cfg.useColor,
+      prompter: opts?.prompter,
     }
     const parsed = await parseAndValidateArgs(this.program.get, 'max', args, req.color)
 
@@ -277,6 +286,9 @@ if (parsed.success) {
     }
 
     if (daemonStatus.alive) {
+      // TODO: This should be logged via a daemon file logger, not console.error.
+      // stderr is inherited from the spawning process and may write to a terminal
+      // that has already moved on. See roadmap: daemon logger.
       console.error(`Daemon already running (pid ${daemonStatus.pid})`)
       process.exit(0)
     }
@@ -287,9 +299,9 @@ if (parsed.success) {
 
     createSocketServer({
       socketPath: daemonPaths.socket,
-      runner: async (req) => {
+      runner: async (req, prompter) => {
         const color = req.color ?? false
-        return cli.parseAndExecute(req.argv, { cwd: req.cwd, color }).catch((err) => {
+        return cli.parseAndExecute(req.argv, { cwd: req.cwd, color, prompter }).catch((err) => {
           const msg = MaxError.isMaxError(err)
             ? err.prettyPrint({ color })
             : err instanceof Error
@@ -298,8 +310,8 @@ if (parsed.success) {
           return { stderr: `${msg}\n`, exitCode: 1 }
         })
       },
-      suggest: (argv) => {
-        return cli.suggest(argv)
+      suggest: (req) => {
+        return cli.suggest(req)
       },
     })
 

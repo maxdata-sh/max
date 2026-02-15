@@ -1,11 +1,10 @@
 import { unlinkSync } from 'fs'
 import type { CliRequest, CliResponse } from './types.js'
-
-
+import { SocketPrompter, type DaemonMessage, type ShimInput, type Prompter } from './prompter.js'
 
 export interface SocketServerOptions {
   socketPath: string
-  runner: (req: CliRequest) => Promise<CliResponse>
+  runner: (req: CliRequest, prompter: Prompter) => Promise<CliResponse>
   suggest: (req: CliRequest) => Promise<CliResponse>
 }
 
@@ -19,33 +18,56 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
     // ignore if doesn't exist
   }
 
-  async function handleRequest(req: CliRequest): Promise<CliResponse> {
-    if (req.kind === 'complete') {
-      return suggest(req)
-    }
-    return runner(req)
+  /**
+   * Per-connection state. Tracks:
+   *   - JSONL buffer for chunked data
+   *   - Whether the initial request has been received
+   *   - A pending resolver for when the command is waiting on user input
+   */
+  interface ConnectionState {
+    buffer: string
+    initiated: boolean
+    pendingInput: ((msg: ShimInput) => void) | null
   }
 
-  // Per-connection JSONL buffers. Data may arrive in chunks, so we
-  // accumulate and use Bun.JSONL.parseChunk to extract complete objects.
-  // This avoids an async race: if the client sends FIN (shutdown(Write))
-  // while our async handler is awaiting, Bun tears down the socket and
-  // socket.write() silently fails. Using a newline delimiter means the
-  // client keeps the socket open for the response.
-  const buffers = new Map<object, string>()
+  const connections = new Map<object, ConnectionState>()
+
+  function wrapSocket(raw: { write(data: string): number; end(): void }, state: ConnectionState): PromptableSocket {
+    return {
+      send(msg: DaemonMessage): void {
+        raw.write(JSON.stringify(msg) + '\n')
+      },
+      receive(): Promise<ShimInput> {
+        return new Promise((resolve) => {
+          state.pendingInput = resolve
+        })
+      },
+    }
+  }
 
   async function processRequest(
-    socket: { write(data: string): number; end(): void },
+    raw: { write(data: string): number; end(): void },
+    state: ConnectionState,
     request: CliRequest
   ) {
+    const socket = wrapSocket(raw, state)
+    const prompter = new SocketPrompter(socket)
+
     try {
-      const response = await handleRequest(request)
-      socket.write(JSON.stringify(response))
-      socket.end()
+      let response: CliResponse
+
+      if (request.kind === 'complete') {
+        response = await suggest(request)
+      } else {
+        response = await runner(request, prompter)
+      }
+
+      socket.send({ kind: 'response', ...response })
+      raw.end()
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      socket.write(JSON.stringify({ stderr: `Parse error: ${msg}\n`, exitCode: 1 }))
-      socket.end()
+      socket.send({ kind: 'response', stderr: `Error: ${msg}\n`, exitCode: 1 })
+      raw.end()
     }
   }
 
@@ -53,25 +75,36 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
     unix: socketPath,
     socket: {
       open(socket) {
-        buffers.set(socket, '')
+        connections.set(socket, { buffer: '', initiated: false, pendingInput: null })
       },
       data(socket, data) {
-        const prev = buffers.get(socket) ?? ''
-        const text = prev + Buffer.from(data).toString('utf-8')
+        const state = connections.get(socket)
+        if (!state) return
 
+        const text = state.buffer + Buffer.from(data).toString('utf-8')
         const result = Bun.JSONL.parseChunk(text)
+
         if (result.values.length === 0) {
-          // Incomplete request — keep buffering
-          buffers.set(socket, text)
+          state.buffer = text
           return
         }
 
-        // Complete request received
-        buffers.delete(socket)
-        processRequest(socket, result.values[0] as CliRequest)
+        state.buffer = result.rest ?? ''
+        const msg = result.values[0] as Record<string, unknown>
+
+        if (!state.initiated) {
+          // First message is the request
+          state.initiated = true
+          processRequest(socket, state, msg as unknown as CliRequest)
+        } else if (state.pendingInput && msg.kind === 'input') {
+          // Subsequent messages are input responses
+          const resolver = state.pendingInput
+          state.pendingInput = null
+          resolver(msg as unknown as ShimInput)
+        }
       },
       close(socket) {
-        buffers.delete(socket)
+        connections.delete(socket)
       },
       error(_socket, err) {
         console.error('Socket error:', err)

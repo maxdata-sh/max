@@ -11,6 +11,7 @@ import {
   type LoaderName,
 } from "@max/core";
 import { ConnectorDef } from "../connector-def.js";
+import {OnboardingFlow} from "../onboarding.js";
 
 // ============================================================================
 // Test Fixtures
@@ -71,6 +72,7 @@ describe("ConnectorDef", () => {
     scopes: ["read:users", "read:teams"],
     schema: testSchema,
     seeder: testSeeder,
+    onboarding: OnboardingFlow.empty(),
     resolvers: [testResolver],
   });
 

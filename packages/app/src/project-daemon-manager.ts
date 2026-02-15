@@ -2,6 +2,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 import {existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync} from "fs";
 import {ProjectConfig} from "./config/project-config.js";
+import { mkdirSync } from 'node:fs'
 
 export class ProjectDaemonStatus {
   constructor(
@@ -46,6 +47,9 @@ export class ProjectDaemonManager {
   start(): void {
     const paths = this.paths
 
+    // Ensure daemon directory exists
+    mkdirSync(paths.root, { recursive: true });
+
     if (existsSync(paths.disabled)) {
       // CLAUDE: we need to add something to our error boundary (can't start daemon if it's disabled)
       // then we exit gracefully in the cli wrapper
@@ -61,7 +65,7 @@ export class ProjectDaemonManager {
     });
 
     // Write PID file
-    writeFileSync(paths.pid, String(proc.pid));
+    writeFileSync(paths.pid, String(proc.pid), {});
 
     proc.unref();
    // shift to cli: return { stdout: "Daemon starting...\n", exitCode: 0 };

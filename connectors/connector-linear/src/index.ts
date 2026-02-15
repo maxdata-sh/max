@@ -1,4 +1,4 @@
-import {ConnectorDef, ConnectorModule, Installation} from "@max/connector";
+import {ConnectorDef, ConnectorModule, Installation, OnboardingFlow} from "@max/connector";
 import {Context, EntityDef, ErrNotImplemented, type ScalarField, Schema, Seeder} from "@max/core";
 
 interface LinearUser extends EntityDef<{
@@ -20,18 +20,22 @@ class LinearContext extends Context {
 }
 
 const LinearDef = ConnectorDef.create({
-  name: "linear",
-  displayName: "Linear",
-  description: "Placeholder linear connector -- not implemented!",
-  icon: "",
-  version: "0.1.0",
+  name: 'linear',
+  displayName: 'Linear',
+  description: 'Placeholder linear connector -- not implemented!',
+  icon: '',
+  version: '0.1.0',
   scopes: [],
   schema: LinearSchema,
-  seeder: Seeder.create({context: LinearContext, async seed(){
-    throw ErrNotImplemented.create({}, "No seeder for linear because it's a placeholder")
-  }}),
+  onboarding: OnboardingFlow.empty(),
+  seeder: Seeder.create({
+    context: LinearContext,
+    async seed() {
+      throw ErrNotImplemented.create({}, "No seeder for linear because it's a placeholder")
+    },
+  }),
   resolvers: [],
-});
+})
 
 export default ConnectorModule.create({
   def: LinearDef,

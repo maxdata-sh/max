@@ -1,15 +1,13 @@
 import {
-  EmptyProjectContext,
   ErrProjectNotInitialised,
   FsConnectorRegistry,
   FsProjectManager,
   GlobalConfig,
-  GlobalContext,
   MaxGlobalApp,
+  MaxGlobalAppDependencies,
   MaxProjectApp,
+  MaxProjectAppDependencies,
   ProjectConfig,
-  ProjectContext,
-  ProjectContextImpl,
   ProjectDaemonManager,
 } from '@max/app'
 
@@ -21,7 +19,7 @@ import { string } from '@optique/core/valueparser'
 import { ProjectCompleters } from './parsers/project-completers.js'
 import * as fs from 'node:fs'
 
-import { LazyOne, LazyX, makeLazy, makeLazyF, MaxError } from '@max/core'
+import { LazyOne, LazyX, makeLazy, MaxError } from '@max/core'
 import { CliPrinter } from './cli-printable.js'
 import { SchemaPrinters } from './printers/schema-printers.js'
 import * as path from 'node:path'
@@ -42,64 +40,6 @@ class Commands {
     daemon: () => daemonCommand,
     init: () => initCommand,
   })
-  init = LazyX.once(() => initCommand)
-  schema = LazyX.once(() => schemaCommandBuild({ completers: this.projectCompleters.get }))
-  daemon = daemonCommand
-}
-
-interface ProjectArgs {
-  ctx: ProjectContext
-  app: MaxProjectApp
-}
-
-class Project {
-  constructor(public globalCtx: LazyOne<GlobalContext>) {}
-
-  args = makeLazyF<ProjectArgs>((self) => ({
-    ctx: (): ProjectContext => {
-      return null as any
-    },
-    app: () => new MaxProjectApp(self.ctx),
-  }))
-
-  app = LazyX.once(() => new MaxProjectApp(this.ctx.get))
-  cfg = LazyX.once(() => {
-    const projectRoot = this.globalCtx.get.config.projectRoot
-    if (!projectRoot) {
-      throw ErrProjectNotInitialised.create({ maxProjectRoot: this.globalCtx.get.config.cwd })
-    }
-    return new ProjectConfig(this.globalCtx.get.config, { projectRootFolder: projectRoot })
-  })
-  daemonManager = LazyX.once(() => new ProjectDaemonManager(this.cfg.get))
-  // FIXME: CLAUDE: I'm really second-guessing the purpose of ProjectContext. I think it's creating a level of indirection that ought not to exist.
-  // All it's "strictly" doing, and i'm not sure that's a good thing necessarily, is binding a number of dependencies that are guaranteed to all exist at the same time
-  ctx = LazyX.once((): ProjectContext => {
-    const cfg = this.globalCtx.get.config
-    const projectRoot = cfg.projectRoot
-    const projectExists = projectRoot && fs.existsSync(projectRoot)
-
-    return !projectExists
-      ? EmptyProjectContext.create(projectRoot || cfg.cwd)
-      : new ProjectContextImpl(
-          this.cfg.get,
-          null as any,
-          new FsProjectManager(projectRoot),
-          // FIXME: CLAUDE: I'm concerned - we shouldn't be creating so much up front. We need more systemic "laziness".
-          // i.e. it's not a certainty that i'll ever need this registry - it's wasteful to create it. I'd like to talk about how to first-class-citizenify the concept of lazy construction
-          // Ok - i've had a think about this, and i think `makeLazy` (in @max/core lazy.ts) is probably the way to go. Let's discuss
-          new FsConnectorRegistry({
-            acme: '@max/connector-acme',
-            linear: '@max/connector-linear',
-          })
-        )
-  })
-  completers = LazyX.once(() => new ProjectCompleters(this.app.get))
-}
-
-class Global {
-  constructor(public cfg: GlobalConfig) {}
-  app = LazyX.once(() => new MaxGlobalApp(this.ctx.get))
-  ctx = LazyX.once(() => new GlobalContext({ config: this.cfg }))
 }
 
 type ParserResultType<X extends Parser<Mode>> =
@@ -109,29 +49,55 @@ type CmdInput<k extends keyof Commands['all']> = ParserResultType<Commands['all'
 class CLI {
   constructor(public cfg: GlobalConfig) {
     this.cliPrinter = new CliPrinter({ color: cfg.useColor })
-    this.global = new Global(cfg)
-    this.project = new Project(this.global.ctx)
-    this.commands = new Commands(this.project.completers)
+    const globalDeps: MaxGlobalAppDependencies = makeLazy<MaxGlobalAppDependencies>({
+      config: () => cfg,
+    })
+    this.global = new MaxGlobalApp(globalDeps)
+    const projectDeps: MaxProjectAppDependencies = makeLazy<MaxProjectAppDependencies>({
+      daemonManager: () => new ProjectDaemonManager(projectDeps.projectConfig),
+      projectManager: () => new FsProjectManager(projectDeps.projectConfig.paths.projectRootPath),
+      projectConfig: () => {
+        const projectRoot = cfg.projectRoot
+        const projectExists = projectRoot && fs.existsSync(projectRoot)
+        if (!projectRoot || !projectExists) {
+          throw ErrProjectNotInitialised.create({ maxProjectRoot: projectRoot ?? cfg.cwd })
+        }
+        return new ProjectConfig(cfg, { projectRootFolder: projectRoot })
+      },
+      connectorRegistry: () =>
+        new FsConnectorRegistry({
+          acme: '@max/connector-acme',
+          linear: '@max/connector-linear',
+        }),
+    })
+
+    this.project = new MaxProjectApp(projectDeps)
+    this.commands = new Commands(LazyX.once(() => new ProjectCompleters(this.project)))
   }
 
-  global: Global
-  project: Project
+  global: MaxGlobalApp
+  project: MaxProjectApp
   commands: Commands
 
   program = LazyX.once(() =>
-    or(this.commands.all.daemon, this.commands.all.schema, this.commands.all.init)
+    or(
+      //
+      this.commands.all.daemon,
+      this.commands.all.schema,
+      this.commands.all.init
+    )
   )
 
   runInit(arg: CmdInput<'init'>) {
     const dir = path.resolve(arg.directory)
-    return this.global.app.get.initProjectAtPath({
+    return this.global.initProjectAtPath({
       force: arg.force,
       path: dir,
     })
   }
 
   async runSchema(arg: CmdInput<'schema'>) {
-    const result = await this.project.app.get.context.connectorRegistry.resolve(arg.source)
+    const result = await this.project.connectorRegistry.resolve(arg.source)
     const schema = result.def.schema
     switch (arg.output) {
       default:
@@ -145,7 +111,7 @@ class CLI {
   }
 
   runDaemon(arg: CmdInput<'daemon'>) {
-    const daemon = this.project.daemonManager.get
+    const daemon = this.project.daemonManager
     const printStatus = () => this.cliPrinter.print(DaemonPrinters.DaemonStatus, daemon.status())
 
     switch (arg.sub) {
@@ -237,7 +203,7 @@ if (parsed.success) {
       process.exit(1)
     }
 
-    const daemonPaths = cli.project.cfg.get.paths.daemon
+    const daemonPaths = cli.project.config.paths.daemon
 
     // FIXME: CLAUDE: Need to check: Is the daemon disabled, is it already running?
 

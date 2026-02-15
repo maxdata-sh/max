@@ -14,6 +14,7 @@ import { ConnectorDef } from "../connector-def.js";
 import { ConnectorModule, type ConnectorModuleAny } from "../connector-module.js";
 import { Installation } from "../installation.js";
 import { ConnectorRegistry, InMemoryConnectorRegistry } from '../connector-registry.js'
+import {OnboardingFlow} from "../onboarding.js";
 
 // ============================================================================
 // Test Fixtures
@@ -53,6 +54,7 @@ function makeModule(name: string): ConnectorModuleAny {
     scopes: [],
     schema: testSchema,
     seeder: testSeeder,
+    onboarding: OnboardingFlow.empty(),
     resolvers: [Resolver.for(TestUser, { name: testLoader.field("name") })],
   });
 

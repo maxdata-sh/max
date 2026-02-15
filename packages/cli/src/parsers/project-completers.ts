@@ -5,6 +5,7 @@ import { message } from '@optique/core/message'
 import { ErrConnectorNotFound, MaxProjectApp } from '@max/app'
 
 export class ProjectCompleters {
+
   get connectorSource() {
     return this._connectorSource.get
   }
@@ -14,7 +15,7 @@ export class ProjectCompleters {
       $mode: 'async',
       metavar: 'SOURCE',
       async parse(input: string): Promise<ValueParserResult<string>> {
-        return app.context.connectorRegistry.resolve(input).then(
+        return app.connectorRegistry.resolve(input).then(
           () => ({ success: true, value: input }),
           (e): ValueParserResult<string> => {
             if (ErrConnectorNotFound.is(e)) {
@@ -29,7 +30,7 @@ export class ProjectCompleters {
         return value
       },
       async *suggest(): AsyncGenerator<Suggestion> {
-        const sources = app.context.connectorRegistry.list()
+        const sources = app.connectorRegistry.list()
         for (const source of sources) {
           yield { kind: 'literal', text: source.name, description: message`${source.name}` }
         }

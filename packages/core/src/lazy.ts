@@ -106,7 +106,7 @@ export class LazyX<T extends object> {
 
 type FieldBuilders<T> = { [k in keyof T]: () => T[k] }
 
-export function makeLazy<T extends object>(fields: FieldBuilders<T>){
+export function makeLazy<T extends object>(fields: FieldBuilders<T>): T {
   const cache = {} as any
   const proxy = new Proxy({} as T, {
     get: (_, prop: string | symbol) => {

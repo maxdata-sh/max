@@ -238,7 +238,7 @@ class MaxErrorImpl extends Error implements MaxError {
     const lines: string[] = [];
 
     // Top-level error
-    lines.push(`MaxError: ` + formatErrorLine(this, "", { red, dim, reset }, !this.cause));
+    lines.push(`MaxError` + formatErrorLine(this, "", { red, dim, reset }, !this.cause));
 
     // Cause chain
     let current: MaxErrorImpl | undefined = this.cause;
@@ -273,10 +273,10 @@ function formatErrorLine(
   isLast: boolean
 ): string {
   const hasData = Object.keys(err.data).length > 0;
-  let line = `${c.red}${err.code}${c.reset}: ${err.message}`;
+  let line = `[${c.red}${err.code}${c.reset}]: ${err.message}`;
   if (hasData) {
     const connectorChar = isLast ? '└' : '├'
-    line += `\n${indent}  ${c.dim}${connectorChar} data: ${JSON.stringify(err.data)}${c.reset}`;
+    line += `\n${indent}  ${c.dim}${connectorChar} data: ${util.format('%O',err.data)}${c.reset}`;
   }
   return line;
 }

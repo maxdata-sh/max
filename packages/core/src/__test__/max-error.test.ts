@@ -551,7 +551,7 @@ describe("inspect output", () => {
     const output = inspectErr(err);
 
     // Data appears on line after header, indented
-    expect(output).toContain("  { ref: 'User:u1' }");
+    expect(output).toContain("data: { ref: 'User:u1' }");
   });
 
   test("large data auto-expands to multiline", () => {
@@ -573,7 +573,7 @@ describe("inspect output", () => {
 
     // First line is header, next should be a stack frame (starts with "    at")
     expect(lines[0]).toBe("MaxError[test.marker_only]: Something was not found");
-    expect(lines[1].trimStart().startsWith("at ")).toBe(true);
+    expect(lines[1].trimStart().startsWith('➝ Stack trace')).toBe(true)
   });
 
   test("stack frames present without redundant first line", () => {
@@ -600,7 +600,7 @@ describe("inspect output", () => {
     const output = inspectErr(outer);
 
     expect(output).toContain("caused by:");
-    expect(output).toContain("MaxError[network.connection_failed]");
+    expect(output).toContain("[network.connection_failed]");
     expect(output).toContain("Connection failed");
   });
 });

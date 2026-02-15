@@ -16,6 +16,7 @@ import { Installation } from "../installation.js";
 import { Credential } from "../credential.js";
 import { CredentialProvider } from "../credential-provider.js";
 import { StubbedCredentialStore } from "../credential-store.js";
+import {OnboardingFlow} from "../onboarding.js";
 
 // ============================================================================
 // Test Fixtures
@@ -67,6 +68,7 @@ const testDef = ConnectorDef.create({
   scopes: ["read"],
   schema: testSchema,
   seeder: testSeeder,
+  onboarding: OnboardingFlow.empty(),
   resolvers: [testResolver],
 });
 

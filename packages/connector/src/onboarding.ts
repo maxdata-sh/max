@@ -156,4 +156,7 @@ export const OnboardingFlow = StaticTypeCompanion({
   create<TConfig = unknown>(steps: OnboardingStep[]): OnboardingFlow<TConfig> {
     return { steps: Object.freeze([...steps]) };
   },
+  empty<TConfig = unknown>(): OnboardingFlow<TConfig> {
+    return { steps: [] }
+  }
 });

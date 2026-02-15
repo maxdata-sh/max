@@ -1,21 +1,16 @@
 import { unlinkSync } from 'fs'
-import type { ShellCompletion } from '@optique/core/completion'
-import * as Completion from '@optique/core/completion'
 import type { CliRequest, CliResponse } from './types.js'
 
-const shells: Record<string, ShellCompletion> = {
-  zsh: Completion.zsh,
-  bash: Completion.bash,
-  fish: Completion.fish,
-}
+
 
 export interface SocketServerOptions {
   socketPath: string
   runner: (req: CliRequest) => Promise<CliResponse>
+  suggest: (req: CliRequest) => Promise<CliResponse>
 }
 
 export function createSocketServer(opts: SocketServerOptions): { stop: () => void } {
-  const { socketPath, runner } = opts
+  const { socketPath, runner, suggest } = opts
 
   // Clean up old socket
   try {
@@ -26,20 +21,7 @@ export function createSocketServer(opts: SocketServerOptions): { stop: () => voi
 
   async function handleRequest(req: CliRequest): Promise<CliResponse> {
     if (req.kind === 'complete') {
-      // FIXME: CLAUDE: We need to implement suggestion. This is the old code:
-      throw 'no'
-      // const suggestions = await runner.suggest(req.argv)
-      // const shell = req.shell && shells[req.shell]
-      // if (shell) {
-      //   const chunks: string[] = []
-      //   for (const chunk of shell.encodeSuggestions(suggestions)) {
-      //     chunks.push(chunk)
-      //   }
-      //   return { exitCode: 0, completionOutput: chunks.join('\n') }
-      // }
-      // // Fallback: plain string completions
-      // const completions = suggestions.filter((s) => s.kind === 'literal').map((s) => s.text)
-      // return { exitCode: 0, completions }
+      return suggest(req)
     }
     return runner(req)
   }

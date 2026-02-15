@@ -13,11 +13,14 @@ import {
   ProjectDaemonManager,
 } from '@max/app'
 
+import * as Completion from '@optique/core/completion'
+import {print} from '@optique/run'
 import { flag, parseSync, passThrough } from '@optique/core'
 import { object, or } from '@optique/core/constructs'
-import { option } from '@optique/core/primitives'
-import { withDefault } from '@optique/core/modifiers'
-import { string } from '@optique/core/valueparser'
+import {argument, constant, option } from '@optique/core/primitives'
+import { optional, withDefault } from '@optique/core/modifiers'
+import {choice, string } from '@optique/core/valueparser'
+import { suggestAsync, type Suggestion } from '@optique/core/parser'
 import { ProjectCompleters } from './parsers/project-completers.js'
 import * as fs from 'node:fs'
 
@@ -26,13 +29,22 @@ import { CliPrinter } from './cli-printable.js'
 import { SchemaPrinters } from './printers/schema-printers.js'
 import * as path from 'node:path'
 import { createSocketServer } from './socket-server.js'
-import { CliResponse } from './types.js'
+import { CliRequest, CliResponse } from './types.js'
 import { parseAndValidateArgs } from './argv-parser.js'
 import { daemonCommand } from './commands/daemon-command.js'
 import { schemaCommandBuild } from './commands/schema-command.js'
 import { initCommand } from './commands/init-command.js'
 import { DaemonPrinters } from './printers/daemon-printers.js'
 import { Mode, Parser } from '@optique/core/parser'
+import {ShellCompletion} from "@optique/core/completion";
+import {message} from "@optique/core/message";
+
+const shells: Record<string, ShellCompletion> = {
+  zsh: Completion.zsh,
+  bash: Completion.bash,
+  fish: Completion.fish,
+}
+
 
 class Commands {
   constructor(private projectCompleters: LazyOne<ProjectCompleters>) {}
@@ -160,6 +172,31 @@ class CLI {
     return color ? this.colorPrinter : this.plainPrinter
   }
 
+  async suggest(req: CliRequest): Promise<CliResponse> {
+    const suggestions = await this.getSuggestions(req.argv)
+    const shell = req.shell && shells[req.shell]
+    if (shell) {
+      const chunks: string[] = []
+      for (const chunk of shell.encodeSuggestions(suggestions)) {
+        chunks.push(chunk)
+      }
+      return { exitCode: 0, completionOutput: chunks.join('\n') }
+    }
+    const completions = suggestions.filter((s) => s.kind === 'literal').map((s) => s.text)
+    return { exitCode: 0, completions }
+  }
+
+  async getSuggestions(argv: readonly string[]): Promise<readonly Suggestion[]> {
+    const args: [string, ...string[]] = argv.length > 0
+      ? (argv as unknown as [string, ...string[]])
+      : ['']
+    try {
+      return await suggestAsync(this.program.get, args)
+    } catch {
+      return []
+    }
+  }
+
   async parseAndExecute(args: readonly string[], opts?: Partial<RequestContext>): Promise<CliResponse> {
     const req: RequestContext = {
       cwd: opts?.cwd ?? process.cwd(),
@@ -201,6 +238,7 @@ const rustShimParsers = object({
 const parsed = parseSync(rustShimParsers, process.argv.slice(2))
 
 if (parsed.success) {
+
   const cfg = new GlobalConfig({
     devMode: parsed.value.devMode,
     projectRoot: parsed.value.projectRoot,
@@ -232,26 +270,28 @@ if (parsed.success) {
     createSocketServer({
       socketPath: daemonPaths.socket,
       runner: async (req) => {
-        if (req.kind === 'run') {
-          const color = req.color ?? false
-          return cli.parseAndExecute(req.argv, { cwd: req.cwd, color }).catch((err) => {
-            const msg = MaxError.isMaxError(err)
-              ? err.prettyPrint({ color })
-              : err instanceof Error
-                ? err.message
-                : String(err)
-            return { stderr: `${msg}\n`, exitCode: 1 }
-          })
-        } else {
-          throw 'not done yet'
-        }
+        const color = req.color ?? false
+        return cli.parseAndExecute(req.argv, { cwd: req.cwd, color }).catch((err) => {
+          const msg = MaxError.isMaxError(err)
+            ? err.prettyPrint({ color })
+            : err instanceof Error
+              ? err.message
+              : String(err)
+          return { stderr: `${msg}\n`, exitCode: 1 }
+        })
+      },
+      suggest: (argv) => {
+        return cli.suggest(argv)
       },
     })
 
     console.log(`Max daemon listening on ${daemonPaths.socket}`)
   } else {
-    await cli.parseAndExecute(parsed.value.maxCommand, { cwd: process.cwd() }).then(
+    const response = cli.parseAndExecute(parsed.value.maxCommand, { cwd: process.cwd() })
+
+    await response.then(
       (response) => {
+        if (response.completionOutput) process.stdout.write(response.completionOutput)
         if (response.stdout) process.stdout.write(response.stdout)
         if (response.stderr) process.stderr.write(response.stderr)
         process.exit(response.exitCode)
@@ -261,8 +301,11 @@ if (parsed.success) {
         process.exit(1)
       }
     )
+
   }
 } else {
   console.error('Unexpected error')
+  print(parsed.error)
   throw new Error(parsed.error.join('\n'))
 }
+

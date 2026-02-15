@@ -93,32 +93,33 @@ export class InstallationRuntimeImpl implements InstallationRuntime {
   }): Promise<InstallationRuntimeImpl> {
     const { projectManager, connectorRegistry, connector, name } = deps;
 
-    // 1. Load installation from disk
+    // Load installation from disk
     const managed = projectManager.get(connector, name);
 
-    // 2. Resolve connector module
+    // Resolve connector module
     const mod = await connectorRegistry.resolve(connector);
 
-    // 3-4. Create credential provider
+    // Create credential provider
     const credStore = projectManager.credentialStoreFor(managed);
     const credentials = CredentialProvider.create(credStore);
 
-    // 5. Initialise connector → live Installation
+    // Initialise connector → live Installation
     const installation = mod.initialise(managed.config, credentials);
 
-    // 6. Open SQLite DB + engine
+    // Open SQLite DB + engine
     const dbPath = projectManager.dataPathFor(managed);
     const engine = SqliteEngine.open(dbPath, mod.def.schema);
 
-    // 7. Ensure execution tables + stores
+    // FIXME: CLAUDE: This wiring should be something that lives in a static helper in execution-sqlite (a bit like sqliteengine above) - we shouldn't have to create these manually
+    // Ensure execution tables + stores
     new SqliteExecutionSchema().ensureTables(engine.db);
     const syncMeta = new SqliteSyncMeta(engine.db);
     const taskStore = new SqliteTaskStore(engine.db);
 
-    // 11. Build execution registry from connector resolvers
+    // Build execution registry from connector resolvers
     const registry = new ExecutionRegistryImpl(mod.def.resolvers);
 
-    // 12. Construct task runner
+    // Construct task runner
     const taskRunner = new DefaultTaskRunner({
       engine,
       syncMeta,
@@ -127,7 +128,7 @@ export class InstallationRuntimeImpl implements InstallationRuntime {
       contextProvider: async () => installation.context,
     });
 
-    // 13. Construct sync executor
+    // Construct sync executor
     const executor = new SyncExecutor({ taskRunner, taskStore });
 
     const runtime = new InstallationRuntimeImpl({

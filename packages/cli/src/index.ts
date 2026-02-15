@@ -97,8 +97,7 @@ class CLI {
   }
 
   async runSchema(arg: CmdInput<'schema'>) {
-    const result = await this.project.connectorRegistry.resolve(arg.source)
-    const schema = result.def.schema
+    const schema = await this.project.getSchema(arg.source)
     switch (arg.output) {
       default:
       case 'text':

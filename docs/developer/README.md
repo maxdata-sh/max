@@ -52,22 +52,20 @@ const AcmeUserResolver = Resolver.for(AcmeUser, {
 
 ## Architecture
 
+See the **[Architecture docs](./architecture/)** for package boundaries, dependency rules, and design principles.
+
+Data flow (sync pipeline):
 ```
 SyncPlan → Resolvers → Loaders → Engine → Storage
 ```
 
-- **SyncPlan**: Declares what to sync
-- **Resolvers**: Map fields to loaders
-- **Loaders**: Fetch data from APIs
-- **Engine**: Stores and queries entities
-- **Storage**: SQLite, DuckDB, etc. (swappable)
-
 ## Packages
 
-- `@max/core` - Core types and interfaces
+- `@max/core` - Types, data structures, Engine (data access), utilities
+- `@max/connector` - Connector SDK (ConnectorDef, OnboardingFlow)
+- `@max/app` - Business logic, services, orchestration
+- `@max/cli` - CLI presentation, daemon hosting
 - `@max/storage-sqlite` - SQLite storage implementation
-- `@max/execution` - Task execution interfaces *(coming soon)*
-- `@max/cli` - CLI layer *(coming soon)*
 
 ## Next Steps
 

@@ -281,6 +281,10 @@ if (parsed.success) {
       process.exit(0)
     }
 
+    // Write our own PID — works regardless of who spawned us (Rust shim or `max daemon start`)
+    // and survives `bun --watch` restarts which change the child PID.
+    fs.writeFileSync(daemonPaths.pid, String(process.pid))
+
     createSocketServer({
       socketPath: daemonPaths.socket,
       runner: async (req) => {

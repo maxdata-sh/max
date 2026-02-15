@@ -54,6 +54,10 @@ export class ProjectDaemonManager {
       throw ErrDaemonDisabled.create({});
     }
 
+    // Don't spawn if already running
+    const current = this.status();
+    if (current.alive) return;
+
     const proc = Bun.spawn([
       ...process.argv.slice(0, 2),
       "--daemonized", "--project-root", this.config.paths.projectRootPath,
@@ -61,9 +65,9 @@ export class ProjectDaemonManager {
       stdin: "ignore", stdout: "ignore", stderr: "inherit",
     });
 
-    // Write PID file
-    writeFileSync(paths.pid, String(proc.pid), {});
-
+    // The daemon writes its own PID on startup (index.ts daemon mode).
+    // This is more reliable than writing proc.pid here, because with
+    // `bun --watch` the watcher PID differs from the actual child PID.
     proc.unref();
   }
 

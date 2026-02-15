@@ -5,13 +5,12 @@
  * Operations like sync become a single method call on a warm runtime.
  */
 
-import { Database } from "bun:sqlite";
 import { NoOpFlowController, type Engine, type SeederAny } from "@max/core";
 import { CredentialProvider, type ConnectorRegistry, type Installation } from "@max/connector";
 import { SyncExecutor, type SyncHandle } from "@max/execution";
 import { DefaultTaskRunner, ExecutionRegistryImpl } from "@max/execution-local";
 import { SqliteExecutionSchema, SqliteSyncMeta, SqliteTaskStore } from "@max/execution-sqlite";
-import { SqliteEngine, SqliteSchema } from "@max/storage-sqlite";
+import { SqliteEngine } from "@max/storage-sqlite";
 import type { ManagedInstallation, ProjectManager } from "../project-manager/index.js";
 
 // ============================================================================
@@ -45,7 +44,6 @@ export interface InstallationRuntimeInfo {
 interface InstallationRuntimeConfig {
   managed: ManagedInstallation;
   installation: Installation;
-  db: Database;
   engine: SqliteEngine;
   seeder: SeederAny;
   executor: SyncExecutor;
@@ -81,7 +79,7 @@ export class InstallationRuntimeImpl implements InstallationRuntime {
 
   async stop(): Promise<void> {
     await this.config.installation.stop();
-    this.config.db.close();
+    await this.config.engine.close();
   }
 
   // --------------------------------------------------------------------------
@@ -109,21 +107,14 @@ export class InstallationRuntimeImpl implements InstallationRuntime {
     // 5. Initialise connector → live Installation
     const installation = mod.initialise(managed.config, credentials);
 
-    // 6-7. Open SQLite DB
+    // 6. Open SQLite DB + engine
     const dbPath = projectManager.dataPathFor(managed);
-    const db = new Database(dbPath, { create: true });
+    const engine = SqliteEngine.open(dbPath, mod.def.schema);
 
-    // 8. Register entity schema + ensure tables
-    const schema = new SqliteSchema().registerSchema(mod.def.schema);
-    schema.ensureTables(db);
-
-    // 9. Ensure execution tables
-    new SqliteExecutionSchema().ensureTables(db);
-
-    // 10. Construct storage + execution stores
-    const engine = new SqliteEngine(db, schema);
-    const syncMeta = new SqliteSyncMeta(db);
-    const taskStore = new SqliteTaskStore(db);
+    // 7. Ensure execution tables + stores
+    new SqliteExecutionSchema().ensureTables(engine.db);
+    const syncMeta = new SqliteSyncMeta(engine.db);
+    const taskStore = new SqliteTaskStore(engine.db);
 
     // 11. Build execution registry from connector resolvers
     const registry = new ExecutionRegistryImpl(mod.def.resolvers);
@@ -146,7 +137,6 @@ export class InstallationRuntimeImpl implements InstallationRuntime {
     return new InstallationRuntimeImpl({
       managed,
       installation,
-      db,
       engine,
       seeder: mod.def.seeder,
       executor,

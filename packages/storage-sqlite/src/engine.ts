@@ -2,7 +2,7 @@
  * SqliteEngine - Engine implementation backed by SQLite.
  */
 
-import type { Database, SQLQueryBindings } from "bun:sqlite";
+import { Database, type SQLQueryBindings } from "bun:sqlite";
 import {
   type Engine,
   type EntityDefAny,
@@ -17,17 +17,29 @@ import {
   type CollectionKeys,
   type CollectionTargetRef,
   type EntityId,
+  type Schema,
 } from "@max/core";
-import type { SqliteSchema } from "./schema.js";
+import { SqliteSchema } from "./schema.js";
 import type { TableDef, ColumnDef } from "./table-def.js";
 import { SqliteQueryBuilder } from "./query-builder.js";
 import { ErrEntityNotFound, ErrFieldNotFound, ErrCollectionNotSupported } from "./errors.js";
 
 export class SqliteEngine implements Engine {
-  constructor(
-    private db: Database,
-    private schema: SqliteSchema
-  ) {}
+  readonly db: Database;
+  private schema: SqliteSchema;
+
+  constructor(db: Database, schema: SqliteSchema) {
+    this.db = db;
+    this.schema = schema;
+  }
+
+  /** Open a SQLite DB at `path`, register the schema, ensure tables, and return the engine. */
+  static open(path: string, schema: Schema): SqliteEngine {
+    const db = new Database(path, { create: true });
+    const sqliteSchema = new SqliteSchema().registerSchema(schema);
+    sqliteSchema.ensureTables(db);
+    return new SqliteEngine(db, sqliteSchema);
+  }
 
   async store<E extends EntityDefAny>(input: EntityInput<E>): Promise<Ref<E>> {
     const tableDef = this.schema.getTable(input.ref.entityDef);
@@ -129,6 +141,10 @@ export class SqliteEngine implements Engine {
 
   query<E extends EntityDefAny>(def: E): SqliteQueryBuilder<E> {
     return new SqliteQueryBuilder(this.db, this.schema.getTable(def), def);
+  }
+
+  async close(): Promise<void> {
+    this.db.close();
   }
 
   /** Convert a TypeScript value to SQL-compatible value */

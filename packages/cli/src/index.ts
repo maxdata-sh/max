@@ -237,6 +237,7 @@ class CLI {
           return this.runDaemon(instruction, color)
       }
 
+      // @ts-expect-error: cmd should be `never` if we've covered all codepaths above
       throw ErrInvariant.create({ detail: `Unhandled command: ${instruction.cmd}` })
     })()
 

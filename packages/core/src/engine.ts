@@ -51,6 +51,9 @@ export interface Engine {
    * Query entities.
    */
   query<E extends EntityDefAny>(def: E): QueryBuilder<E>;
+
+  /** Release resources (close DB connections, etc.). */
+  close(): Promise<void>;
 }
 
 export interface QueryBuilder<E extends EntityDefAny> {

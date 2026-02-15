@@ -143,6 +143,10 @@ export type { ClassOf } from "./type-system-utils.js";
 // Inspect
 export { Inspect, inspect } from "./inspect.js";
 
+// Lifecycle
+export { LifecycleManager } from "./lifecycle.js";
+export type { Lifecycle, LifecycleStep } from "./lifecycle.js";
+
 // Utilities
 export { StaticTypeCompanion } from "./companion.js";
 export * from "./lazy.js";

@@ -48,8 +48,9 @@ fn main() {
     let project_root = daemon::find_project_root(&cwd);
     let use_color = should_use_color(&args);
 
-    // daemon subcommand — always run direct (bypasses socket)
-    if args.first().map(|s| s == "daemon").unwrap_or(false) {
+    // Interactive or meta commands — always run direct (bypasses socket)
+    let direct_commands = ["daemon", "connect"];
+    if args.first().map(|s| direct_commands.contains(&s.as_str())).unwrap_or(false) {
         run_direct(&args, project_root.as_deref());
     }
 

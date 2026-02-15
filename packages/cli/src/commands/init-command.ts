@@ -10,7 +10,7 @@ export const initCommand = command(
   object({
     cmd: constant('init'),
     force: withDefault(
-      flag('--force/-f', { description: message`Force creation of project` }),
+      flag('-f','--force', { description: message`Force creation of project`,  }),
       false
     ),
     directory: argument(path({ mustExist: true, type: 'directory' }), {

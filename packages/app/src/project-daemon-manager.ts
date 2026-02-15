@@ -3,6 +3,7 @@ import * as os from "node:os";
 import {existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync} from "fs";
 import {ProjectConfig} from "./config/project-config.js";
 import { mkdirSync } from 'node:fs'
+import { ErrDaemonDisabled } from './errors/errors.js'
 
 export class ProjectDaemonStatus {
   constructor(
@@ -24,7 +25,6 @@ export class ProjectDaemonEntry {
 }
 
 
-// FIXME: CLAUDE: I've reworked this so that it returns real values. We need to take the messaging it _would_ have output (in comments) and push that back to the cli layer
 export class ProjectDaemonManager {
   constructor(private config: ProjectConfig) {}
 
@@ -51,10 +51,7 @@ export class ProjectDaemonManager {
     mkdirSync(paths.root, { recursive: true });
 
     if (existsSync(paths.disabled)) {
-      // CLAUDE: we need to add something to our error boundary (can't start daemon if it's disabled)
-      // then we exit gracefully in the cli wrapper
-      throw 'we need a real error here'
-      // return { stderr: "Daemon is disabled. Run 'max daemon enable' first.\n", exitCode: 1 };
+      throw ErrDaemonDisabled.create({});
     }
 
     const proc = Bun.spawn([
@@ -68,36 +65,26 @@ export class ProjectDaemonManager {
     writeFileSync(paths.pid, String(proc.pid), {});
 
     proc.unref();
-   // shift to cli: return { stdout: "Daemon starting...\n", exitCode: 0 };
   }
 
   stop(): 'stopped' | 'not-running' {
     if (this.killDaemon()) {
       return 'stopped'
-      // return { stdout: "Daemon stopped. Use 'disable' to prevent restart.\n", exitCode: 0 };
     }
     return 'not-running'
-    // shift to cli: return { stdout: "Daemon is not running\n", exitCode: 0 };
   }
 
   enable(): void {
     try { unlinkSync(this.paths.disabled); } catch { /* already enabled */ }
-    // shift to cli: return { stdout: "Daemon enabled\n", exitCode: 0 };
   }
 
   disable(): void {
     writeFileSync(this.paths.disabled, "");
     this.killDaemon();
-    // shift to cli: return { stdout: "Daemon disabled\n", exitCode: 0 };
   }
 
-  list(): ProjectDaemonEntry[]  {
-    const entries = this.discoverDaemons();
-    // shift to cli:
-    // if (entries.length === 0) {
-    //   return { stdout: "No daemons found.\n", exitCode: 0 };
-    // }
-    return entries
+  list(): ProjectDaemonEntry[] {
+    return this.discoverDaemons();
   }
 
   private discoverDaemons(): ProjectDaemonEntry[] {

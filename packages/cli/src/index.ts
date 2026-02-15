@@ -1,4 +1,6 @@
 import {
+  ErrDaemonDisabled,
+  ErrInvariant,
   ErrProjectNotInitialised,
   FsConnectorRegistry,
   FsProjectManager,
@@ -32,7 +34,6 @@ import { initCommand } from './commands/init-command.js'
 import { DaemonPrinters } from './printers/daemon-printers.js'
 import { Mode, Parser } from '@optique/core/parser'
 
-//FIXME: CLAUDE: I'd like to do some general cleanup on this file - it's a little busy
 class Commands {
   constructor(private projectCompleters: LazyOne<ProjectCompleters>) {}
   all = makeLazy({
@@ -142,8 +143,7 @@ class CLI {
         return printStatus()
       }
       default:
-        // FIXME: CLAUDE: This needs a real error at the boundary (unexpected command / unhandled branch / something very "invariant volationy")
-        throw new Error('Unhandled command')
+        throw ErrInvariant.create({ detail: `Unhandled daemon subcommand: ${arg.sub}` })
     }
   }
 
@@ -168,8 +168,7 @@ class CLI {
           return this.runDaemon(instruction)
       }
 
-      // FIXME: CLAUDE: This needs a real error at the boundary
-      throw new Error('Unhandled command')
+      throw ErrInvariant.create({ detail: `Unhandled command: ${instruction.cmd}` })
     })()
 
     const withNewline = result ? result.concat('\n') : ''
@@ -203,8 +202,17 @@ if (parsed.success) {
     }
 
     const daemonPaths = cli.project.config.paths.daemon
+    const daemonStatus = cli.project.daemonManager.status()
 
-    // FIXME: CLAUDE: Need to check: Is the daemon disabled, is it already running?
+    if (!daemonStatus.enabled) {
+      console.error(ErrDaemonDisabled.create({}).prettyPrint({ color: cfg.useColor }))
+      process.exit(1)
+    }
+
+    if (daemonStatus.alive) {
+      console.error(`Daemon already running (pid ${daemonStatus.pid})`)
+      process.exit(0)
+    }
 
     createSocketServer({
       socketPath: daemonPaths.socket,

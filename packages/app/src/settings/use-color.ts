@@ -1,6 +1,3 @@
-
-// FIXME: CLAUDE: I _think_ we're going to need to add similar logic to rust's shim, so that it can decide whether to send --color.
-// I imagine this just boils down to: is the output tty? Right now, the rust shim loses us colour
 export const useColor = () => {
   const { env, stdout } = process
 

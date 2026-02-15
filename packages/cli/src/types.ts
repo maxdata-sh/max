@@ -11,4 +11,5 @@ export type CliRequest = {
   argv: string[];
   shell?: string;
   cwd?: string;
+  color?: boolean;
 };

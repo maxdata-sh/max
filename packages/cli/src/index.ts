@@ -47,9 +47,13 @@ type ParserResultType<X extends Parser<Mode>> =
   X extends Parser<Mode, infer TValue> ? TValue : never
 type CmdInput<k extends keyof Commands['all']> = ParserResultType<Commands['all'][k]>
 
+interface RequestContext {
+  cwd: string
+  color: boolean
+}
+
 class CLI {
   constructor(public cfg: GlobalConfig) {
-    this.cliPrinter = new CliPrinter({ color: cfg.useColor })
     const globalDeps: MaxGlobalAppDependencies = makeLazy<MaxGlobalAppDependencies>({
       config: () => cfg,
     })
@@ -89,7 +93,7 @@ class CLI {
     )
   )
 
-  runInit(arg: CmdInput<'init'>) {
+  runInit(arg: CmdInput<'init'>, req: RequestContext) {
     const dir = path.resolve(arg.directory)
     return this.global.initProjectAtPath({
       force: arg.force,
@@ -97,22 +101,24 @@ class CLI {
     })
   }
 
-  async runSchema(arg: CmdInput<'schema'>) {
+  async runSchema(arg: CmdInput<'schema'>, req: RequestContext) {
+    const printer = this.printerFor(req.color)
     const schema = await this.project.getSchema(arg.source)
     switch (arg.output) {
       default:
       case 'text':
-        return this.cliPrinter.print(SchemaPrinters.SchemaText, schema)
+        return printer.print(SchemaPrinters.SchemaText, schema)
       case 'json':
-        return this.cliPrinter.print(SchemaPrinters.SchemaJson, schema)
+        return printer.print(SchemaPrinters.SchemaJson, schema)
       case 'ndjson':
-        return this.cliPrinter.print(SchemaPrinters.SchemaJsonl, schema)
+        return printer.print(SchemaPrinters.SchemaJsonl, schema)
     }
   }
 
-  runDaemon(arg: CmdInput<'daemon'>) {
+  runDaemon(arg: CmdInput<'daemon'>, req: RequestContext) {
+    const printer = this.printerFor(req.color)
     const daemon = this.project.daemonManager
-    const printStatus = () => this.cliPrinter.print(DaemonPrinters.DaemonStatus, daemon.status())
+    const printStatus = () => printer.print(DaemonPrinters.DaemonStatus, daemon.status())
 
     switch (arg.sub) {
       case 'status':
@@ -135,7 +141,7 @@ class CLI {
       }
       case 'list': {
         const results = daemon.list()
-        return this.cliPrinter.printAll(DaemonPrinters.DaemonEntry, results)
+        return printer.printAll(DaemonPrinters.DaemonEntry, results)
       }
       case 'restart': {
         daemon.stop()
@@ -147,10 +153,19 @@ class CLI {
     }
   }
 
-  private cliPrinter: CliPrinter
+  private colorPrinter = new CliPrinter({ color: true })
+  private plainPrinter = new CliPrinter({ color: false })
 
-  async parseAndExecute(args: readonly string[], cwd = process.cwd()): Promise<CliResponse> {
-    const parsed = await parseAndValidateArgs(this.program.get, 'max', args, this.cfg.useColor)
+  private printerFor(color: boolean) {
+    return color ? this.colorPrinter : this.plainPrinter
+  }
+
+  async parseAndExecute(args: readonly string[], opts?: Partial<RequestContext>): Promise<CliResponse> {
+    const req: RequestContext = {
+      cwd: opts?.cwd ?? process.cwd(),
+      color: opts?.color ?? this.cfg.useColor,
+    }
+    const parsed = await parseAndValidateArgs(this.program.get, 'max', args, req.color)
 
     if (!parsed.ok) {
       return parsed.response
@@ -161,11 +176,11 @@ class CLI {
     const result = await (async () => {
       switch (instruction.cmd) {
         case 'schema':
-          return this.runSchema(instruction)
+          return this.runSchema(instruction, req)
         case 'init':
-          return this.runInit(instruction)
+          return this.runInit(instruction, req)
         case 'daemon':
-          return this.runDaemon(instruction)
+          return this.runDaemon(instruction, req)
       }
 
       throw ErrInvariant.create({ detail: `Unhandled command: ${instruction.cmd}` })
@@ -218,9 +233,10 @@ if (parsed.success) {
       socketPath: daemonPaths.socket,
       runner: async (req) => {
         if (req.kind === 'run') {
-          return cli.parseAndExecute(req.argv, req.cwd).catch((err) => {
+          const color = req.color ?? false
+          return cli.parseAndExecute(req.argv, { cwd: req.cwd, color }).catch((err) => {
             const msg = MaxError.isMaxError(err)
-              ? err.prettyPrint({ color: true })
+              ? err.prettyPrint({ color })
               : err instanceof Error
                 ? err.message
                 : String(err)
@@ -234,7 +250,7 @@ if (parsed.success) {
 
     console.log(`Max daemon listening on ${daemonPaths.socket}`)
   } else {
-    await cli.parseAndExecute(parsed.value.maxCommand).then(
+    await cli.parseAndExecute(parsed.value.maxCommand, { cwd: process.cwd() }).then(
       (response) => {
         if (response.stdout) process.stdout.write(response.stdout)
         if (response.stderr) process.stderr.write(response.stderr)

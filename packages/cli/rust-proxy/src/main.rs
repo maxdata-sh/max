@@ -1,7 +1,7 @@
 mod daemon;
 
 use std::env;
-use std::io::{Read, Write};
+use std::io::{self, IsTerminal, Read, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
@@ -33,10 +33,20 @@ fn run_direct(args: &[String], project_root: Option<&Path>) {
     }
 }
 
+fn should_use_color(args: &[String]) -> bool {
+    // Explicit flags take priority
+    if args.iter().any(|a| a == "--no-color") { return false; }
+    if args.iter().any(|a| a == "--color") { return true; }
+    if env::var("NO_COLOR").is_ok() { return false; }
+    if env::var("FORCE_COLOR").map(|v| v != "0").unwrap_or(false) { return true; }
+    io::stdout().is_terminal()
+}
+
 fn main() {
     let mut args: Vec<String> = env::args().skip(1).collect();
     let cwd = env::current_dir().expect("Cannot determine CWD");
     let project_root = daemon::find_project_root(&cwd);
+    let use_color = should_use_color(&args);
 
     // daemon subcommand — always run direct (bypasses socket)
     if args.first().map(|s| s == "daemon").unwrap_or(false) {
@@ -67,7 +77,8 @@ fn main() {
     let mut req = serde_json::json!({
         "kind": kind,
         "argv": args,
-        "cwd": cwd.to_string_lossy()
+        "cwd": cwd.to_string_lossy(),
+        "color": use_color
     });
     if let Some(ref s) = shell {
         req["shell"] = serde_json::json!(s);

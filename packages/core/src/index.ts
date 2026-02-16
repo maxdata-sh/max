@@ -12,7 +12,7 @@ export type { LocalScope, SystemScope } from "./scope.js";
 
 // RefKey
 export { RefKey } from "./ref-key.js";
-export type { EntityType, EntityId, InstallationId, ConnectorType, ParsedRefKey } from "./ref-key.js";
+export type { EntityType, EntityId, InstallationId, WorkspaceId, ConnectorType, ParsedRefKey } from "./ref-key.js";
 
 // Fields
 export { Field } from "./field.js";
@@ -146,6 +146,21 @@ export { Inspect, inspect } from "./inspect.js";
 // Lifecycle
 export { LifecycleManager } from "./lifecycle.js";
 export type { Lifecycle, LifecycleMethods, LifecycleStep } from "./lifecycle.js";
+
+// Federation — level-agnostic infrastructure abstractions
+export { HealthStatus, StartResult, StopResult } from "./federation/index.js";
+export type {
+  HealthStatusKind,
+  StartOutcome,
+  StopOutcome,
+  Supervised,
+  Transport,
+  ChildHandle,
+  ProviderKind,
+  ChildProvider,
+  AggregateHealthStatus,
+  Supervisor,
+} from "./federation/index.js";
 
 // Utilities
 export { StaticTypeCompanion } from "./companion.js";

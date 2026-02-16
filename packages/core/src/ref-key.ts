@@ -24,6 +24,7 @@ export type RefKey = HardBrand<string, "ref-key">;
 export type EntityType = Id<"entity-type">;
 export type EntityId = Id<"entity-id">;
 export type InstallationId = Id<"installation-id">;
+export type WorkspaceId = Id<"workspace-id">;
 export type ConnectorType = Id<"connector-type">;
 
 // ============================================================================

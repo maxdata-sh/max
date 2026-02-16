@@ -1,8 +1,9 @@
 import { LazyX } from '@max/core'
 import { ValueParser, type ValueParserResult } from '@optique/core/valueparser'
 import type { Suggestion } from '@optique/core/parser'
-import { message } from '@optique/core/message'
+import { message, text } from '@optique/core/message'
 import { ErrConnectorNotFound, MaxProjectApp } from '@max/app'
+import { Fmt } from '../cli-printable.js'
 
 export class ProjectCompleters {
 

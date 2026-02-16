@@ -11,22 +11,21 @@ import {
   MaxProjectApp,
   MaxProjectAppDependencies,
   ProjectConfig,
-  ProjectDaemonManager,
 } from '@max/app'
 
 import * as Completion from '@optique/core/completion'
-import {print} from '@optique/run'
+import { ShellCompletion } from '@optique/core/completion'
 import { flag, parseSync, passThrough } from '@optique/core'
 import { object, or } from '@optique/core/constructs'
-import {argument, constant, option } from '@optique/core/primitives'
-import { optional, withDefault } from '@optique/core/modifiers'
-import {choice, string } from '@optique/core/valueparser'
-import { suggestAsync, type Suggestion } from '@optique/core/parser'
+import { option } from '@optique/core/primitives'
+import { withDefault } from '@optique/core/modifiers'
+import { string } from '@optique/core/valueparser'
+import { Mode, Parser, suggestAsync, type Suggestion } from '@optique/core/parser'
 import { ProjectCompleters } from './parsers/project-completers.js'
 import * as fs from 'node:fs'
 
 import { LazyOne, LazyX, makeLazy, MaxError } from '@max/core'
-import { CliPrinter } from './cli-printable.js'
+import { CliPrinter, Fmt } from './cli-printable.js'
 import { SchemaPrinters } from './printers/schema-printers.js'
 import * as path from 'node:path'
 import { createSocketServer } from './socket-server.js'
@@ -89,7 +88,9 @@ class CLI {
     })
 
     this.project = new MaxProjectApp(projectDeps)
-    this.commands = new Commands(LazyX.once(() => new ProjectCompleters(this.project)))
+    this.commands = new Commands(
+      LazyX.once(() => new ProjectCompleters(this.project, new Fmt(cfg.useColor ?? true)))
+    )
   }
 
   global: MaxGlobalApp
@@ -202,9 +203,8 @@ class CLI {
   }
 
   async getSuggestions(argv: readonly string[]): Promise<readonly Suggestion[]> {
-    const args: [string, ...string[]] = argv.length > 0
-      ? (argv as unknown as [string, ...string[]])
-      : ['']
+    const args: [string, ...string[]] =
+      argv.length > 0 ? (argv as unknown as [string, ...string[]]) : ['']
     try {
       return await suggestAsync(this.program.get, args)
     } catch {
@@ -217,7 +217,7 @@ class CLI {
       return this.suggest(req)
     }
 
-    const color = req.color ?? this.cfg.useColor
+    const color = req.color ?? this.cfg.useColor ?? true
     const parsed = await parseAndValidateArgs(this.program.get, 'max', req.argv, color)
 
     if (!parsed.ok) {
@@ -257,7 +257,6 @@ const rustShimParsers = object({
 const parsed = parseSync(rustShimParsers, process.argv.slice(2))
 
 if (parsed.success) {
-
   const cfg = new GlobalConfig({
     devMode: parsed.value.devMode,
     projectRoot: parsed.value.projectRoot,
@@ -309,7 +308,12 @@ if (parsed.success) {
 
     console.log(`Max daemon listening on ${daemonPaths.socket}`)
   } else {
-    const req: CliRequest = { kind: 'run', argv: parsed.value.maxCommand, cwd: process.cwd(), color: cfg.useColor }
+    const req: CliRequest = {
+      kind: 'run',
+      argv: parsed.value.maxCommand,
+      cwd: process.cwd(),
+      color: cfg.useColor,
+    }
 
     await cli.execute(req).then(
       (response) => {
@@ -323,11 +327,8 @@ if (parsed.success) {
         process.exit(1)
       }
     )
-
   }
 } else {
   console.error('Unexpected error')
-  print(parsed.error)
   throw new Error(parsed.error.join('\n'))
 }
-

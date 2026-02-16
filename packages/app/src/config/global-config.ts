@@ -10,7 +10,7 @@ export class GlobalConfig {
   readonly cwd: string // What is our working directory?
   readonly mode: ExecutionMode // What mode are we in?
   readonly maxHomeDirectory: string
-  readonly useColor: boolean
+  readonly useColor?: boolean
 
   constructor(opts: {
     useColor?: boolean

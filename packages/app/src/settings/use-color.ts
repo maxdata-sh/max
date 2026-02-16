@@ -1,4 +1,4 @@
-export const useColor = () => {
+export const useColor = (): boolean | undefined => {
   const { env, stdout } = process
 
   // 1. Check for NO_COLOR (https://no-color.org/)
@@ -19,5 +19,5 @@ export const useColor = () => {
     'GITHUB_ACTIONS' in env ||
     'TEAMCITY_VERSION' in env
 
-  return isCI
+  if (isCI) return true
 }

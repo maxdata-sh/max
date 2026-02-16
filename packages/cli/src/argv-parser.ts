@@ -32,7 +32,7 @@ export async function parseAndValidateArgs<T>(
         onShow: () => { throw COMPLETIONS_SHOWN }
       },
       help: {
-        mode: 'command',
+        mode: 'option',
         onShow: () => { throw HELP_SHOWN; },
       },
       onError: () => { throw ERROR_SHOWN; },

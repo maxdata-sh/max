@@ -5,13 +5,14 @@
  * Operations like sync become a single method call on a warm runtime.
  */
 
-import { LifecycleManager, NoOpFlowController, type Engine, type Lifecycle, type LifecycleMethods, type SeederAny } from "@max/core";
+import { LifecycleManager, NoOpFlowController, HealthStatus, StartResult, StopResult, type Engine, type InstallationScope, type Lifecycle, type LifecycleMethods, type Schema, type SeederAny } from "@max/core";
 import { CredentialProvider, type ConnectorRegistry, type Installation } from "@max/connector";
 import { SyncExecutor, type SyncHandle } from "@max/execution";
 import { DefaultTaskRunner, ExecutionRegistryImpl } from "@max/execution-local";
 import { SqliteExecutionSchema, SqliteSyncMeta, SqliteTaskStore } from "@max/execution-sqlite";
 import { SqliteEngine } from "@max/storage-sqlite";
 import type { ManagedInstallation, ProjectManager } from "../project-manager/index.js";
+import type { InstallationProtocol } from "../protocols/installation-protocol.js";
 
 // ============================================================================
 // InstallationRuntime Interface
@@ -43,13 +44,14 @@ export interface InstallationRuntimeInfo {
 interface InstallationRuntimeConfig {
   managed: ManagedInstallation;
   installation: Installation;
+  schema: Schema;
   engine: SqliteEngine;
   seeder: SeederAny;
   executor: SyncExecutor;
   startedAt: Date;
 }
 
-export class InstallationRuntimeImpl implements InstallationRuntime {
+export class InstallationRuntimeImpl implements InstallationRuntime, InstallationProtocol {
   private readonly config: InstallationRuntimeConfig;
 
   lifecycle = LifecycleManager.auto(() => [
@@ -65,7 +67,11 @@ export class InstallationRuntimeImpl implements InstallationRuntime {
     return this.config.managed;
   }
 
-  get engine(): Engine {
+  get schema(): Schema {
+    return this.config.schema;
+  }
+
+  get engine(): Engine<InstallationScope> {
     return this.config.engine;
   }
 
@@ -79,6 +85,24 @@ export class InstallationRuntimeImpl implements InstallationRuntime {
       this.config.engine,
     );
     return this.config.executor.execute(plan);
+  }
+
+  // --------------------------------------------------------------------------
+  // Supervised (parent-facing boundary)
+  // --------------------------------------------------------------------------
+
+  async health() {
+    return HealthStatus.healthy()
+  }
+
+  async start(): Promise<StartResult> {
+    await this.lifecycle.start()
+    return StartResult.started()
+  }
+
+  async stop(): Promise<StopResult> {
+    await this.lifecycle.stop()
+    return StopResult.stopped()
   }
 
   // --------------------------------------------------------------------------
@@ -134,6 +158,7 @@ export class InstallationRuntimeImpl implements InstallationRuntime {
     const runtime = new InstallationRuntimeImpl({
       managed,
       installation,
+      schema: mod.def.schema,
       engine,
       seeder: mod.def.seeder,
       executor,

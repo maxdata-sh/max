@@ -381,7 +381,7 @@ A few minor nits (just to avoid any confusion)
  c) or you make a case that some methods should _not_ be exposed, and we discuss what that decision rubric looks like
   
 Regarding your questions:
-1. I think this is an engine implementation. In my original design, engine was scoped, meaning you had an Engine<TScope>. That means that an Engine<Workspace> knows how to take references of type Workspace and fan-out/route to Engine<Installation> instances. This works fairly well - and can be replaced by a heavier weight Engine<Workspace> that handles caching etc _if needed_ transparently down the line. It is absolutely a real "Engine" - but engine is just an interface ;)
+1. I think this is an engine implementation. In my original design, engine was scoped, meaning you had an `Engine<TScope>`. That means that an Engine<Workspace> knows how to take references of type Workspace and fan-out/route to `Engine<Installation>` instances. This works fairly well - and can be replaced by a heavier weight Engine<Workspace> that handles caching etc _if needed_ transparently down the line. It is absolutely a real "Engine" - but engine is just an interface ;)
 
 2. You're right - today's code structure is not aligned with what we're now designing. I don't care about evolution - i want to design clean and migrate. Figuring out what migration looks like is a separate concern (but i'm not worried)  
 

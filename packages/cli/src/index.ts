@@ -35,12 +35,10 @@ import { daemonCommand } from './commands/daemon-command.js'
 import { schemaCommandBuild } from './commands/schema-command.js'
 import { connectCommandBuild } from './commands/connect-command.js'
 import { initCommand } from './commands/init-command.js'
+import { syncCommandBuild } from './commands/sync-command.js'
 import { runOnboarding } from './onboarding-runner.js'
 import { DirectPrompter, type Prompter } from './prompter.js'
 import { DaemonPrinters } from './printers/daemon-printers.js'
-import { Mode, Parser } from '@optique/core/parser'
-import {ShellCompletion} from "@optique/core/completion";
-import {message} from "@optique/core/message";
 
 const shells: Record<string, ShellCompletion> = {
   zsh: Completion.zsh,
@@ -48,12 +46,12 @@ const shells: Record<string, ShellCompletion> = {
   fish: Completion.fish,
 }
 
-
 class Commands {
   constructor(private projectCompleters: LazyOne<ProjectCompleters>) {}
   all = makeLazy({
     schema: () => schemaCommandBuild({ completers: this.projectCompleters.get }),
     connect: () => connectCommandBuild({ completers: this.projectCompleters.get }),
+    sync: () => syncCommandBuild({ completers: this.projectCompleters.get }),
     daemon: () => daemonCommand,
     init: () => initCommand,
   })
@@ -101,6 +99,7 @@ class CLI {
     or(
       //
       this.commands.all.connect,
+      this.commands.all.sync,
       this.commands.all.daemon,
       this.commands.all.schema,
       this.commands.all.init
@@ -141,6 +140,23 @@ class CLI {
     } finally {
       ownedPrompter?.close()
     }
+  }
+
+  async runSync(arg: CmdInput<'sync'>, color: boolean) {
+    const printer = this.printerFor(color)
+    const runtime = await this.project.runtime(arg.connector, arg.name)
+
+    const handle = await runtime.sync()
+    const result = await handle.completion()
+
+    await runtime.lifecycle.stop()
+
+    const lines = [
+      `Sync ${result.status} in ${result.duration}ms`,
+      `  Tasks completed: ${result.tasksCompleted}`,
+      `  Tasks failed:    ${result.tasksFailed}`,
+    ]
+    return lines.join('\n')
   }
 
   runDaemon(arg: CmdInput<'daemon'>, color: boolean) {
@@ -232,6 +248,8 @@ class CLI {
           return this.runSchema(instruction, color)
         case 'connect':
           return this.runConnect(instruction, prompter)
+        case 'sync':
+          return this.runSync(instruction, color)
         case 'init':
           return this.runInit(instruction)
         case 'daemon':

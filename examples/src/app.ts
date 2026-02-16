@@ -13,7 +13,7 @@ import {
   MaxProjectApp,
   type MaxProjectAppDependencies,
   ProjectConfig,
-  ProjectDaemonManager,
+  FsProjectDaemonManager,
 } from "@max/app";
 import { makeLazy } from "@max/core";
 
@@ -34,7 +34,7 @@ const deps = makeLazy<MaxProjectAppDependencies>({
     new FsConnectorRegistry({
       acme: "@max/connector-acme",
     }),
-  daemonManager: () => new ProjectDaemonManager(projectConfig),
+  daemonManager: () => new FsProjectDaemonManager(projectConfig),
 });
 
 export const app = new MaxProjectApp(deps);

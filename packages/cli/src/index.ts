@@ -3,6 +3,7 @@ import {
   ErrInvariant,
   ErrProjectNotInitialised,
   FsConnectorRegistry,
+  FsProjectDaemonManager,
   FsProjectManager,
   GlobalConfig,
   MaxGlobalApp,
@@ -70,7 +71,7 @@ class CLI {
     })
     this.global = new MaxGlobalApp(globalDeps)
     const projectDeps: MaxProjectAppDependencies = makeLazy<MaxProjectAppDependencies>({
-      daemonManager: () => new ProjectDaemonManager(projectDeps.projectConfig),
+      daemonManager: () => new FsProjectDaemonManager(projectDeps.projectConfig),
       projectManager: () => new FsProjectManager(projectDeps.projectConfig.paths.projectRootPath),
       projectConfig: () => {
         const projectRoot = cfg.projectRoot

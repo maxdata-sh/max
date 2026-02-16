@@ -2,8 +2,8 @@ import { ProjectConfig } from '../config/project-config.js'
 import { ManagedInstallation, PendingInstallation, ProjectManager } from '../project-manager/index.js'
 import type { ConnectorRegistry, CredentialStore, OnboardingFlowAny } from '@max/connector'
 import type { InstallationId, Schema } from '@max/core'
-import { ProjectDaemonManager } from '../project-daemon-manager.js'
 import { InstallationRuntimeImpl, type InstallationRuntime, type InstallationRuntimeInfo } from '../runtime/index.js'
+import {ProjectDaemonManager} from "../project-daemon-manager/project-daemon-manager.js";
 
 export interface PreparedConnection {
   readonly pending: PendingInstallation

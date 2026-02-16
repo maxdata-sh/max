@@ -25,7 +25,7 @@ const User = EntityDef.create("User", {
 
 function makeLocalRefs(count: number) {
   return Array.from({ length: count }, (_, i) =>
-    Ref.local(User, `u${i + 1}` as EntityId)
+    Ref.installation(User, `u${i + 1}` as EntityId)
   );
 }
 
@@ -324,13 +324,13 @@ describe("MaxPage", () => {
   describe("MaxPage.from()", () => {
     test("creates a page of local refs", () => {
       const refs = makeLocalRefs(3);
-      const cursor = Ref.local(User, "u3" as EntityId);
+      const cursor = Ref.installation(User, "u3" as EntityId);
       const page = MaxPage.from(refs, true, cursor);
 
       expect(page.items).toHaveLength(3);
       expect(page.hasMore).toBe(true);
       expect(page.cursor?.id).toBe("u3");
-      expect(page.scope.kind).toBe("local");
+      expect(page.scope.kind).toBe("installation");
     });
   });
 
@@ -340,36 +340,36 @@ describe("MaxPage", () => {
 
       expect(page.items).toEqual([]);
       expect(page.hasMore).toBe(false);
-      expect(page.scope.kind).toBe("local");
+      expect(page.scope.kind).toBe("installation");
     });
   });
 
   describe("upgradeScope()", () => {
-    test("upgrades all refs to system scope", () => {
+    test("upgrades all refs to workspace scope", () => {
       const refs = makeLocalRefs(2);
-      const cursor = Ref.local(User, "u2" as EntityId);
+      const cursor = Ref.installation(User, "u2" as EntityId);
       const localPage = MaxPage.from(refs, true, cursor);
 
-      const systemScope = Scope.system("inst-1" as InstallationId);
-      const systemPage = localPage.upgradeScope(systemScope);
+      const workspaceScope = Scope.workspace("inst-1" as InstallationId);
+      const workspacePage = localPage.upgradeScope(workspaceScope);
 
       // Items upgraded
-      expect(systemPage.items[0].scope.kind).toBe("system");
-      expect(systemPage.items[1].scope.kind).toBe("system");
+      expect(workspacePage.items[0].scope.kind).toBe("workspace");
+      expect(workspacePage.items[1].scope.kind).toBe("workspace");
 
       // Cursor upgraded
-      expect(systemPage.cursor?.scope.kind).toBe("system");
+      expect(workspacePage.cursor?.scope.kind).toBe("workspace");
 
       // Scope set
-      expect(systemPage.scope).toEqual(systemScope);
-      expect(systemPage.hasMore).toBe(true);
+      expect(workspacePage.scope).toEqual(workspaceScope);
+      expect(workspacePage.hasMore).toBe(true);
     });
   });
 
   describe("toPage()", () => {
     test("converts to Page with string cursor", () => {
       const refs = makeLocalRefs(2);
-      const cursor = Ref.local(User, "u2" as EntityId);
+      const cursor = Ref.installation(User, "u2" as EntityId);
       const maxPage = MaxPage.from(refs, true, cursor);
 
       const page = maxPage.toPage();

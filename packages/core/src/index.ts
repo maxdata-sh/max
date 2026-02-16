@@ -8,7 +8,7 @@ export type { SoftBrand, HardBrand, Id } from "./brand.js";
 
 // Scope
 export { Scope } from "./scope.js";
-export type { LocalScope, SystemScope } from "./scope.js";
+export type { InstallationScope, WorkspaceScope } from "./scope.js";
 
 // RefKey
 export { RefKey } from "./ref-key.js";

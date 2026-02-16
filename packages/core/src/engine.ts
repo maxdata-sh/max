@@ -10,8 +10,9 @@ import type { FieldsAll, FieldsSelect } from "./fields-selector.js";
 import type { Lifecycle } from "./lifecycle.js";
 import type { Page, PageRequest } from "./pagination.js";
 import type { Ref } from "./ref.js";
+import {Scope} from "./scope.js";
 
-export interface Engine extends Lifecycle {
+export interface Engine<TScope extends Scope = Scope> extends Lifecycle {
   /**
    * Load specific fields of an entity.
    */

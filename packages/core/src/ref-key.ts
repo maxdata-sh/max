@@ -2,12 +2,12 @@
  * RefKey - A branded string that uniquely identifies a Ref.
  *
  * Format:
- *   Local:  "local:<entityType>:<entityId>"
- *   System: "system:<installationId>:<entityType>:<entityId>"
+ *   Installation:  "ein:<entityType>:<entityId>"
+ *   Workspace:     "ews:<installationId>:<entityType>:<entityId>"
  */
 
 import { type HardBrand, hardBrand } from "./brand.js";
-import type { Scope, LocalScope, SystemScope } from "./scope.js";
+import { Scope, InstallationScope, WorkspaceScope } from './scope.js'
 import type { Id } from "./brand.js";
 import {StaticTypeCompanion} from "./companion.js";
 import {ErrInvalidRefKey} from "./errors/errors.js";
@@ -32,8 +32,8 @@ export type ConnectorType = Id<"connector-type">;
 // ============================================================================
 
 export type ParsedRefKey =
-  | { scope: LocalScope; entityType: EntityType; entityId: EntityId }
-  | { scope: SystemScope; entityType: EntityType; entityId: EntityId };
+  | { scope: InstallationScope; entityType: EntityType; entityId: EntityId }
+  | { scope: WorkspaceScope; entityType: EntityType; entityId: EntityId };
 
 // ============================================================================
 // RefKey Utilities
@@ -41,34 +41,37 @@ export type ParsedRefKey =
 
 const DELIMITER = ":";
 
+const ScopePrefix = {
+  installation: 'ein',
+  workspace: 'ews'
+} satisfies Record<Scope['kind'], string>
+
+const keyed = (...args:string[]): RefKey => args.join(DELIMITER) as RefKey;
+
 export const RefKey = StaticTypeCompanion({
   /**
    * Create a RefKey from components.
    */
   from(entityType: EntityType, entityId: EntityId, scope: Scope): RefKey {
-    if (scope.kind === "local") {
-      return hardBrand<RefKey>(`local${DELIMITER}${entityType}${DELIMITER}${entityId}`);
+    if (Scope.isInstallation(scope)) {
+      return keyed(ScopePrefix.installation, entityType, entityId)
     } else {
-      return hardBrand<RefKey>(
-        `system${DELIMITER}${scope.installationId}${DELIMITER}${entityType}${DELIMITER}${entityId}`
-      );
+      return keyed(ScopePrefix.workspace, scope.installationId, entityType, entityId)
     }
   },
 
   /**
-   * Create a local RefKey.
+   * Create an installation RefKey.
    */
-  local(entityType: EntityType, entityId: EntityId): RefKey {
-    return hardBrand<RefKey>(`local${DELIMITER}${entityType}${DELIMITER}${entityId}`);
+  installation(entityType: EntityType, entityId: EntityId): RefKey {
+    return keyed(ScopePrefix.installation, entityType, entityId)
   },
 
   /**
    * Create a system RefKey.
    */
-  system(installationId: InstallationId, entityType: EntityType, entityId: EntityId): RefKey {
-    return hardBrand<RefKey>(
-      `system${DELIMITER}${installationId}${DELIMITER}${entityType}${DELIMITER}${entityId}`
-    );
+  workspace(installationId: InstallationId, entityType: EntityType, entityId: EntityId): RefKey {
+    return keyed(ScopePrefix.workspace, installationId, entityType, entityId)
   },
 
   /**
@@ -84,19 +87,20 @@ export const RefKey = StaticTypeCompanion({
     const d2 = str.indexOf(DELIMITER, d1 + 1);
     if (d2 === -1) throw ErrInvalidRefKey.create({ key: key as string });
 
-    if (scope === "local") {
+    if (scope === ScopePrefix.installation) {
       return {
-        scope: { kind: "local" },
+        scope: Scope.installation(),
         entityType: str.substring(d1 + 1, d2) as EntityType,
         entityId: str.substring(d2 + 1) as EntityId,
-      };
+      }
     }
 
-    if (scope === "system") {
+    if (scope === ScopePrefix.workspace) {
       const d3 = str.indexOf(DELIMITER, d2 + 1);
       if (d3 === -1) throw ErrInvalidRefKey.create({ key: key as string });
+      const installationId: InstallationId = str.substring(d1 + 1, d2)
       return {
-        scope: { kind: "system", installationId: str.substring(d1 + 1, d2) as InstallationId },
+        scope: Scope.workspace(installationId),
         entityType: str.substring(d2 + 1, d3) as EntityType,
         entityId: str.substring(d3 + 1) as EntityId,
       };

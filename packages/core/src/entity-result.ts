@@ -7,6 +7,7 @@ import type { EntityFields } from "./field-types.js";
 import type { Ref, RefAny } from "./ref.js";
 import {StaticTypeCompanion} from "./companion.js";
 import {ErrFieldNotLoaded} from "./errors/errors.js";
+import {Scope} from "./scope.js";
 
 /**
  * Proxy type for direct field access via .fields
@@ -30,10 +31,11 @@ export type FieldsProxy<
  */
 export interface EntityResult<
   E extends EntityDefAny = EntityDefAny,
-  Loaded extends keyof EntityFields<E> = keyof EntityFields<E>
+  Loaded extends keyof EntityFields<E> = keyof EntityFields<E>,
+  S extends Scope = Scope
 > {
   readonly def: E;
-  readonly ref: Ref<E>;
+  readonly ref: Ref<E,S>;
 
   /** Proxy for direct field access */
   readonly fields: FieldsProxy<E, Loaded>;

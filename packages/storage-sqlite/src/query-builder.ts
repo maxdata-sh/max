@@ -64,7 +64,7 @@ export class SqliteQueryBuilder<E extends EntityDefAny> implements QueryBuilder<
   async refs(): Promise<Ref<E>[]> {
     const sql = this.buildSql(["id"]);
     const rows = this.db.query(sql.query).all(...sql.params) as { id: string }[];
-    return rows.map(row => Ref.local(this.entityDef, row.id as EntityId));
+    return rows.map(row => Ref.installation(this.entityDef, row.id as EntityId));
   }
 
   async select<K extends keyof EntityFields<E>>(...fields: K[]): Promise<EntityResult<E, K>[]> {
@@ -75,7 +75,7 @@ export class SqliteQueryBuilder<E extends EntityDefAny> implements QueryBuilder<
     const rows = this.db.query(sql.query).all(...sql.params) as Record<string, unknown>[];
 
     return rows.map(row => {
-      const ref = Ref.local(this.entityDef, row.id as EntityId);
+      const ref = Ref.installation(this.entityDef, row.id as EntityId);
       const data: Record<string, unknown> = {};
 
       for (const col of columns) {
@@ -94,7 +94,7 @@ export class SqliteQueryBuilder<E extends EntityDefAny> implements QueryBuilder<
     const rows = this.db.query(sql.query).all(...sql.params) as Record<string, unknown>[];
 
     return rows.map(row => {
-      const ref = Ref.local(this.entityDef, row.id as EntityId);
+      const ref = Ref.installation(this.entityDef, row.id as EntityId);
       const data: Record<string, unknown> = {};
 
       for (const col of columns) {
@@ -161,7 +161,7 @@ export class SqliteQueryBuilder<E extends EntityDefAny> implements QueryBuilder<
     if (col.isRef) {
       const fieldDef = this.entityDef.fields[col.fieldName];
       if (fieldDef.kind === "ref") {
-        return Ref.local(fieldDef.target, value as EntityId);
+        return Ref.installation(fieldDef.target, value as EntityId);
       }
     }
 

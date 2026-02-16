@@ -19,13 +19,14 @@ import {
   type EntityId,
   type Schema,
   LifecycleManager,
-} from "@max/core";
+  InstallationScope,
+} from '@max/core'
 import { SqliteSchema } from "./schema.js";
 import type { TableDef, ColumnDef } from "./table-def.js";
 import { SqliteQueryBuilder } from "./query-builder.js";
 import { ErrEntityNotFound, ErrFieldNotFound, ErrCollectionNotSupported } from "./errors.js";
 
-export class SqliteEngine implements Engine {
+export class SqliteEngine implements Engine<InstallationScope> {
   readonly db: Database;
   private schema: SqliteSchema;
 
@@ -71,7 +72,7 @@ export class SqliteEngine implements Engine {
     this.db.run(sql, values);
 
     // Return a local ref (it now exists in DB)
-    return Ref.local(input.ref.entityDef, id as EntityId);
+    return Ref.installation(input.ref.entityDef, id as EntityId);
   }
 
   async load<E extends EntityDefAny, K extends keyof EntityFields<E>>(
@@ -181,7 +182,7 @@ export class SqliteEngine implements Engine {
       // Ref field: reconstruct the Ref
       const fieldDef = entityDef.fields[col.fieldName];
       if (fieldDef.kind === "ref") {
-        return Ref.local(fieldDef.target, value as EntityId);
+        return Ref.installation(fieldDef.target, value as EntityId);
       }
     }
 

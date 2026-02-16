@@ -10,7 +10,7 @@
  */
 
 import type { EntityDefAny } from "./entity-def.js";
-import type { Scope, LocalScope } from "./scope.js";
+import { Scope, InstallationScope } from './scope.js'
 import type { ScopeUpgradeable } from "./ref.js";
 import { Ref } from "./ref.js";
 import { type RefKey, RefKey as RefKeyUtil } from "./ref-key.js";
@@ -88,15 +88,15 @@ export const MaxPage = StaticTypeCompanion({
     hasMore: boolean,
     cursor?: Ref<E, S>,
   ): MaxPage<E, S> {
-    const scope = (cursor?.scope ?? items[0]?.scope ?? { kind: "local" }) as S;
+    const scope = (cursor?.scope ?? items[0]?.scope ?? Scope.installation()) as S;
     return new MaxPageImpl(items, hasMore, scope, cursor);
   },
 
   /** Create an empty MaxPage in a given scope */
-  empty<E extends EntityDefAny, S extends Scope = LocalScope>(
+  empty<E extends EntityDefAny, S extends Scope = InstallationScope>(
     scope?: S,
   ): MaxPage<E, S> {
-    return new MaxPageImpl([], false, (scope ?? { kind: "local" }) as S);
+    return new MaxPageImpl([], false, (scope ?? Scope.installation()) as S)
   },
 
   /**

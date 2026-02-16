@@ -30,7 +30,7 @@ async function examples() {
   taskRef.scope.kind;
   taskRef.toString();
 
-  const y = taskRef.upgradeScope(Scope.system("asdf"))
+  const y = taskRef.upgradeScope(Scope.workspace("asdf"))
 
   // --- Load all fields ---
   const result = await engine.load(taskRef, Fields.ALL);

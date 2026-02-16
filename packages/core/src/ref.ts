@@ -3,7 +3,7 @@
  */
 
 import type { EntityDefAny } from "./entity-def.js";
-import type { Scope, LocalScope, SystemScope } from "./scope.js";
+import { Scope, InstallationScope, WorkspaceScope } from './scope.js'
 import { type RefKey, RefKey as RefKeyUtil, type EntityType, type EntityId } from "./ref-key.js";
 import {StaticTypeCompanion} from "./companion.js";
 
@@ -65,8 +65,8 @@ export interface Ref<E extends EntityDefAny = EntityDefAny, S extends Scope = Sc
 export type RefAny = Ref<EntityDefAny, Scope>;
 
 /** Convenience aliases */
-export type LocalRef<E extends EntityDefAny = EntityDefAny> = Ref<E, LocalScope>;
-export type SystemRef<E extends EntityDefAny = EntityDefAny> = Ref<E, SystemScope>;
+export type LocalRef<E extends EntityDefAny = EntityDefAny> = Ref<E, InstallationScope>;
+export type SystemRef<E extends EntityDefAny = EntityDefAny> = Ref<E, WorkspaceScope>;
 
 // ============================================================================
 // Ref Implementation (internal)
@@ -96,7 +96,7 @@ class RefImpl<E extends EntityDefAny, S extends Scope = Scope> implements Ref<E,
   }
 
   [Symbol.for("nodejs.util.inspect.custom")](): string {
-    if (this.scope.kind === "local") {
+    if (Scope.isInstallation(this.scope)) {
       return `Ref<${this.entityType}>(${this.id})`;
     } else {
       return `Ref<${this.entityType}>(${this.id}, inst:${this.scope.installationId})`;
@@ -114,17 +114,17 @@ class RefImpl<E extends EntityDefAny, S extends Scope = Scope> implements Ref<E,
 
 /** Static methods for creating Refs */
 export const Ref = StaticTypeCompanion({
-  /** Create a local-scoped ref */
-  local<E extends EntityDefAny>(def: E, id: EntityId): Ref<E, LocalScope> {
-    return new RefImpl(def, id, { kind: "local" });
+  /** Create an installation-scoped ref */
+  installation<E extends EntityDefAny>(def: E, id: EntityId): Ref<E, InstallationScope> {
+    return new RefImpl(def, id, Scope.installation());
   },
 
-  /** Create a system-scoped ref */
-  system<E extends EntityDefAny>(
+  /** Create a workspace-scoped ref */
+  workspace<E extends EntityDefAny>(
     def: E,
     id: EntityId,
-    scope: SystemScope
-  ): Ref<E, SystemScope> {
+    scope: WorkspaceScope
+  ): Ref<E, WorkspaceScope> {
     return new RefImpl(def, id, scope);
   },
 

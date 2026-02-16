@@ -2,40 +2,41 @@
  * Scope - The level at which Maxwell operates.
  *
  * Scopes form a hierarchy:
- *   Local < System < (potentially more)
+ *   Installation < Workspace < Global
  *
- * Local: Single engine, single installation. No installation context needed.
- * System: Multiple installations. Refs carry installationId.
+ * Installation: Single engine, single installation. No installation context needed.
+ * Workspace: Multiple installations. Refs carry installationId.
+ * Global: Multiple workspaces. Refs carry workspace and installationId
  */
 
-import type { InstallationId } from "./ref-key.js";
-import {StaticTypeCompanion} from "./companion.js";
+import type { InstallationId } from './ref-key.js'
+import { StaticTypeCompanion } from './companion.js'
 
-export interface LocalScope {
-  readonly kind: "local";
+export interface InstallationScope {
+  readonly kind: 'installation'
 }
 
-export interface SystemScope {
-  readonly kind: "system";
-  readonly installationId: InstallationId;
+export interface WorkspaceScope {
+  readonly kind: 'workspace'
+  readonly installationId: InstallationId
 }
 
-export type Scope = LocalScope | SystemScope;
+export type Scope = InstallationScope | WorkspaceScope;
 
 export const Scope = StaticTypeCompanion({
-  local(): LocalScope {
-    return { kind: "local" };
+  installation(): InstallationScope {
+    return { kind: 'installation' }
   },
 
-  system(installationId: InstallationId): SystemScope {
-    return { kind: "system", installationId };
+  workspace(installationId: InstallationId): WorkspaceScope {
+    return { kind: 'workspace', installationId }
   },
 
-  isLocal(scope: Scope): scope is LocalScope {
-    return scope.kind === "local";
+  isInstallation(scope: Scope): scope is InstallationScope {
+    return scope.kind === 'installation'
   },
 
-  isSystem(scope: Scope): scope is SystemScope {
-    return scope.kind === "system";
+  isWorkspace(scope: Scope): scope is WorkspaceScope {
+    return scope.kind === "workspace";
   },
 })

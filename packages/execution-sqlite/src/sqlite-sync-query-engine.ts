@@ -46,7 +46,7 @@ export class SqliteSyncQueryEngine implements SyncQueryEngine {
       )
       .all(entityType, loaderName, cutoff, r.fetchSize, offset) as { id: string }[];
 
-    const refs = rows.map((r) => Ref.local(entity, r.id as any) as Ref<E>);
+    const refs = rows.map((r) => Ref.installation(entity, r.id as any) as Ref<E>);
     return Page.fromOffset(refs, offset, r.limit);
   }
 
@@ -72,7 +72,7 @@ export class SqliteSyncQueryEngine implements SyncQueryEngine {
       )
       .all(entityType, loaderName, r.fetchSize, offset) as { id: string }[];
 
-    const refs = rows.map((r) => Ref.local(entity, r.id as any) as Ref<E>);
+    const refs = rows.map((r) => Ref.installation(entity, r.id as any) as Ref<E>);
     return Page.fromOffset(refs, offset, r.limit);
   }
 }

@@ -17,8 +17,8 @@ export type {
 // Transport
 export type { Transport } from "./transport.js"
 
-// ChildHandle
-export type { ChildHandle } from "./child-handle.js"
+// NodeHandle
+export type { NodeHandle } from "./node-handle.js"
 
 // ChildProvider + ProviderKind
 export type { ProviderKind, ChildProvider } from "./child-provider.js"

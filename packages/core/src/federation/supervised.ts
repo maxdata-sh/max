@@ -2,7 +2,7 @@
  * Supervised — The contract a child exposes to its parent.
  *
  * Every child in the federation hierarchy (installation, workspace) implements
- * Supervised. The parent calls these methods through a ChildHandle — it never
+ * Supervised. The parent calls these methods through a NodeHandle — it never
  * sees the child's internal implementation.
  *
  * Distinct from Lifecycle (internal composition ordering). A concrete node may

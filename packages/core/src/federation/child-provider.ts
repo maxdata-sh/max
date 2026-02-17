@@ -20,7 +20,7 @@
 
 import type { Id } from "../brand.js"
 import type { Supervised } from "./supervised.js"
-import type { ChildHandle } from "./child-handle.js"
+import type { NodeHandle } from "./node-handle.js"
 
 /**
  * Informational tag identifying the deployment strategy.
@@ -34,11 +34,11 @@ export interface ChildProvider<R extends Supervised, TId extends string = string
   readonly kind: ProviderKind
 
   /** Spawn or provision a new child. */
-  create(config: unknown): Promise<ChildHandle<R, TId>>
+  create(config: unknown): Promise<NodeHandle<R, TId>>
 
   /** Bind to an existing child at a known location. */
-  connect(location: unknown): Promise<ChildHandle<R, TId>>
+  connect(location: unknown): Promise<NodeHandle<R, TId>>
 
   /** All children this provider currently manages. */
-  list(): Promise<ChildHandle<R, TId>[]>
+  list(): Promise<NodeHandle<R, TId>[]>
 }

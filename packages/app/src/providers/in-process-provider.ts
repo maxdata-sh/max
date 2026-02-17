@@ -14,7 +14,7 @@ import type {
   InstallationId,
   WorkspaceId,
   ProviderKind,
-  ChildHandle,
+  NodeHandle,
   ChildProvider,
   Supervisor,
 } from "@max/core"
@@ -40,11 +40,11 @@ export class InProcessInstallationProvider
   implements ChildProvider<InstallationProtocol, InstallationId>
 {
   readonly kind: ProviderKind = PROVIDER_KIND
-  private readonly handles = new Map<InstallationId, ChildHandle<InstallationProtocol, InstallationId>>()
+  private readonly handles = new Map<InstallationId, NodeHandle<InstallationProtocol, InstallationId>>()
 
   constructor(private readonly deps: InProcessInstallationDeps) {}
 
-  async create(config: unknown): Promise<ChildHandle<InstallationProtocol, InstallationId>> {
+  async create(config: unknown): Promise<NodeHandle<InstallationProtocol, InstallationId>> {
     const { connector, name } = config as { connector: string; name?: string }
 
     const runtime = await InstallationRuntimeImpl.create({
@@ -54,7 +54,7 @@ export class InProcessInstallationProvider
       name,
     })
 
-    const handle: ChildHandle<InstallationProtocol, InstallationId> = {
+    const handle: NodeHandle<InstallationProtocol, InstallationId> = {
       id: runtime.info.id,
       providerKind: PROVIDER_KIND,
       protocol: runtime,
@@ -64,11 +64,11 @@ export class InProcessInstallationProvider
     return handle
   }
 
-  async connect(): Promise<ChildHandle<InstallationProtocol, InstallationId>> {
+  async connect(): Promise<NodeHandle<InstallationProtocol, InstallationId>> {
     throw new Error("InProcess provider does not support connect — use create()")
   }
 
-  async list(): Promise<ChildHandle<InstallationProtocol, InstallationId>[]> {
+  async list(): Promise<NodeHandle<InstallationProtocol, InstallationId>[]> {
     return [...this.handles.values()]
   }
 }
@@ -86,13 +86,13 @@ export class InProcessWorkspaceProvider
   implements ChildProvider<WorkspaceProtocol, WorkspaceId>
 {
   readonly kind: ProviderKind = PROVIDER_KIND
-  private readonly handles = new Map<WorkspaceId, ChildHandle<WorkspaceProtocol, WorkspaceId>>()
+  private readonly handles = new Map<WorkspaceId, NodeHandle<WorkspaceProtocol, WorkspaceId>>()
 
-  async create(config: unknown): Promise<ChildHandle<WorkspaceProtocol, WorkspaceId>> {
+  async create(config: unknown): Promise<NodeHandle<WorkspaceProtocol, WorkspaceId>> {
     const { id, installations } = config as InProcessWorkspaceConfig
 
     const workspace = new WorkspaceMax(installations)
-    const handle: ChildHandle<WorkspaceProtocol, WorkspaceId> = {
+    const handle: NodeHandle<WorkspaceProtocol, WorkspaceId> = {
       id,
       providerKind: PROVIDER_KIND,
       protocol: workspace,
@@ -102,11 +102,11 @@ export class InProcessWorkspaceProvider
     return handle
   }
 
-  async connect(): Promise<ChildHandle<WorkspaceProtocol, WorkspaceId>> {
+  async connect(): Promise<NodeHandle<WorkspaceProtocol, WorkspaceId>> {
     throw new Error("InProcess provider does not support connect — use create()")
   }
 
-  async list(): Promise<ChildHandle<WorkspaceProtocol, WorkspaceId>[]> {
+  async list(): Promise<NodeHandle<WorkspaceProtocol, WorkspaceId>[]> {
     return [...this.handles.values()]
   }
 }

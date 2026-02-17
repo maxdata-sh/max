@@ -155,7 +155,7 @@ export type {
   StopOutcome,
   Supervised,
   Transport,
-  ChildHandle,
+  NodeHandle,
   ProviderKind,
   ChildProvider,
   AggregateHealthStatus,

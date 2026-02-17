@@ -7,7 +7,7 @@
  * health() checks all 3.
  *
  * The Supervisor does NOT know about deployment details. It works purely
- * with ChildHandles. It can report providerKind in diagnostics.
+ * with NodeHandles. It can report providerKind in diagnostics.
  *
  * Supervisor and ChildProvider are peers, not a hierarchy. A level-specific
  * orchestrator (e.g., WorkspaceMax) owns both and coordinates between them:
@@ -20,7 +20,7 @@
  */
 
 import type { Supervised, HealthStatus, HealthStatusKind } from "./supervised.js"
-import type { ChildHandle } from "./child-handle.js"
+import type { NodeHandle } from "./node-handle.js"
 
 // ============================================================================
 // AggregateHealthStatus
@@ -36,9 +36,9 @@ export interface AggregateHealthStatus {
 // ============================================================================
 
 export interface Supervisor<R extends Supervised, TId extends string = string> {
-  register(handle: ChildHandle<R, TId>): void
+  register(handle: NodeHandle<R, TId>): void
   unregister(id: TId): void
-  get(id: TId): ChildHandle<R, TId> | undefined
-  list(): ChildHandle<R, TId>[]
+  get(id: TId): NodeHandle<R, TId> | undefined
+  list(): NodeHandle<R, TId>[]
   health(): Promise<AggregateHealthStatus>
 }

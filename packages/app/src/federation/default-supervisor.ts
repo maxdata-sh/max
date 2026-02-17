@@ -1,7 +1,7 @@
 /**
  * DefaultSupervisor — Simple in-memory Supervisor implementation.
  *
- * Holds a map of ChildHandles, delegates health checks to each child,
+ * Holds a map of NodeHandles, delegates health checks to each child,
  * and aggregates the results. This is the standard Supervisor for both
  * WorkspaceMax and GlobalMax.
  */
@@ -9,7 +9,7 @@
 import type {
   Supervised,
   Supervisor,
-  ChildHandle,
+  NodeHandle,
   AggregateHealthStatus,
   HealthStatusKind,
 } from "@max/core"
@@ -18,9 +18,9 @@ import { HealthStatus } from "@max/core"
 export class DefaultSupervisor<R extends Supervised, TId extends string = string>
   implements Supervisor<R, TId>
 {
-  private readonly handles = new Map<TId, ChildHandle<R, TId>>()
+  private readonly handles = new Map<TId, NodeHandle<R, TId>>()
 
-  register(handle: ChildHandle<R, TId>): void {
+  register(handle: NodeHandle<R, TId>): void {
     this.handles.set(handle.id, handle)
   }
 
@@ -28,11 +28,11 @@ export class DefaultSupervisor<R extends Supervised, TId extends string = string
     this.handles.delete(id)
   }
 
-  get(id: TId): ChildHandle<R, TId> | undefined {
+  get(id: TId): NodeHandle<R, TId> | undefined {
     return this.handles.get(id)
   }
 
-  list(): ChildHandle<R, TId>[] {
+  list(): NodeHandle<R, TId>[] {
     return [...this.handles.values()]
   }
 

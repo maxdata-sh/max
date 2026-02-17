@@ -129,12 +129,12 @@ Lifecycle methods are **required**, not optional. Even a remote installation has
 
 Note: `start()` also serves as an `onStart` hook — it's the point where initialization runs. There is no separate initialization step.
 
-### 3.2 ChildHandle\<R extends Supervised\>
+### 3.2 NodeHandle\<R extends Supervised\>
 
 A parent's view of one managed child. The handle **is** the typed protocol surface — the caller interacts with it via protocol methods (`sync()`, `search()`, etc.), not via a transport layer.
 
 ```
-ChildHandle<R extends Supervised> {
+NodeHandle<R extends Supervised> {
   id: ParentAssignedId           // InstallationId or WorkspaceId
   providerKind: ProviderKind     // informational tag: "fs", "remote", "docker", "in-process"
   protocol: R                    // the typed protocol surface — real object or proxy
@@ -162,9 +162,9 @@ Factory + type-specific supervisor for one deployment strategy. Each provider kn
 ```
 ChildProvider<R extends Supervised> {
   kind: ProviderKind                          // "fs", "remote", "docker", "in-process"
-  create(config): ChildHandle<R>              // spawn a new child
-  connect(location): ChildHandle<R>           // bind to an existing child
-  list(): ChildHandle<R>[]                    // children this provider manages
+  create(config): NodeHandle<R>              // spawn a new child
+  connect(location): NodeHandle<R>           // bind to an existing child
+  list(): NodeHandle<R>[]                    // children this provider manages
 }
 ```
 
@@ -182,23 +182,23 @@ Aggregates across ChildProviders. Provides a unified view of all children regard
 
 ```
 Supervisor<R extends Supervised> {
-  register(handle: ChildHandle<R>): void
+  register(handle: NodeHandle<R>): void
   unregister(id): void
-  get(id): ChildHandle<R>
-  list(): ChildHandle<R>[]
+  get(id): NodeHandle<R>
+  list(): NodeHandle<R>[]
   health(): AggregatedHealthStatus    // delegates to each child
 }
 ```
 
 A workspace with 2 local installations and 1 remote installation has one Supervisor that aggregates across an FsChildProvider (2 handles) and a RemoteProvider (1 handle). `list()` returns all 3. `health()` checks all 3.
 
-The Supervisor does **not** know about deployment details. It works purely with ChildHandles. It can however report `providerKind` in diagnostics — e.g., "2 fs handles, 1 remote handle."
+The Supervisor does **not** know about deployment details. It works purely with NodeHandles. It can however report `providerKind` in diagnostics — e.g., "2 fs handles, 1 remote handle."
 
 ### 3.6 Supervisor ↔ ChildProvider relationship
 
 These are **peers**, not a hierarchy. A level-specific orchestrator (e.g., WorkspaceMax) owns both and coordinates between them:
 
-1. **Creating a child**: orchestrator picks the right ChildProvider based on target type → calls `provider.create(config)` → gets a ChildHandle → registers it with the Supervisor
+1. **Creating a child**: orchestrator picks the right ChildProvider based on target type → calls `provider.create(config)` → gets a NodeHandle → registers it with the Supervisor
 2. **Listing children**: Supervisor aggregates across all providers via `list()`
 3. **Lifecycle**: Supervisor delegates `start()`/`stop()` to each handle via `handle.protocol` — the protocol is either the real implementation or a proxy, both of which know how to execute lifecycle for their deployment type
 
@@ -267,7 +267,7 @@ ScopedInstallationHandle {
 }
 ```
 
-The workspace constructs this proxy by wrapping the raw ChildHandle with the assigned InstallationId. The proxy calls `result.upgrade({ installationId })` on all data received from the child — the result cascades the upgrade through its internal structure via `ScopeUpgradeable`. The caller never sees LocalScope entities — scope upgrade is transparent.
+The workspace constructs this proxy by wrapping the raw NodeHandle with the assigned InstallationId. The proxy calls `result.upgrade({ installationId })` on all data received from the child — the result cascades the upgrade through its internal structure via `ScopeUpgradeable`. The caller never sees LocalScope entities — scope upgrade is transparent.
 
 **Cross-installation search** is then straightforward:
 
@@ -463,7 +463,7 @@ The InProcess provider exists even though it has minimal overhead. It keeps the 
 
 - Code that manages children never special-cases "in-process vs. real process"
 - Testing uses InProcess providers for everything — no process spawning, deterministic
-- The in-process path and the out-of-process path exercise the same Supervisor/ChildHandle abstractions
+- The in-process path and the out-of-process path exercise the same Supervisor/NodeHandle abstractions
 - Migrating a child from in-process to Fs or Docker is a configuration change, not a code change
 
 ---
@@ -506,7 +506,7 @@ What exists today and what it corresponds to in this spec.
 | InstallationMax | InstallationRuntimeImpl | Proto-installation. Composition root wires SQLite components |
 | Supervisor | (none) | Not yet abstracted. MaxProjectApp does ad-hoc supervision |
 | ChildProvider | (none) | Not yet abstracted. FsProjectManager + FsProjectDaemonManager partially cover FsChildProvider |
-| ChildHandle | (none) | InstallationRuntime is used directly, not through a handle |
+| NodeHandle | (none) | InstallationRuntime is used directly, not through a handle |
 | Scope upgrade (ScopeUpgradeable) | ScopeUpgradeable (partial) | Mechanism exists in type system. Not yet applied at runtime boundaries. No standalone ScopeBoundary abstraction — upgrade is called by the parent, cascade is handled by the types |
 | Transport (internal to providers) | Unix socket server (partial) | Exists for CLI→daemon. Not a public abstraction — will be encapsulated inside provider packages |
 | Engine\<TScope\> | Engine (unparameterized) | Interface exists. Not scope-parameterized. Only SqliteEngine impl |

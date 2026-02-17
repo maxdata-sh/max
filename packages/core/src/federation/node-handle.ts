@@ -1,5 +1,5 @@
 /**
- * ChildHandle — A parent's opaque view of one managed child.
+ * NodeHandle — A parent's opaque view of one managed child.
  *
  * The handle IS the protocol interface. Whether the child is in-process
  * (protocol is the real object) or remote (protocol is a proxy that
@@ -17,7 +17,7 @@
 import type { Supervised } from "./supervised.js"
 import type { ProviderKind } from "./child-provider.js"
 
-export interface ChildHandle<R extends Supervised, TId extends string = string> {
+export interface NodeHandle<R extends Supervised, TId extends string = string> {
   /** Parent-assigned identity. The child does not know this ID. */
   readonly id: TId
 

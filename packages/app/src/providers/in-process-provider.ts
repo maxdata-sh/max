@@ -14,13 +14,13 @@ import type {
   InstallationId,
   WorkspaceId,
   ProviderKind,
-  NodeHandle,
   NodeProvider,
   Supervisor,
 } from "@max/core"
 import type { ConnectorRegistry } from "@max/connector"
 import type { InstallationClient } from "../protocols/installation-client.js"
 import type { WorkspaceClient } from "../protocols/workspace-client.js"
+import type { InstallationHandle, WorkspaceHandle } from "../federation/handle-types.js"
 import type { ProjectManager } from "../project-manager/index.js"
 import { InstallationRuntimeImpl } from "../runtime/installation-runtime.js"
 import { WorkspaceMax } from "../federation/workspace-max.js"
@@ -40,11 +40,11 @@ export class InProcessInstallationProvider
   implements NodeProvider<InstallationClient, InstallationId>
 {
   readonly kind: ProviderKind = PROVIDER_KIND
-  private readonly handles = new Map<InstallationId, NodeHandle<InstallationClient, InstallationId>>()
+  private readonly handles = new Map<InstallationId, InstallationHandle>()
 
   constructor(private readonly deps: InProcessInstallationDeps) {}
 
-  async create(config: unknown): Promise<NodeHandle<InstallationClient, InstallationId>> {
+  async create(config: unknown): Promise<InstallationHandle> {
     const { connector, name } = config as { connector: string; name?: string }
 
     const runtime = await InstallationRuntimeImpl.create({
@@ -54,7 +54,7 @@ export class InProcessInstallationProvider
       name,
     })
 
-    const handle: NodeHandle<InstallationClient, InstallationId> = {
+    const handle: InstallationHandle = {
       id: runtime.info.id,
       providerKind: PROVIDER_KIND,
       client: runtime,
@@ -64,11 +64,11 @@ export class InProcessInstallationProvider
     return handle
   }
 
-  async connect(): Promise<NodeHandle<InstallationClient, InstallationId>> {
+  async connect(): Promise<InstallationHandle> {
     throw new Error("InProcess provider does not support connect — use create()")
   }
 
-  async list(): Promise<NodeHandle<InstallationClient, InstallationId>[]> {
+  async list(): Promise<InstallationHandle[]> {
     return [...this.handles.values()]
   }
 }
@@ -86,13 +86,13 @@ export class InProcessWorkspaceProvider
   implements NodeProvider<WorkspaceClient, WorkspaceId>
 {
   readonly kind: ProviderKind = PROVIDER_KIND
-  private readonly handles = new Map<WorkspaceId, NodeHandle<WorkspaceClient, WorkspaceId>>()
+  private readonly handles = new Map<WorkspaceId, WorkspaceHandle>()
 
-  async create(config: unknown): Promise<NodeHandle<WorkspaceClient, WorkspaceId>> {
+  async create(config: unknown): Promise<WorkspaceHandle> {
     const { id, installations } = config as InProcessWorkspaceConfig
 
     const workspace = new WorkspaceMax(installations)
-    const handle: NodeHandle<WorkspaceClient, WorkspaceId> = {
+    const handle: WorkspaceHandle = {
       id,
       providerKind: PROVIDER_KIND,
       client: workspace,
@@ -102,11 +102,11 @@ export class InProcessWorkspaceProvider
     return handle
   }
 
-  async connect(): Promise<NodeHandle<WorkspaceClient, WorkspaceId>> {
+  async connect(): Promise<WorkspaceHandle> {
     throw new Error("InProcess provider does not support connect — use create()")
   }
 
-  async list(): Promise<NodeHandle<WorkspaceClient, WorkspaceId>[]> {
+  async list(): Promise<WorkspaceHandle[]> {
     return [...this.handles.values()]
   }
 }

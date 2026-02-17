@@ -5,3 +5,4 @@
 export { DefaultSupervisor } from "./default-supervisor.js"
 export { WorkspaceMax } from "./workspace-max.js"
 export { GlobalMax } from "./global-max.js"
+export type { InstallationHandle, WorkspaceHandle } from "./handle-types.js"

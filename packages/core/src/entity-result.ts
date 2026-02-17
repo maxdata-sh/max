@@ -3,7 +3,7 @@
  */
 
 import type { EntityDefAny } from "./entity-def.js";
-import type { EntityFields } from "./field-types.js";
+import  { EntityFields, EntityFieldsOf} from "./field-types.js";
 import type { Ref, RefAny } from "./ref.js";
 import {StaticTypeCompanion} from "./companion.js";
 import {ErrFieldNotLoaded} from "./errors/errors.js";
@@ -143,8 +143,8 @@ export const EntityResult = StaticTypeCompanion({
   /** Create an EntityResult from a ref and field data */
   from<E extends EntityDefAny, K extends keyof EntityFields<E>>(
     ref: Ref<E>,
-    data: { [P in K]: EntityFields<E>[P] }
+    data: EntityFieldsOf<E,K>
   ): EntityResult<E, K> {
-    return new EntityResultImpl(ref.entityDef, ref, data);
+    return new EntityResultImpl(ref.entityDef, ref, data)
   },
 })

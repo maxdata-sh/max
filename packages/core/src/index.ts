@@ -26,7 +26,7 @@ export type {
 } from "./field.js";
 
 // Field type utilities
-export type { FieldType, EntityFields, CollectionTargetRef, CollectionKeys, NonCollectionKeys } from "./field-types.js";
+export * from "./field-types.js";
 
 // Entity definition (EntityDef is both type and value)
 export { EntityDef } from "./entity-def.js";
@@ -64,7 +64,21 @@ export { MaxPage } from "./max-page.js";
 export type { MaxPageAny } from "./max-page.js";
 
 // Engine
-export type { Engine, QueryBuilder, QueryBuilderAny } from "./engine.js";
+export type { Engine } from "./engine.js";
+
+// Query (Query is both type and value)
+export { Query, Projection } from "./query.js";
+export type {
+  EntityQuery,
+  EntityQueryAny,
+  QueryBuilder,
+  QueryBuilderAny,
+  QueryFilter,
+  QueryOrdering,
+  RefsProjection,
+  SelectProjection,
+  AllProjection,
+} from "./query.js";
 
 // Batch (Batch is both type and value)
 export { Batch } from "./batch.js";

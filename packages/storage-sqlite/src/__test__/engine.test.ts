@@ -4,7 +4,7 @@
 
 import { describe, test, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { Fields } from "@max/core";
+import { Fields, Query } from "@max/core";
 import {AcmeUser, AcmeWorkspace, AcmeProject, AcmeSchema} from "@max/connector-acme";
 import { SqliteEngine, SqliteSchema } from "../index.js";
 
@@ -132,45 +132,64 @@ describe("SqliteEngine", () => {
     });
 
     test("query with where clause", async () => {
-      const admins = await engine.query(AcmeUser)
-        .where("active", "=", true)
-        .select("displayName");
+      const admins = await engine.query(
+        Query.from(AcmeUser).where("active", "=", true).select("displayName")
+      );
 
-      expect(admins.length).toBe(2);
-      expect(admins.map(a => a.fields.displayName).sort()).toEqual(["Alice", "Charlie"]);
+      expect(admins.items.length).toBe(2);
+      expect(admins.items.map(a => a.fields.displayName).sort()).toEqual(["Alice", "Charlie"]);
     });
 
     test("query with limit", async () => {
-      const users = await engine.query(AcmeUser)
-        .limit(2)
-        .select("displayName");
+      const users = await engine.query(
+        Query.from(AcmeUser).limit(2).select("displayName")
+      );
 
-      expect(users.length).toBe(2);
+      expect(users.items.length).toBe(2);
+      expect(users.hasMore).toBe(true);
     });
 
     test("query with orderBy", async () => {
-      const users = await engine.query(AcmeUser)
-        .orderBy("displayName", "desc")
-        .select("displayName", "email");
+      const users = await engine.query(
+        Query.from(AcmeUser).orderBy("displayName", "desc").select("displayName", "email")
+      );
 
-      expect(users[0].fields.displayName).toBe("Charlie");
+      expect(users.items[0].fields.displayName).toBe("Charlie");
     });
 
     test("query refs only", async () => {
-      const refs = await engine.query(AcmeUser)
-        .where("active", "=", false)
-        .refs();
+      const refs = await engine.query(
+        Query.from(AcmeUser).where("active", "=", false).refs()
+      );
 
-      expect(refs.length).toBe(1);
-      expect(refs[0].id).toBe("u2");
+      expect(refs.items.length).toBe(1);
+      expect(refs.items[0].id).toBe("u2");
     });
 
     test("query with contains", async () => {
-      const users = await engine.query(AcmeUser)
-        .where("displayName", "contains", "li")
-        .select("displayName");
+      const users = await engine.query(
+        Query.from(AcmeUser).where("displayName", "contains", "li").select("displayName")
+      );
 
-      expect(users.length).toBe(2); // Alice and Charlie
+      expect(users.items.length).toBe(2); // Alice and Charlie
+    });
+
+    test("query selectAll", async () => {
+      const all = await engine.query(
+        Query.from(AcmeUser).selectAll()
+      );
+
+      expect(all.items.length).toBe(3);
+      expect(all.hasMore).toBe(false);
+    });
+
+    test("query pagination hasMore is false when all results fit", async () => {
+      const users = await engine.query(
+        Query.from(AcmeUser).limit(10).select("displayName")
+      );
+
+      expect(users.items.length).toBe(3);
+      expect(users.hasMore).toBe(false);
     });
   });
 });

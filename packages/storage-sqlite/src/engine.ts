@@ -9,10 +9,12 @@ import {
   type EntityInput,
   EntityResult,
   type EntityFields,
+  type EntityQuery,
   type FieldsAll,
   type FieldsSelect,
-  type Page,
-  type PageRequest,
+  Page,
+  PageRequest,
+  type Projection,
   Ref,
   type CollectionKeys,
   type CollectionTargetRef,
@@ -20,10 +22,13 @@ import {
   type Schema,
   LifecycleManager,
   InstallationScope,
+  type SelectProjection,
+  type RefsProjection,
+  type AllProjection,
+  type EntityFieldsOf
 } from '@max/core'
 import { SqliteSchema } from "./schema.js";
 import type { TableDef, ColumnDef } from "./table-def.js";
-import { SqliteQueryBuilder } from "./query-builder.js";
 import { ErrEntityNotFound, ErrFieldNotFound, ErrCollectionNotSupported } from "./errors.js";
 
 export class SqliteEngine implements Engine<InstallationScope> {
@@ -145,10 +150,198 @@ export class SqliteEngine implements Engine<InstallationScope> {
     throw ErrCollectionNotSupported.create({});
   }
 
-  query<E extends EntityDefAny>(def: E): SqliteQueryBuilder<E> {
-    return new SqliteQueryBuilder(this.db, this.schema.getTable(def), def);
+  // loadPage overload signatures
+  loadPage<E extends EntityDefAny>(
+    def: E,
+    projection: RefsProjection,
+    page?: PageRequest
+  ): Promise<Page<Ref<E>>>;
+
+  loadPage<E extends EntityDefAny, K extends keyof EntityFields<E>>(
+    def: E,
+    projection: SelectProjection<K & string>,
+    page?: PageRequest
+  ): Promise<Page<EntityResult<E, K>>>;
+
+  loadPage<E extends EntityDefAny>(
+    def: E,
+    projection: AllProjection,
+    page?: PageRequest
+  ): Promise<Page<EntityResult<E, keyof EntityFields<E>>>>;
+
+  // loadPage implementation
+  async loadPage<E extends EntityDefAny>(
+    def: E,
+    projection: Projection,
+    page?: PageRequest
+  ): Promise<Page<unknown>> {
+    const tableDef = this.schema.getTable(def);
+    const r = PageRequest.from(page).defaultLimit(1000);
+    const offset = r.parseAsNumericOffset(0);
+
+    // Determine columns based on projection
+    let columns: ColumnDef[];
+    let columnNames: string[];
+
+    switch (projection.kind) {
+      case "refs":
+        columns = [];
+        columnNames = ["id"];
+        break;
+      case "select":
+        columns = projection.fields.map(f => this.getColumn(tableDef, def, f));
+        columnNames = ["id", ...columns.map(c => c.columnName)];
+        break;
+      case "all":
+        columns = tableDef.columns;
+        columnNames = ["id", ...columns.map(c => c.columnName)];
+        break;
+    }
+
+    const sql = `SELECT ${columnNames.join(", ")} FROM ${tableDef.tableName} LIMIT ${r.fetchSize} OFFSET ${offset}`;
+    const rows = this.db.query(sql).all() as Record<string, unknown>[];
+
+    switch (projection.kind) {
+      case "refs": {
+        const items = rows.map(row => Ref.installation(def, row.id as EntityId));
+        return Page.fromOffset(items, offset, r.limit);
+      }
+      case "select":
+      case "all": {
+        const items = rows.map(row => {
+          const ref = Ref.installation(def, row.id as EntityId);
+          const data: Record<string, unknown> = {};
+          for (const col of columns) {
+            data[col.fieldName] = this.fromSqlValue(row[col.columnName], col, def);
+          }
+          return EntityResult.from(ref, data as any);
+        });
+        return Page.fromOffset(items, offset, r.limit);
+      }
+    }
   }
 
+  // Overload signatures
+  query<E extends EntityDefAny, K extends keyof EntityFields<E>>(
+    query: EntityQuery<E, SelectProjection<K & string>>
+  ): Promise<Page<EntityResult<E, K>>>;
+
+  query<E extends EntityDefAny>(
+    query: EntityQuery<E, RefsProjection>
+  ): Promise<Page<Ref<E>>>;
+
+  query<E extends EntityDefAny>(
+    query: EntityQuery<E, AllProjection>
+  ): Promise<Page<EntityResult<E, keyof EntityFields<E>>>>;
+
+  // Implementation
+  async query<E extends EntityDefAny>(
+    query: EntityQuery<E>
+  ): Promise<Page<unknown>> {
+    const tableDef = this.schema.getTable(query.def);
+    const { projection } = query;
+
+    // Determine columns to select based on projection
+    let columns: ColumnDef[];
+    let columnNames: string[];
+
+    switch (projection.kind) {
+      case "refs":
+        columns = [];
+        columnNames = ["id"];
+        break;
+      case "select":
+        columns = projection.fields.map(f => this.getColumn(tableDef, query.def, f));
+        columnNames = ["id", ...columns.map(c => c.columnName)];
+        break;
+      case "all":
+        columns = tableDef.columns;
+        columnNames = ["id", ...columns.map(c => c.columnName)];
+        break;
+    }
+
+    // Build SQL
+    const { sql, params } = this.buildQuerySql(tableDef, query, columnNames);
+    const rows = this.db.query(sql).all(...params) as Record<string, unknown>[];
+
+    // Map rows to results based on projection
+    switch (projection.kind) {
+      case "refs": {
+        const items = rows.map(row =>
+          Ref.installation(query.def, row.id as EntityId)
+        );
+        return this.toPage(items, query);
+      }
+      case "select": // fallthrough
+      case "all": {
+        const items = rows.map(row => {
+          const ref = Ref.installation(query.def, row.id as EntityId);
+          const data: Record<string,unknown> = {};
+          for (const col of columns) {
+            data[col.fieldName] = this.fromSqlValue(row[col.columnName], col, query.def);
+          }
+          return EntityResult.from(ref, data as EntityFieldsOf<E, string>)
+        });
+        return this.toPage(items, query);
+      }
+    }
+  }
+
+  /** Build SQL query string from an EntityQuery descriptor. */
+  private buildQuerySql<E extends EntityDefAny>(
+    tableDef: TableDef,
+    query: EntityQuery<E>,
+    columnNames: string[],
+  ): { sql: string; params: SQLQueryBindings[] } {
+    let sql = `SELECT ${columnNames.join(", ")} FROM ${tableDef.tableName}`;
+    const params: SQLQueryBindings[] = [];
+
+    if (query.filters.length > 0) {
+      const conditions = query.filters.map(f => {
+        const col = this.getColumn(tableDef, query.def, f.field);
+        const sqlOp = f.op === "contains" ? "LIKE" : f.op;
+        const sqlValue = f.op === "contains"
+          ? `%${f.value}%`
+          : this.toSqlValue(f.value, col);
+        params.push(sqlValue as SQLQueryBindings);
+        return `${col.columnName} ${sqlOp} ?`;
+      });
+      sql += ` WHERE ${conditions.join(" AND ")}`;
+    }
+
+    if (query.ordering) {
+      const col = this.getColumn(tableDef, query.def, query.ordering.field);
+      sql += ` ORDER BY ${col.columnName} ${query.ordering.dir.toUpperCase()}`;
+    }
+
+    if (query.limit !== undefined) {
+      // Fetch one extra for the Page.fromOffset "has more" pattern
+      sql += ` LIMIT ${query.limit + 1}`;
+    }
+
+    if (query.offset !== undefined) {
+      sql += ` OFFSET ${query.offset}`;
+    }
+
+    return { sql, params };
+  }
+
+  /** Wrap items into a Page based on the query's limit. */
+  private toPage<T>(items: T[], query: EntityQuery<EntityDefAny>): Page<T> {
+    if (query.limit !== undefined) {
+      return Page.fromOffset(items, query.offset ?? 0, query.limit);
+    }
+    return Page.from(items, false);
+  }
+
+  /** Look up a ColumnDef by field name, throwing if not found. */
+  private getColumn(tableDef: TableDef, entityDef: EntityDefAny, fieldName: string): ColumnDef {
+    const col = tableDef.columns.find(c => c.fieldName === fieldName);
+    if (!col) {
+      throw ErrFieldNotFound.create({ entityType: entityDef.name, field: fieldName });
+    }
+    return col;
+  }
 
   /** Convert a TypeScript value to SQL-compatible value */
   private toSqlValue(value: unknown, col: ColumnDef): unknown {

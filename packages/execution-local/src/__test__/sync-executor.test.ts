@@ -7,7 +7,7 @@
 
 import { describe, test, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { Context, Fields, NoOpFlowController } from "@max/core";
+import { Context, Fields, NoOpFlowController, Query } from "@max/core";
 import { SqliteEngine, SqliteSchema } from "@max/storage-sqlite";
 import AcmeConnector, {
   AcmeRoot,
@@ -134,8 +134,8 @@ describe("SyncExecutor E2E", () => {
     expect(result.status).toBe("completed");
 
     // Verify users are in SQLite
-    const users = await engine.query(AcmeUser).selectAll();
-    expect(users.length).toBe(3);
+    const users = await engine.query(Query.from(AcmeUser).selectAll());
+    expect(users.items.length).toBe(3);
 
     const alice = await engine.load(AcmeUser.ref("u1"), Fields.ALL);
     expect(alice.fields.displayName).toBe("Alice");
@@ -165,8 +165,8 @@ describe("SyncExecutor E2E", () => {
     await handle2.completion();
 
     // Data should still be there
-    const users = await engine.query(AcmeUser).selectAll();
-    expect(users.length).toBe(3);
+    const users = await engine.query(Query.from(AcmeUser).selectAll());
+    expect(users.items.length).toBe(3);
   });
 
   test("SyncHandle: can check status", async () => {

@@ -12,6 +12,7 @@ import type { Engine } from "../engine.js";
 import {AcmeProject, AcmeTask} from "@max/connector-acme";
 import {Scope} from "../scope.js";
 import {EntityInput} from "../entity-input.js";
+import {Query} from "../query.js";
 
 // ============================================================================
 // Usage Examples (Type Checking)
@@ -85,13 +86,14 @@ async function examples() {
   await engine.store(input2);
 
   // --- Query ---
-  const tasks = await engine
-    .query(AcmeTask)
-    .where("status", "=", "done")
-    .limit(10)
-    .select("title", "description");
+  const tasks = await engine.query(
+    Query.from(AcmeTask)
+      .where("status", "=", "done")
+      .limit(10)
+      .select("title", "description")
+  );
 
-  for (const t of tasks) {
+  for (const t of tasks.items) {
     const title: string = t.fields.title;
     const descr: string = t.fields.description;
   }

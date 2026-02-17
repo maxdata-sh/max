@@ -7,7 +7,7 @@
  * Future optimisation: use SQLite JOINs for efficient filtering at DB level.
  */
 
-import {Page, PageRequest} from "@max/core";
+import {Page, PageRequest, Projection} from "@max/core";
 import type {
   EntityDefAny,
   Ref,
@@ -35,11 +35,11 @@ export class LocalSyncQueryEngine implements SyncQueryEngine {
     page?: PageRequest,
   ): Promise<Page<Ref<E>>> {
     // Get all refs from Engine
-    const allRefs = await this.engine.query(entity).refs();
+    const allRefs = await this.engine.loadPage(entity, Projection.refs);
 
     // Filter to stale ones via SyncMeta
     const staleRefs: Ref<E>[] = [];
-    for (const ref of allRefs) {
+    for (const ref of allRefs.items) {
       const fields = [loaderName as string]; // Use loader name as the tracked field
       const stale = await this.syncMeta.staleFields(ref, fields, maxAge);
       if (stale.length > 0) {
@@ -56,11 +56,11 @@ export class LocalSyncQueryEngine implements SyncQueryEngine {
     page?: PageRequest,
   ): Promise<Page<Ref<E>>> {
     // Get all refs from Engine
-    const allRefs = await this.engine.query(entity).refs();
+    const allRefs = await this.engine.loadPage(entity, Projection.refs);
 
     // Filter to never-loaded ones
     const unloaded: Ref<E>[] = [];
-    for (const ref of allRefs) {
+    for (const ref of allRefs.items) {
       const syncTime = await this.syncMeta.getFieldSyncTime(ref, loaderName as string);
       if (syncTime === null) {
         unloaded.push(ref);

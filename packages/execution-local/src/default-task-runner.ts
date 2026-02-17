@@ -22,7 +22,7 @@ import type {
   CollectionLoader,
   NoOpFlowController,
 } from "@max/core";
-import {PageRequest, Ref as RefStatic} from "@max/core";
+import {PageRequest, Projection, Ref as RefStatic} from "@max/core";
 
 import type {
   TaskRunner,
@@ -133,15 +133,13 @@ export class DefaultTaskRunner implements TaskRunner {
     cursor?: number,
   ): Promise<TaskRunResult> {
     const offset = cursor ?? 0;
-    const refs = await this.engine.query(entityDef).limit(PAGE_SIZE).offset(offset).refs();
-    if (refs.length === 0) return {};
-
-    const hasMore = refs.length === PAGE_SIZE;
+    const page = await this.engine.loadPage(entityDef, Projection.refs, PageRequest.at(String(offset), PAGE_SIZE));
+    if (page.items.length === 0) return {};
 
     // Process this page
-    await this.processLoadFieldsForRefs(entityDef, target, fields, refs);
+    await this.processLoadFieldsForRefs(entityDef, target, fields, page.items);
 
-    if (hasMore) {
+    if (page.hasMore) {
       return {
         children: [{
           state: "pending",
@@ -170,14 +168,13 @@ export class DefaultTaskRunner implements TaskRunner {
     cursor?: number,
   ): Promise<TaskRunResult> {
     const offset = cursor ?? 0;
-    const refs = await this.engine.query(entityDef).limit(PAGE_SIZE).offset(offset).refs();
-    if (refs.length === 0) return {};
+    const page = await this.engine.loadPage(entityDef, Projection.refs, PageRequest.at(String(offset), PAGE_SIZE));
+    if (page.items.length === 0) return {};
 
-    const hasMore = refs.length === PAGE_SIZE;
     const children: TaskChildTemplate[] = [];
 
     // One collection-load child per ref
-    for (const ref of refs) {
+    for (const ref of page.items) {
       children.push({
         state: "pending",
         payload: {
@@ -190,7 +187,7 @@ export class DefaultTaskRunner implements TaskRunner {
     }
 
     // Continuation for next page of refs
-    if (hasMore) {
+    if (page.hasMore) {
       children.push({
         state: "pending",
         payload: {

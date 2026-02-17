@@ -9,6 +9,7 @@ import type { CollectionKeys, CollectionTargetRef, EntityFields } from "./field-
 import type { FieldsAll, FieldsSelect } from "./fields-selector.js";
 import type { Lifecycle } from "./lifecycle.js";
 import type { Page, PageRequest } from "./pagination.js";
+import type { EntityQuery, SelectProjection, RefsProjection, AllProjection } from "./query.js";
 import type { Ref } from "./ref.js";
 import {Scope} from "./scope.js";
 
@@ -50,27 +51,40 @@ export interface Engine<TScope extends Scope = Scope> extends Lifecycle {
   store<E extends EntityDefAny>(input: EntityInput<E>): Promise<Ref<E>>;
 
   /**
-   * Query entities.
+   * Load a page of entities by type, with projection controlling the output shape.
    */
-  query<E extends EntityDefAny>(def: E): QueryBuilder<E>;
+  loadPage<E extends EntityDefAny>(
+    def: E,
+    projection: RefsProjection,
+    page?: PageRequest
+  ): Promise<Page<Ref<E>>>;
 
+  loadPage<E extends EntityDefAny, K extends keyof EntityFields<E>>(
+    def: E,
+    projection: SelectProjection<K & string>,
+    page?: PageRequest
+  ): Promise<Page<EntityResult<E, K>>>;
 
+  loadPage<E extends EntityDefAny>(
+    def: E,
+    projection: AllProjection,
+    page?: PageRequest
+  ): Promise<Page<EntityResult<E, keyof EntityFields<E>>>>;
+
+  /**
+   * Query entities. Takes a finalized EntityQuery descriptor
+   * (built via Query.from(def).where(...).select(...) etc.)
+   * and returns a paged result.
+   */
+  query<E extends EntityDefAny, K extends keyof EntityFields<E>>(
+    query: EntityQuery<E, SelectProjection<K & string>>
+  ): Promise<Page<EntityResult<E, K>>>;
+
+  query<E extends EntityDefAny>(
+    query: EntityQuery<E, RefsProjection>
+  ): Promise<Page<Ref<E>>>;
+
+  query<E extends EntityDefAny>(
+    query: EntityQuery<E, AllProjection>
+  ): Promise<Page<EntityResult<E, keyof EntityFields<E>>>>;
 }
-
-export interface QueryBuilder<E extends EntityDefAny> {
-  where<K extends keyof EntityFields<E>>(
-    field: K,
-    op: "=" | "!=" | ">" | "<" | ">=" | "<=" | "contains",
-    value: EntityFields<E>[K]
-  ): QueryBuilder<E>;
-
-  limit(n: number): QueryBuilder<E>;
-  offset(n: number): QueryBuilder<E>;
-  orderBy<K extends keyof EntityFields<E>>(field: K, dir?: "asc" | "desc"): QueryBuilder<E>;
-
-  refs(): Promise<Ref<E>[]>;
-  select<K extends keyof EntityFields<E>>(...fields: K[]): Promise<EntityResult<E, K>[]>;
-  selectAll(): Promise<EntityResult<E, keyof EntityFields<E>>[]>;
-}
-
-export type QueryBuilderAny = QueryBuilder<EntityDefAny>;

@@ -27,7 +27,7 @@ export class WorkspaceMax implements WorkspaceProtocol {
   }
 
   installation(id: InstallationId): InstallationProtocol | undefined {
-    return this.installations.get(id)?.supervised
+    return this.installations.get(id)?.protocol
   }
 
   async health() {
@@ -42,7 +42,7 @@ export class WorkspaceMax implements WorkspaceProtocol {
   async start(): Promise<StartResult> {
     const handles = this.installations.list()
     for (const handle of handles) {
-      await handle.supervised.start()
+      await handle.protocol.start()
     }
     return StartResult.started()
   }
@@ -51,7 +51,7 @@ export class WorkspaceMax implements WorkspaceProtocol {
     const handles = this.installations.list()
     // Stop in reverse registration order
     for (let i = handles.length - 1; i >= 0; i--) {
-      await handles[i].supervised.stop()
+      await handles[i].protocol.stop()
     }
     return StopResult.stopped()
   }

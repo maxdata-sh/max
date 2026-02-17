@@ -23,7 +23,7 @@ export class GlobalMax implements GlobalProtocol {
   }
 
   workspace(id: WorkspaceId): WorkspaceProtocol | undefined {
-    return this.workspaces.get(id)?.supervised
+    return this.workspaces.get(id)?.protocol
   }
 
   async health() {
@@ -38,7 +38,7 @@ export class GlobalMax implements GlobalProtocol {
   async start(): Promise<StartResult> {
     const handles = this.workspaces.list()
     for (const handle of handles) {
-      await handle.supervised.start()
+      await handle.protocol.start()
     }
     return StartResult.started()
   }
@@ -46,7 +46,7 @@ export class GlobalMax implements GlobalProtocol {
   async stop(): Promise<StopResult> {
     const handles = this.workspaces.list()
     for (let i = handles.length - 1; i >= 0; i--) {
-      await handles[i].supervised.stop()
+      await handles[i].protocol.stop()
     }
     return StopResult.stopped()
   }

@@ -3,7 +3,7 @@
  *
  * The InProcess strategy instantiates children directly in the current
  * runtime. No process boundary, no serialization, no transport overhead.
- * This is the default for local development and the current behavior.
+ * The handle's protocol field IS the real object — no proxy, no indirection.
  *
  * Current codebase mapping:
  *   - InProcessInstallationProvider ← InstallationRuntimeImpl.create()
@@ -16,7 +16,6 @@ import type {
   ProviderKind,
   ChildHandle,
   ChildProvider,
-  Transport,
   Supervisor,
 } from "@max/core"
 import type { ConnectorRegistry } from "@max/connector"
@@ -25,30 +24,6 @@ import type { WorkspaceProtocol } from "../protocols/workspace-protocol.js"
 import type { ProjectManager } from "../project-manager/index.js"
 import { InstallationRuntimeImpl } from "../runtime/installation-runtime.js"
 import { WorkspaceMax } from "../federation/workspace-max.js"
-
-// ============================================================================
-// InProcessTransport
-// ============================================================================
-
-/**
- * Callback-based transport for in-process children.
- *
- * The "message" is the operation itself — a callback that receives the target
- * instance and returns the result. The transport just applies it.
- *
- *   await transport.send((target: InstallationProtocol) => target.sync())
- *
- * This keeps the abstraction clean: callers can use either handle.supervised
- * (direct) or handle.transport.send (uniform) — both work, both reach the
- * same instance, neither throws.
- */
-function inProcessTransport<T>(target: T): Transport {
-  return {
-    async send(message: unknown): Promise<unknown> {
-      return (message as (t: T) => unknown)(target)
-    },
-  }
-}
 
 const PROVIDER_KIND: ProviderKind = "in-process"
 
@@ -82,8 +57,7 @@ export class InProcessInstallationProvider
     const handle: ChildHandle<InstallationProtocol, InstallationId> = {
       id: runtime.info.id,
       providerKind: PROVIDER_KIND,
-      supervised: runtime,
-      transport: inProcessTransport(runtime),
+      protocol: runtime,
     }
 
     this.handles.set(handle.id, handle)
@@ -121,8 +95,7 @@ export class InProcessWorkspaceProvider
     const handle: ChildHandle<WorkspaceProtocol, WorkspaceId> = {
       id,
       providerKind: PROVIDER_KIND,
-      supervised: workspace,
-      transport: inProcessTransport(workspace),
+      protocol: workspace,
     }
 
     this.handles.set(id, handle)

@@ -129,38 +129,31 @@ Lifecycle methods are **required**, not optional. Even a remote installation has
 
 Note: `start()` also serves as an `onStart` hook — it's the point where initialization runs. There is no separate initialization step.
 
-### 3.2 Transport
+### 3.2 ChildHandle\<R extends Supervised\>
 
-Uniform message passing. Implementation-agnostic.
-
-```
-Transport {
-  send(message): Promise<response>
-}
-```
-
-Implementations: InProcessTransport (method calls), UnixSocketTransport (local daemon), HttpTransport (remote), DockerTransport (container), etc.
-
-The message type varies by level (see Protocol Surfaces below), but the mechanism is always Transport. This is what makes deployment topology invisible to the protocol layer.
-
-### 3.3 ChildHandle\<R extends Supervised\>
-
-A parent's view of one managed child. Opaque — encapsulates deployment details.
+A parent's view of one managed child. The handle **is** the typed protocol surface — the caller interacts with it via protocol methods (`sync()`, `search()`, etc.), not via a transport layer.
 
 ```
 ChildHandle<R extends Supervised> {
   id: ParentAssignedId           // InstallationId or WorkspaceId
   providerKind: ProviderKind     // informational tag: "fs", "remote", "docker", "in-process"
-  supervised: R                  // health + lifecycle (R extends Supervised)
-  transport: Transport           // message passing to this child
+  protocol: R                    // the typed protocol surface — real object or proxy
 }
 ```
 
-`R extends Supervised` — the Supervisor can call `health()`, `start()`, `stop()` on any handle without knowing the concrete type. The `R` carries any additional type information relevant to the protocol level but the Supervisor only relies on Supervised.
+`R extends Supervised` — the Supervisor can call `health()`, `start()`, `stop()` on any handle via `handle.protocol`. The `R` also carries the level-specific protocol (InstallationProtocol, WorkspaceProtocol), so the orchestrator can call `handle.protocol.sync()`, etc.
 
 `providerKind` is a **metadata tag** set by the ChildProvider at creation time. The Supervisor never branches on it — but it can include it in health reports, logs, status output, and diagnostics. It answers "what kind of handle is this?" without leaking deployment behavior into the abstraction.
 
-The parent works exclusively with ChildHandles. It never sees the child's internal implementation. Whether the child is in-process, a local process, or a remote server — the handle looks the same.
+**How transport is hidden**: the `protocol` field is either the real implementation (InProcess) or a proxy that internally serializes calls over a wire protocol (Fs/Docker/Remote). The caller cannot tell the difference — it just calls typed methods.
+
+```
+InProcess:  handle.protocol.sync() → real.sync()           // direct call
+Fs:         handle.protocol.sync() → [serialize → Unix socket → deserialize] → real.sync()
+Remote:     handle.protocol.sync() → [serialize → HTTP → deserialize] → real.sync()
+```
+
+Transport (Unix sockets, HTTP, etc.) is an **internal implementation detail** of the proxy, not a public abstraction. Each provider package owns both the client proxy and the server dispatcher for its transport type — they're co-located because they must agree on the wire format. See section 7 (Provider Packages) for details.
 
 ### 3.4 ChildProvider\<R extends Supervised\>
 
@@ -176,10 +169,10 @@ ChildProvider<R extends Supervised> {
 ```
 
 Examples:
-- **FsChildProvider** — spawns local Bun processes, supervises via PID files, communicates via Unix sockets
-- **RemoteChildProvider** — connects to a URL, supervises via HTTP health checks, communicates via HTTP
-- **DockerChildProvider** — spawns containers, supervises via Docker API, communicates via mapped ports
-- **InProcessChildProvider** — instantiates in same process, no transport overhead (current default)
+- **FsChildProvider** — spawns local Bun processes. Returns handles whose `protocol` is a proxy that serializes calls over Unix sockets
+- **RemoteChildProvider** — connects to a URL. Returns handles whose `protocol` is a proxy that serializes calls over HTTP
+- **DockerChildProvider** — spawns containers. Returns handles whose `protocol` is a proxy that serializes calls over mapped ports
+- **InProcessChildProvider** — instantiates in same process. Returns handles whose `protocol` is the real implementation directly (no proxy, no serialization)
 
 Providers are **pluggable** — the parent registers providers by target type. Adding a new deployment strategy (e.g., DockerChildProvider) doesn't require modifying the parent.
 
@@ -207,7 +200,7 @@ These are **peers**, not a hierarchy. A level-specific orchestrator (e.g., Works
 
 1. **Creating a child**: orchestrator picks the right ChildProvider based on target type → calls `provider.create(config)` → gets a ChildHandle → registers it with the Supervisor
 2. **Listing children**: Supervisor aggregates across all providers via `list()`
-3. **Lifecycle**: Supervisor delegates `start()`/`stop()` to each handle — the handle's implementation (set by the provider) knows how to execute these for its deployment type
+3. **Lifecycle**: Supervisor delegates `start()`/`stop()` to each handle via `handle.protocol` — the protocol is either the real implementation or a proxy, both of which know how to execute lifecycle for their deployment type
 
 The Supervisor doesn't know about providers. The providers don't know about the Supervisor. The orchestrator wires them together. This keeps both abstractions clean and independently testable.
 
@@ -515,7 +508,7 @@ What exists today and what it corresponds to in this spec.
 | ChildProvider | (none) | Not yet abstracted. FsProjectManager + FsProjectDaemonManager partially cover FsChildProvider |
 | ChildHandle | (none) | InstallationRuntime is used directly, not through a handle |
 | Scope upgrade (ScopeUpgradeable) | ScopeUpgradeable (partial) | Mechanism exists in type system. Not yet applied at runtime boundaries. No standalone ScopeBoundary abstraction — upgrade is called by the parent, cascade is handled by the types |
-| Transport | Unix socket server (partial) | Exists for CLI→daemon. Not generalized |
+| Transport (internal to providers) | Unix socket server (partial) | Exists for CLI→daemon. Not a public abstraction — will be encapsulated inside provider packages |
 | Engine\<TScope\> | Engine (unparameterized) | Interface exists. Not scope-parameterized. Only SqliteEngine impl |
 | WorkspaceProtocol | MaxProjectApp methods | Ad-hoc. No formal protocol |
 | InstallationProtocol | InstallationRuntime interface | Close — has sync(), engine. Missing search, schema, onboard |

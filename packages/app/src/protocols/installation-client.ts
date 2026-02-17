@@ -1,5 +1,5 @@
 /**
- * InstallationProtocol — The leaf node. One connector, one schema, one data store.
+ * InstallationClient — The leaf node. One connector, one schema, one data store.
  *
  * This is the atomic unit of the federation hierarchy. Installations do the
  * actual work of syncing and querying. They cannot subdivide further.
@@ -11,7 +11,7 @@
 import type { Engine, InstallationScope, Schema, Supervised } from "@max/core"
 import type { SyncHandle } from "@max/execution"
 
-export interface InstallationProtocol extends Supervised {
+export interface InstallationClient extends Supervised {
   /** The connector's entity schema. Static after initialization. */
   readonly schema: Schema
 

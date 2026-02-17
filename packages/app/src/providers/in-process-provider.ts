@@ -19,8 +19,8 @@ import type {
   Supervisor,
 } from "@max/core"
 import type { ConnectorRegistry } from "@max/connector"
-import type { InstallationProtocol } from "../protocols/installation-protocol.js"
-import type { WorkspaceProtocol } from "../protocols/workspace-protocol.js"
+import type { InstallationClient } from "../protocols/installation-client.js"
+import type { WorkspaceClient } from "../protocols/workspace-client.js"
 import type { ProjectManager } from "../project-manager/index.js"
 import { InstallationRuntimeImpl } from "../runtime/installation-runtime.js"
 import { WorkspaceMax } from "../federation/workspace-max.js"
@@ -37,14 +37,14 @@ export interface InProcessInstallationDeps {
 }
 
 export class InProcessInstallationProvider
-  implements NodeProvider<InstallationProtocol, InstallationId>
+  implements NodeProvider<InstallationClient, InstallationId>
 {
   readonly kind: ProviderKind = PROVIDER_KIND
-  private readonly handles = new Map<InstallationId, NodeHandle<InstallationProtocol, InstallationId>>()
+  private readonly handles = new Map<InstallationId, NodeHandle<InstallationClient, InstallationId>>()
 
   constructor(private readonly deps: InProcessInstallationDeps) {}
 
-  async create(config: unknown): Promise<NodeHandle<InstallationProtocol, InstallationId>> {
+  async create(config: unknown): Promise<NodeHandle<InstallationClient, InstallationId>> {
     const { connector, name } = config as { connector: string; name?: string }
 
     const runtime = await InstallationRuntimeImpl.create({
@@ -54,21 +54,21 @@ export class InProcessInstallationProvider
       name,
     })
 
-    const handle: NodeHandle<InstallationProtocol, InstallationId> = {
+    const handle: NodeHandle<InstallationClient, InstallationId> = {
       id: runtime.info.id,
       providerKind: PROVIDER_KIND,
-      protocol: runtime,
+      client: runtime,
     }
 
     this.handles.set(handle.id, handle)
     return handle
   }
 
-  async connect(): Promise<NodeHandle<InstallationProtocol, InstallationId>> {
+  async connect(): Promise<NodeHandle<InstallationClient, InstallationId>> {
     throw new Error("InProcess provider does not support connect — use create()")
   }
 
-  async list(): Promise<NodeHandle<InstallationProtocol, InstallationId>[]> {
+  async list(): Promise<NodeHandle<InstallationClient, InstallationId>[]> {
     return [...this.handles.values()]
   }
 }
@@ -79,34 +79,34 @@ export class InProcessInstallationProvider
 
 export interface InProcessWorkspaceConfig {
   id: WorkspaceId
-  installations: Supervisor<InstallationProtocol, InstallationId>
+  installations: Supervisor<InstallationClient, InstallationId>
 }
 
 export class InProcessWorkspaceProvider
-  implements NodeProvider<WorkspaceProtocol, WorkspaceId>
+  implements NodeProvider<WorkspaceClient, WorkspaceId>
 {
   readonly kind: ProviderKind = PROVIDER_KIND
-  private readonly handles = new Map<WorkspaceId, NodeHandle<WorkspaceProtocol, WorkspaceId>>()
+  private readonly handles = new Map<WorkspaceId, NodeHandle<WorkspaceClient, WorkspaceId>>()
 
-  async create(config: unknown): Promise<NodeHandle<WorkspaceProtocol, WorkspaceId>> {
+  async create(config: unknown): Promise<NodeHandle<WorkspaceClient, WorkspaceId>> {
     const { id, installations } = config as InProcessWorkspaceConfig
 
     const workspace = new WorkspaceMax(installations)
-    const handle: NodeHandle<WorkspaceProtocol, WorkspaceId> = {
+    const handle: NodeHandle<WorkspaceClient, WorkspaceId> = {
       id,
       providerKind: PROVIDER_KIND,
-      protocol: workspace,
+      client: workspace,
     }
 
     this.handles.set(id, handle)
     return handle
   }
 
-  async connect(): Promise<NodeHandle<WorkspaceProtocol, WorkspaceId>> {
+  async connect(): Promise<NodeHandle<WorkspaceClient, WorkspaceId>> {
     throw new Error("InProcess provider does not support connect — use create()")
   }
 
-  async list(): Promise<NodeHandle<WorkspaceProtocol, WorkspaceId>[]> {
+  async list(): Promise<NodeHandle<WorkspaceClient, WorkspaceId>[]> {
     return [...this.handles.values()]
   }
 }

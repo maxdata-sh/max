@@ -12,7 +12,7 @@ import { DefaultTaskRunner, ExecutionRegistryImpl } from "@max/execution-local";
 import { SqliteExecutionSchema, SqliteSyncMeta, SqliteTaskStore } from "@max/execution-sqlite";
 import { SqliteEngine } from "@max/storage-sqlite";
 import type { ManagedInstallation, ProjectManager } from "../project-manager/index.js";
-import type { InstallationProtocol } from "../protocols/installation-protocol.js";
+import type { InstallationClient } from "../protocols/installation-client.js";
 
 // ============================================================================
 // InstallationRuntime Interface
@@ -51,7 +51,7 @@ interface InstallationRuntimeConfig {
   startedAt: Date;
 }
 
-export class InstallationRuntimeImpl implements InstallationRuntime, InstallationProtocol {
+export class InstallationRuntimeImpl implements InstallationRuntime, InstallationClient {
   private readonly config: InstallationRuntimeConfig;
 
   lifecycle = LifecycleManager.auto(() => [

@@ -1,5 +1,5 @@
 /**
- * GlobalProtocol — Entry point. Manages workspaces.
+ * GlobalClient — Entry point. Manages workspaces.
  *
  * The top of the federation hierarchy. Knows about all workspaces available
  * to this host or application.
@@ -9,12 +9,12 @@
  */
 
 import type { WorkspaceId, Supervised, Supervisor } from "@max/core"
-import type { WorkspaceProtocol } from "./workspace-protocol.js"
+import type { WorkspaceClient } from "./workspace-client.js"
 
-export interface GlobalProtocol extends Supervised {
+export interface GlobalClient extends Supervised {
   /** Supervisor over all workspaces. */
-  readonly workspaces: Supervisor<WorkspaceProtocol, WorkspaceId>
+  readonly workspaces: Supervisor<WorkspaceClient, WorkspaceId>
 
   /** Synchronous lookup of a single workspace by its parent-assigned ID. */
-  workspace(id: WorkspaceId): WorkspaceProtocol | undefined
+  workspace(id: WorkspaceId): WorkspaceClient | undefined
 }

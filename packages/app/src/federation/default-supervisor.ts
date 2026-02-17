@@ -41,7 +41,7 @@ export class DefaultSupervisor<R extends Supervised, TId extends string = string
 
     for (const [id, handle] of this.handles) {
       try {
-        children.set(id, await handle.protocol.health())
+        children.set(id, await handle.client.health())
       } catch {
         children.set(id, HealthStatus.unhealthy("unreachable"))
       }

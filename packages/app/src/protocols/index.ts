@@ -6,6 +6,6 @@
  * abstraction from @max/core.
  */
 
-export type { InstallationProtocol } from "./installation-protocol.js"
-export type { WorkspaceProtocol } from "./workspace-protocol.js"
-export type { GlobalProtocol } from "./global-protocol.js"
+export type { InstallationClient } from "./installation-client.js"
+export type { WorkspaceClient } from "./workspace-client.js"
+export type { GlobalClient } from "./global-client.js"

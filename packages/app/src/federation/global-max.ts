@@ -12,18 +12,18 @@ import {
   type WorkspaceId,
   type Supervisor,
 } from "@max/core"
-import type { WorkspaceProtocol } from "../protocols/workspace-protocol.js"
-import type { GlobalProtocol } from "../protocols/global-protocol.js"
+import type { WorkspaceClient } from "../protocols/workspace-client.js"
+import type { GlobalClient } from "../protocols/global-client.js"
 
-export class GlobalMax implements GlobalProtocol {
-  readonly workspaces: Supervisor<WorkspaceProtocol, WorkspaceId>
+export class GlobalMax implements GlobalClient {
+  readonly workspaces: Supervisor<WorkspaceClient, WorkspaceId>
 
-  constructor(workspaces: Supervisor<WorkspaceProtocol, WorkspaceId>) {
+  constructor(workspaces: Supervisor<WorkspaceClient, WorkspaceId>) {
     this.workspaces = workspaces
   }
 
-  workspace(id: WorkspaceId): WorkspaceProtocol | undefined {
-    return this.workspaces.get(id)?.protocol
+  workspace(id: WorkspaceId): WorkspaceClient | undefined {
+    return this.workspaces.get(id)?.client
   }
 
   async health() {
@@ -38,7 +38,7 @@ export class GlobalMax implements GlobalProtocol {
   async start(): Promise<StartResult> {
     const handles = this.workspaces.list()
     for (const handle of handles) {
-      await handle.protocol.start()
+      await handle.client.start()
     }
     return StartResult.started()
   }
@@ -46,7 +46,7 @@ export class GlobalMax implements GlobalProtocol {
   async stop(): Promise<StopResult> {
     const handles = this.workspaces.list()
     for (let i = handles.length - 1; i >= 0; i--) {
-      await handles[i].protocol.stop()
+      await handles[i].client.stop()
     }
     return StopResult.stopped()
   }

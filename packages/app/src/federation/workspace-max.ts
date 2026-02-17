@@ -1,7 +1,7 @@
 /**
  * WorkspaceMax — Manages installations. Provides cross-installation operations.
  *
- * Implements WorkspaceProtocol. This is what the current MaxProjectApp evolves
+ * Implements WorkspaceClient. This is what the current MaxProjectApp evolves
  * toward — the protocol-compliant workspace node in the federation hierarchy.
  *
  * Holds a Supervisor over installations. How those installations get created
@@ -16,18 +16,18 @@ import {
   type InstallationId,
   type Supervisor,
 } from "@max/core"
-import type { InstallationProtocol } from "../protocols/installation-protocol.js"
-import type { WorkspaceProtocol } from "../protocols/workspace-protocol.js"
+import type { InstallationClient } from "../protocols/installation-client.js"
+import type { WorkspaceClient } from "../protocols/workspace-client.js"
 
-export class WorkspaceMax implements WorkspaceProtocol {
-  readonly installations: Supervisor<InstallationProtocol, InstallationId>
+export class WorkspaceMax implements WorkspaceClient {
+  readonly installations: Supervisor<InstallationClient, InstallationId>
 
-  constructor(installations: Supervisor<InstallationProtocol, InstallationId>) {
+  constructor(installations: Supervisor<InstallationClient, InstallationId>) {
     this.installations = installations
   }
 
-  installation(id: InstallationId): InstallationProtocol | undefined {
-    return this.installations.get(id)?.protocol
+  installation(id: InstallationId): InstallationClient | undefined {
+    return this.installations.get(id)?.client
   }
 
   async health() {
@@ -42,7 +42,7 @@ export class WorkspaceMax implements WorkspaceProtocol {
   async start(): Promise<StartResult> {
     const handles = this.installations.list()
     for (const handle of handles) {
-      await handle.protocol.start()
+      await handle.client.start()
     }
     return StartResult.started()
   }
@@ -51,7 +51,7 @@ export class WorkspaceMax implements WorkspaceProtocol {
     const handles = this.installations.list()
     // Stop in reverse registration order
     for (let i = handles.length - 1; i >= 0; i--) {
-      await handles[i].protocol.stop()
+      await handles[i].client.stop()
     }
     return StopResult.stopped()
   }

@@ -162,7 +162,7 @@ export { LifecycleManager } from "./lifecycle.js";
 export type { Lifecycle, LifecycleMethods, LifecycleStep } from "./lifecycle.js";
 
 // Federation — level-agnostic infrastructure abstractions
-export { HealthStatus, StartResult, StopResult, RpcResponse } from "./federation/index.js";
+export { HealthStatus, StartResult, StopResult, RpcResponse, Rpc, ErrUnknownTarget, ErrUnknownMethod, ErrSyncHandleNotFound, ErrNodeNotFound } from "./federation/index.js";
 export type {
   HealthStatusKind,
   StartOutcome,
@@ -178,6 +178,10 @@ export type {
   ScopeRouting,
 
 } from "./federation/index.js";
+
+// Proxies — proxy+handler pairs for interfaces crossing process boundaries
+export { EngineProxy, EngineHandler, SupervisedProxy, SupervisedHandler, LoopbackTransport } from "./proxies/index.js";
+export type { DispatchFn } from "./proxies/index.js";
 
 // Utilities
 export { StaticTypeCompanion } from "./companion.js";

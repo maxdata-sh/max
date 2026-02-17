@@ -29,3 +29,6 @@ export type { AggregateHealthStatus, Supervisor } from "./supervisor.js"
 // RPC wire protocol
 export { RpcResponse } from "./rpc.js"
 export type { RpcRequest, ScopeRouting } from "./rpc.js"
+
+// RPC errors
+export { Rpc, ErrUnknownTarget, ErrUnknownMethod, ErrSyncHandleNotFound, ErrNodeNotFound } from "./rpc-errors.js"

@@ -1,15 +1,14 @@
 /**
  * WorkspaceMax — Manages installations. Provides cross-installation operations.
  *
- * Implements WorkspaceClient. This is what the current MaxProjectApp evolves
- * toward — the protocol-compliant workspace node in the federation hierarchy.
- *
- * Holds a Supervisor over installations. How those installations get created
- * and registered is the concern of ChildProviders (Phase 5) and the
- * composition root (Phase 6).
+ * Implements WorkspaceClient. Holds a Supervisor internally (not exposed on
+ * the client surface). Real implementation of listInstallations,
+ * createInstallation, and removeInstallation requires a Registry and
+ * NodeProvider wiring — deferred to a follow-up task.
  */
 
 import {
+  ErrNotImplemented,
   HealthStatus,
   StartResult,
   StopResult,
@@ -17,21 +16,34 @@ import {
   type Supervisor,
 } from "@max/core"
 import type { InstallationClient } from "../protocols/installation-client.js"
-import type { WorkspaceClient } from "../protocols/workspace-client.js"
+import type { CreateInstallationConfig, WorkspaceClient } from "../protocols/workspace-client.js"
+import type { InstallationInfo } from "../project-manager/types.js"
 
 export class WorkspaceMax implements WorkspaceClient {
-  readonly installations: Supervisor<InstallationClient, InstallationId>
+  private readonly supervisor: Supervisor<InstallationClient, InstallationId>
 
   constructor(installations: Supervisor<InstallationClient, InstallationId>) {
-    this.installations = installations
+    this.supervisor = installations
+  }
+
+  async listInstallations(): Promise<InstallationInfo[]> {
+    throw ErrNotImplemented.create({}, "WorkspaceMax.listInstallations requires Registry")
   }
 
   installation(id: InstallationId): InstallationClient | undefined {
-    return this.installations.get(id)?.client
+    return this.supervisor.get(id)?.client
+  }
+
+  async createInstallation(_config: CreateInstallationConfig): Promise<InstallationId> {
+    throw ErrNotImplemented.create({}, "WorkspaceMax.createInstallation requires NodeProvider wiring")
+  }
+
+  async removeInstallation(_id: InstallationId): Promise<void> {
+    throw ErrNotImplemented.create({}, "WorkspaceMax.removeInstallation requires NodeProvider wiring")
   }
 
   async health() {
-    const aggregate = await this.installations.health()
+    const aggregate = await this.supervisor.health()
     return HealthStatus[aggregate.status](
       aggregate.status !== "healthy"
         ? `${aggregate.children.size} installation(s) checked`
@@ -40,7 +52,7 @@ export class WorkspaceMax implements WorkspaceClient {
   }
 
   async start(): Promise<StartResult> {
-    const handles = this.installations.list()
+    const handles = this.supervisor.list()
     for (const handle of handles) {
       await handle.client.start()
     }
@@ -48,8 +60,7 @@ export class WorkspaceMax implements WorkspaceClient {
   }
 
   async stop(): Promise<StopResult> {
-    const handles = this.installations.list()
-    // Stop in reverse registration order
+    const handles = this.supervisor.list()
     for (let i = handles.length - 1; i >= 0; i--) {
       await handles[i].client.stop()
     }

@@ -6,6 +6,8 @@
  */
 
 import { app } from "./app.js";
+import {InstallationClient} from "@max/app";
+import { InstallationId, Supervisor } from '@max/core'
 
 const runtime = await app.runtime("acme", "default");
 console.log(`Runtime started for ${runtime.info.connector}:${runtime.info.name}`);
@@ -19,3 +21,7 @@ console.log(`  Tasks completed: ${result.tasksCompleted}`);
 console.log(`  Tasks failed:    ${result.tasksFailed}`);
 
 await runtime.lifecycle.stop();
+
+
+declare const x: Supervisor<InstallationClient, InstallationId>
+x.list().map(h => h.client)

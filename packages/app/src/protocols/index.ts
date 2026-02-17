@@ -7,5 +7,5 @@
  */
 
 export type { InstallationClient } from "./installation-client.js"
-export type { WorkspaceClient } from "./workspace-client.js"
+export type { WorkspaceClient, CreateInstallationConfig } from "./workspace-client.js"
 export type { GlobalClient } from "./global-client.js"

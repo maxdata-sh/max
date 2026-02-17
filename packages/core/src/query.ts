@@ -43,7 +43,7 @@ export interface EntityQuery<
   readonly filters: QueryFilter[];
   readonly ordering?: QueryOrdering;
   readonly limit?: number;
-  readonly offset?: number;
+  readonly cursor?: string;
   readonly projection: P;
 }
 
@@ -72,7 +72,7 @@ export interface QueryBuilder<E extends EntityDefAny> {
   ): QueryBuilder<E>;
 
   limit(n: number): QueryBuilder<E>;
-  offset(n: number): QueryBuilder<E>;
+  after(cursor: string): QueryBuilder<E>;
   orderBy<K extends keyof EntityFields<E>>(
     field: K,
     dir?: "asc" | "desc",
@@ -96,7 +96,7 @@ class QueryBuilderImpl<E extends EntityDefAny> implements QueryBuilder<E> {
   private _filters: QueryFilter[] = [];
   private _ordering?: QueryOrdering;
   private _limit?: number;
-  private _offset?: number;
+  private _cursor?: string;
 
   constructor(private _def: E) {}
 
@@ -114,8 +114,8 @@ class QueryBuilderImpl<E extends EntityDefAny> implements QueryBuilder<E> {
     return this;
   }
 
-  offset(n: number): QueryBuilder<E> {
-    this._offset = n;
+  after(cursor: string): QueryBuilder<E> {
+    this._cursor = cursor;
     return this;
   }
 
@@ -147,7 +147,7 @@ class QueryBuilderImpl<E extends EntityDefAny> implements QueryBuilder<E> {
       filters: [...this._filters],
       ordering: this._ordering,
       limit: this._limit,
-      offset: this._offset,
+      cursor: this._cursor,
       projection,
     };
   }

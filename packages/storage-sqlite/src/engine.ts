@@ -177,7 +177,6 @@ export class SqliteEngine implements Engine<InstallationScope> {
   ): Promise<Page<unknown>> {
     const tableDef = this.schema.getTable(def);
     const r = PageRequest.from(page).defaultLimit(1000);
-    const offset = r.parseAsNumericOffset(0);
 
     // Determine columns based on projection
     let columns: ColumnDef[];
@@ -198,13 +197,22 @@ export class SqliteEngine implements Engine<InstallationScope> {
         break;
     }
 
-    const sql = `SELECT ${columnNames.join(", ")} FROM ${tableDef.tableName} LIMIT ${r.fetchSize} OFFSET ${offset}`;
-    const rows = this.db.query(sql).all() as Record<string, unknown>[];
+    // Cursor-based: WHERE id > cursor ORDER BY id
+    let sql = `SELECT ${columnNames.join(", ")} FROM ${tableDef.tableName}`;
+    const params: SQLQueryBindings[] = [];
+
+    if (r.cursor) {
+      sql += ` WHERE id > ?`;
+      params.push(r.cursor);
+    }
+
+    sql += ` ORDER BY id ASC LIMIT ${r.fetchSize}`;
+    const rows = this.db.query(sql).all(...params) as Record<string, unknown>[];
 
     switch (projection.kind) {
       case "refs": {
         const items = rows.map(row => Ref.installation(def, row.id as EntityId));
-        return Page.fromOffset(items, offset, r.limit);
+        return this.toCursorPage(items, r.limit, ref => ref.id);
       }
       case "select":
       case "all": {
@@ -216,7 +224,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
           }
           return EntityResult.from(ref, data as any);
         });
-        return Page.fromOffset(items, offset, r.limit);
+        return this.toCursorPage(items, r.limit, result => result.ref.id);
       }
     }
   }
@@ -270,7 +278,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
         const items = rows.map(row =>
           Ref.installation(query.def, row.id as EntityId)
         );
-        return this.toPage(items, query);
+        return this.toCursorPage(items, query.limit, ref => ref.id);
       }
       case "select": // fallthrough
       case "all": {
@@ -282,7 +290,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
           }
           return EntityResult.from(ref, data as EntityFieldsOf<E, string>)
         });
-        return this.toPage(items, query);
+        return this.toCursorPage(items, query.limit, result => result.ref.id);
       }
     }
   }
@@ -295,43 +303,60 @@ export class SqliteEngine implements Engine<InstallationScope> {
   ): { sql: string; params: SQLQueryBindings[] } {
     let sql = `SELECT ${columnNames.join(", ")} FROM ${tableDef.tableName}`;
     const params: SQLQueryBindings[] = [];
+    const conditions: string[] = [];
 
-    if (query.filters.length > 0) {
-      const conditions = query.filters.map(f => {
-        const col = this.getColumn(tableDef, query.def, f.field);
-        const sqlOp = f.op === "contains" ? "LIKE" : f.op;
-        const sqlValue = f.op === "contains"
-          ? `%${f.value}%`
-          : this.toSqlValue(f.value, col);
-        params.push(sqlValue as SQLQueryBindings);
-        return `${col.columnName} ${sqlOp} ?`;
-      });
+    // User-defined filters
+    for (const f of query.filters) {
+      const col = this.getColumn(tableDef, query.def, f.field);
+      const sqlOp = f.op === "contains" ? "LIKE" : f.op;
+      const sqlValue = f.op === "contains"
+        ? `%${f.value}%`
+        : this.toSqlValue(f.value, col);
+      params.push(sqlValue as SQLQueryBindings);
+      conditions.push(`${col.columnName} ${sqlOp} ?`);
+    }
+
+    // Cursor-based pagination: WHERE id > cursor
+    if (query.cursor) {
+      params.push(query.cursor);
+      conditions.push(`id > ?`);
+    }
+
+    if (conditions.length > 0) {
       sql += ` WHERE ${conditions.join(" AND ")}`;
     }
 
+    // ORDER BY: user ordering first, then id as tiebreaker for stable cursor pagination
+    const orderParts: string[] = [];
     if (query.ordering) {
       const col = this.getColumn(tableDef, query.def, query.ordering.field);
-      sql += ` ORDER BY ${col.columnName} ${query.ordering.dir.toUpperCase()}`;
+      orderParts.push(`${col.columnName} ${query.ordering.dir.toUpperCase()}`);
     }
+    orderParts.push("id ASC");
+    sql += ` ORDER BY ${orderParts.join(", ")}`;
 
     if (query.limit !== undefined) {
-      // Fetch one extra for the Page.fromOffset "has more" pattern
+      // Fetch one extra for the "has more" pattern
       sql += ` LIMIT ${query.limit + 1}`;
-    }
-
-    if (query.offset !== undefined) {
-      sql += ` OFFSET ${query.offset}`;
     }
 
     return { sql, params };
   }
 
-  /** Wrap items into a Page based on the query's limit. */
-  private toPage<T>(items: T[], query: EntityQuery<EntityDefAny>): Page<T> {
-    if (query.limit !== undefined) {
-      return Page.fromOffset(items, query.offset ?? 0, query.limit);
+  /**
+   * Wrap items into a cursor-based Page using the limit+1 pattern.
+   * Cursor is extracted from the last item in the trimmed page via getCursor.
+   */
+  private toCursorPage<T>(items: T[], limit: number | undefined, getCursor: (item: T) => string): Page<T> {
+    if (limit === undefined) {
+      return Page.from(items, false);
     }
-    return Page.from(items, false);
+    const hasMore = items.length > limit;
+    const pageItems = hasMore ? items.slice(0, limit) : items;
+    const cursor = hasMore && pageItems.length > 0
+      ? getCursor(pageItems[pageItems.length - 1])
+      : undefined;
+    return Page.from(pageItems, hasMore, cursor);
   }
 
   /** Look up a ColumnDef by field name, throwing if not found. */

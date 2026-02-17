@@ -4,7 +4,7 @@
 
 import { describe, test, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { Fields, Query } from "@max/core";
+import { Fields, Query, Projection, PageRequest } from "@max/core";
 import {AcmeUser, AcmeWorkspace, AcmeProject, AcmeSchema} from "@max/connector-acme";
 import { SqliteEngine, SqliteSchema } from "../index.js";
 
@@ -190,6 +190,105 @@ describe("SqliteEngine", () => {
 
       expect(users.items.length).toBe(3);
       expect(users.hasMore).toBe(false);
+    });
+
+    test("query cursor-based pagination", async () => {
+      // First page: limit 2
+      const page1 = await engine.query(
+        Query.from(AcmeUser).limit(2).select("displayName")
+      );
+
+      expect(page1.items.length).toBe(2);
+      expect(page1.hasMore).toBe(true);
+      expect(page1.cursor).toBeDefined();
+
+      // Second page: use cursor from first page
+      const page2 = await engine.query(
+        Query.from(AcmeUser).limit(2).after(page1.cursor!).select("displayName")
+      );
+
+      expect(page2.items.length).toBe(1);
+      expect(page2.hasMore).toBe(false);
+      expect(page2.cursor).toBeUndefined();
+
+      // All three users returned across the two pages, no duplicates
+      const allNames = [
+        ...page1.items.map(i => i.fields.displayName),
+        ...page2.items.map(i => i.fields.displayName),
+      ].sort();
+      expect(allNames).toEqual(["Alice", "Bob", "Charlie"]);
+    });
+
+    test("query cursor with where clause", async () => {
+      const page1 = await engine.query(
+        Query.from(AcmeUser).where("active", "=", true).limit(1).select("displayName")
+      );
+
+      expect(page1.items.length).toBe(1);
+      expect(page1.hasMore).toBe(true);
+
+      const page2 = await engine.query(
+        Query.from(AcmeUser).where("active", "=", true).limit(1).after(page1.cursor!).select("displayName")
+      );
+
+      expect(page2.items.length).toBe(1);
+      expect(page2.hasMore).toBe(false);
+
+      const names = [
+        page1.items[0].fields.displayName,
+        page2.items[0].fields.displayName,
+      ].sort();
+      expect(names).toEqual(["Alice", "Charlie"]);
+    });
+  });
+
+  describe("loadPage", () => {
+    beforeEach(async () => {
+      await engine.store({ ref: AcmeUser.ref("u1"), fields: { displayName: "Alice", email: "a@test.com", role: "admin", active: true } });
+      await engine.store({ ref: AcmeUser.ref("u2"), fields: { displayName: "Bob", email: "b@test.com", role: "member", active: false } });
+      await engine.store({ ref: AcmeUser.ref("u3"), fields: { displayName: "Charlie", email: "c@test.com", role: "admin", active: true } });
+    });
+
+    test("loadPage refs returns all refs", async () => {
+      const page = await engine.loadPage(AcmeUser, Projection.refs);
+
+      expect(page.items.length).toBe(3);
+      expect(page.items.map(r => r.id).sort()).toEqual(["u1", "u2", "u3"]);
+      expect(page.hasMore).toBe(false);
+    });
+
+    test("loadPage refs with cursor pagination", async () => {
+      const page1 = await engine.loadPage(AcmeUser, Projection.refs, PageRequest.begin(2));
+
+      expect(page1.items.length).toBe(2);
+      expect(page1.hasMore).toBe(true);
+      expect(page1.cursor).toBeDefined();
+
+      const page2 = await engine.loadPage(AcmeUser, Projection.refs, PageRequest.at(page1.cursor!, 2));
+
+      expect(page2.items.length).toBe(1);
+      expect(page2.hasMore).toBe(false);
+
+      const allIds = [
+        ...page1.items.map(r => r.id),
+        ...page2.items.map(r => r.id),
+      ].sort();
+      expect(allIds).toEqual(["u1", "u2", "u3"]);
+    });
+
+    test("loadPage selectAll returns all fields", async () => {
+      const page = await engine.loadPage(AcmeUser, Projection.all);
+
+      expect(page.items.length).toBe(3);
+      expect(page.items[0].fields.displayName).toBeDefined();
+      expect(page.items[0].fields.email).toBeDefined();
+    });
+
+    test("loadPage select returns specific fields", async () => {
+      const page = await engine.loadPage(AcmeUser, Projection.select("displayName"));
+
+      expect(page.items.length).toBe(3);
+      expect(page.items[0].fields.displayName).toBeDefined();
     });
   });
 });

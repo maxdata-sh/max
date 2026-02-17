@@ -130,10 +130,9 @@ export class DefaultTaskRunner implements TaskRunner {
     entityDef: EntityDefAny,
     target: { kind: string; entityType: EntityType },
     fields: readonly string[],
-    cursor?: number,
+    cursor?: string,
   ): Promise<TaskRunResult> {
-    const offset = cursor ?? 0;
-    const page = await this.engine.loadPage(entityDef, Projection.refs, PageRequest.at(String(offset), PAGE_SIZE));
+    const page = await this.engine.loadPage(entityDef, Projection.refs, PageRequest.from({ cursor, limit: PAGE_SIZE }));
     if (page.items.length === 0) return {};
 
     // Process this page
@@ -149,7 +148,7 @@ export class DefaultTaskRunner implements TaskRunner {
             refKeys: [],
             loaderName: "" as LoaderName,
             fields,
-            cursor: offset + PAGE_SIZE,
+            cursor: page.cursor,
           },
         }],
       };
@@ -165,10 +164,9 @@ export class DefaultTaskRunner implements TaskRunner {
     entityDef: EntityDefAny,
     target: { kind: string; entityType: EntityType },
     field: string,
-    cursor?: number,
+    cursor?: string,
   ): Promise<TaskRunResult> {
-    const offset = cursor ?? 0;
-    const page = await this.engine.loadPage(entityDef, Projection.refs, PageRequest.at(String(offset), PAGE_SIZE));
+    const page = await this.engine.loadPage(entityDef, Projection.refs, PageRequest.from({ cursor, limit: PAGE_SIZE }));
     if (page.items.length === 0) return {};
 
     const children: TaskChildTemplate[] = [];
@@ -196,7 +194,7 @@ export class DefaultTaskRunner implements TaskRunner {
           refKeys: [],
           loaderName: "" as LoaderName,
           fields: [],
-          cursor: offset + PAGE_SIZE,
+          cursor: page.cursor,
         },
       });
     }

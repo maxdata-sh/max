@@ -48,8 +48,8 @@ export interface LoadFieldsPayload {
   readonly refKeys: readonly RefKey[];
   readonly loaderName: LoaderName;
   readonly fields: readonly string[];
-  /** Offset cursor for ForAll pagination continuations */
-  readonly cursor?: number;
+  /** Cursor (last entity id) for ForAll pagination continuations */
+  readonly cursor?: string;
 }
 
 export interface LoadCollectionPayload {

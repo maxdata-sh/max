@@ -1,20 +1,25 @@
 /**
- * Transport — Uniform message passing. Implementation-agnostic.
+ * Transport — Typed message passing over a persistent connection.
  *
- * The pipe between a parent and a child. What flows through it (the protocol)
- * is level-specific; how it flows (the transport) is deployment-specific.
+ * The pipe between a caller and a single node. One transport per node.
+ * Requests are multiplexed using the `id` field — multiple in-flight
+ * requests share the connection.
+ *
+ * `send` takes a typed RpcRequest. The transport reads the `id` field
+ * for response matching but does NOT interpret the request contents
+ * (target, method, args, scope). It is a dumb pipe that knows the
+ * envelope shape.
  *
  * Implementations:
- *   - InProcessTransport: direct method calls, no serialization
- *   - UnixSocketTransport: JSONL over Unix socket (current daemon model)
+ *   - LoopbackTransport: test utility, dispatches in-memory
+ *   - SubprocessTransportClient: JSONL over Unix socket
  *   - HttpTransport: HTTP to a remote server
  *   - DockerTransport: mapped port or socket to a container
- *
- * Type safety comes from the protocol layer that wraps the transport.
- * The transport itself is an untyped pipe — this is intentional, as it
- * must work uniformly across all deployment strategies.
  */
 
+import type { RpcRequest } from "./rpc.js"
+
 export interface Transport {
-  send(message: unknown): Promise<unknown>
+  send(request: RpcRequest): Promise<unknown>
+  close(): Promise<void>
 }

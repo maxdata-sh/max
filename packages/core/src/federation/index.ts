@@ -25,3 +25,7 @@ export type { ProviderKind, NodeProvider } from "./node-provider.js"
 
 // Supervisor + AggregateHealthStatus
 export type { AggregateHealthStatus, Supervisor } from "./supervisor.js"
+
+// RPC wire protocol
+export { RpcResponse } from "./rpc.js"
+export type { RpcRequest, ScopeRouting } from "./rpc.js"

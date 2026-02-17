@@ -11,7 +11,7 @@
 
 import {StaticTypeCompanion} from "./companion.js";
 import {UnionToIntersection} from "./type-system-utils.js";
-import {inspect, Inspect} from "./inspect.js";
+import {Inspect} from "./inspect.js";
 import util from "node-inspect-extracted";
 
 // ============================================================================
@@ -458,4 +458,77 @@ export const MaxError = StaticTypeCompanion({
   wrap(err: unknown): MaxError {
     return asMaxError(err);
   },
+
+  /**
+   * Serialize any error for transmission over the wire.
+   *
+   * MaxErrors preserve code, domain (as boundary), facetNames, data, and cause chain.
+   * Plain Errors become { message }.
+   */
+  serialize(err: unknown): SerializedError {
+    if (err instanceof MaxErrorImpl) {
+      const serialized: SerializedError = {
+        message: err.message,
+        code: err.code,
+        boundary: err.domain,
+        facets: [...err.facetNames],
+        data: { ...err.data },
+      };
+      if (err.cause) {
+        (serialized as any).cause = MaxError.serialize(err.cause);
+      }
+      return serialized;
+    }
+    if (err instanceof Error) {
+      return { message: err.message };
+    }
+    return { message: String(err) };
+  },
+
+  /**
+   * Reconstitute a MaxError from serialized wire data.
+   *
+   * The reconstituted error supports all standard catch axes:
+   * - MaxError.has(err, NotFound) → true (if original had NotFound facet)
+   * - SomeBoundary.is(err) → true (if original was from that boundary)
+   * - err.code → preserved
+   */
+  reconstitute(err: SerializedError): MaxError {
+    const cause = err.cause ? MaxError.reconstitute(err.cause) : undefined;
+    const code = err.code ?? "unknown";
+    const domain = err.boundary ?? "unknown";
+    const facetNames = Object.freeze(new Set(err.facets ?? []));
+    const data = err.data ?? {};
+    return new MaxErrorImpl(
+      code,
+      domain,
+      err.message,
+      facetNames,
+      data,
+      undefined,
+      cause as MaxErrorImpl | undefined,
+    ) as MaxError;
+  },
 });
+
+
+// ============================================================================
+// SerializedError
+// ============================================================================
+
+/**
+ * MaxErrors cross the wire with structure preserved.
+ *
+ * On the receiver side: MaxError instances are serialized via MaxError.serialize().
+ * On the caller side: SerializedError is reconstituted via MaxError.reconstitute(),
+ * producing a MaxError with the same boundary, facets, and data. This means
+ * MaxError.has(err, NotFound) and SomeBoundary.is(err) work across process boundaries.
+ */
+export interface SerializedError {
+  readonly message: string
+  readonly code?: string
+  readonly boundary?: string
+  readonly facets?: string[]
+  readonly data?: Record<string, unknown>
+  readonly cause?: SerializedError
+}

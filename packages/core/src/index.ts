@@ -146,7 +146,7 @@ export type { FlowController, FlowToken, OperationKind } from "./flow-controller
 
 // Error system (MaxError and ErrFacet are both type and value)
 export { MaxError, ErrFacet } from "./max-error.js";
-export type { ErrMarkerFacet, ErrDataFacet, ErrFacetAny, ErrProps, InferPropsData, FacetProps, MergeFacetProps, ErrorDef, ErrorBoundary, MaxErrorJSON } from "./max-error.js";
+export type { ErrMarkerFacet, ErrDataFacet, ErrFacetAny, ErrProps, InferPropsData, FacetProps, MergeFacetProps, ErrorDef, ErrorBoundary, MaxErrorJSON, SerializedError } from "./max-error.js";
 
 // Standard facets and error definitions
 export * from "./errors/errors.js";
@@ -162,7 +162,7 @@ export { LifecycleManager } from "./lifecycle.js";
 export type { Lifecycle, LifecycleMethods, LifecycleStep } from "./lifecycle.js";
 
 // Federation — level-agnostic infrastructure abstractions
-export { HealthStatus, StartResult, StopResult } from "./federation/index.js";
+export { HealthStatus, StartResult, StopResult, RpcResponse } from "./federation/index.js";
 export type {
   HealthStatusKind,
   StartOutcome,
@@ -174,6 +174,9 @@ export type {
   NodeProvider,
   AggregateHealthStatus,
   Supervisor,
+  RpcRequest,
+  ScopeRouting,
+
 } from "./federation/index.js";
 
 // Utilities

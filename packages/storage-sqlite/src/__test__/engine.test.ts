@@ -4,7 +4,7 @@
 
 import { describe, test, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { Fields, Query, Projection, PageRequest } from "@max/core";
+import { Fields, Query, Projection, PageRequest, RefKey } from "@max/core";
 import {AcmeUser, AcmeWorkspace, AcmeProject, AcmeSchema} from "@max/connector-acme";
 import { SqliteEngine, SqliteSchema } from "../index.js";
 
@@ -192,7 +192,7 @@ describe("SqliteEngine", () => {
       expect(users.hasMore).toBe(false);
     });
 
-    test("query cursor-based pagination", async () => {
+    test("query cursor-based pagination with RefKey cursors", async () => {
       // First page: limit 2
       const page1 = await engine.query(
         Query.from(AcmeUser).limit(2).select("displayName")
@@ -201,6 +201,11 @@ describe("SqliteEngine", () => {
       expect(page1.items.length).toBe(2);
       expect(page1.hasMore).toBe(true);
       expect(page1.cursor).toBeDefined();
+
+      // Cursor should be a valid RefKey
+      const parsed = RefKey.parse(page1.cursor! as any);
+      expect(parsed.entityType).toBe("AcmeUser");
+      expect(parsed.entityId).toBeDefined();
 
       // Second page: use cursor from first page
       const page2 = await engine.query(
@@ -257,12 +262,16 @@ describe("SqliteEngine", () => {
       expect(page.hasMore).toBe(false);
     });
 
-    test("loadPage refs with cursor pagination", async () => {
+    test("loadPage refs with cursor pagination (RefKey cursors)", async () => {
       const page1 = await engine.loadPage(AcmeUser, Projection.refs, PageRequest.begin(2));
 
       expect(page1.items.length).toBe(2);
       expect(page1.hasMore).toBe(true);
       expect(page1.cursor).toBeDefined();
+
+      // Cursor should be a valid RefKey
+      const parsed = RefKey.parse(page1.cursor! as any);
+      expect(parsed.entityType).toBe("AcmeUser");
 
       const page2 = await engine.loadPage(AcmeUser, Projection.refs, PageRequest.at(page1.cursor!, 2));
 

@@ -25,7 +25,8 @@ import {
   type SelectProjection,
   type RefsProjection,
   type AllProjection,
-  type EntityFieldsOf
+  type EntityFieldsOf,
+  RefKey,
 } from '@max/core'
 import { SqliteSchema } from "./schema.js";
 import type { TableDef, ColumnDef } from "./table-def.js";
@@ -202,8 +203,9 @@ export class SqliteEngine implements Engine<InstallationScope> {
     const params: SQLQueryBindings[] = [];
 
     if (r.cursor) {
+      const parsed = RefKey.parse(r.cursor as RefKey);
       sql += ` WHERE id > ?`;
-      params.push(r.cursor);
+      params.push(parsed.entityId);
     }
 
     sql += ` ORDER BY id ASC LIMIT ${r.fetchSize}`;
@@ -212,7 +214,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
     switch (projection.kind) {
       case "refs": {
         const items = rows.map(row => Ref.installation(def, row.id as EntityId));
-        return this.toCursorPage(items, r.limit, ref => ref.id);
+        return this.toCursorPage(items, r.limit, ref => ref.toKey() as string);
       }
       case "select":
       case "all": {
@@ -224,7 +226,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
           }
           return EntityResult.from(ref, data as any);
         });
-        return this.toCursorPage(items, r.limit, result => result.ref.id);
+        return this.toCursorPage(items, r.limit, result => result.ref.toKey() as string);
       }
     }
   }
@@ -278,7 +280,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
         const items = rows.map(row =>
           Ref.installation(query.def, row.id as EntityId)
         );
-        return this.toCursorPage(items, query.limit, ref => ref.id);
+        return this.toCursorPage(items, query.limit, ref => ref.toKey() as string);
       }
       case "select": // fallthrough
       case "all": {
@@ -290,7 +292,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
           }
           return EntityResult.from(ref, data as EntityFieldsOf<E, string>)
         });
-        return this.toCursorPage(items, query.limit, result => result.ref.id);
+        return this.toCursorPage(items, query.limit, result => result.ref.toKey() as string);
       }
     }
   }
@@ -316,9 +318,10 @@ export class SqliteEngine implements Engine<InstallationScope> {
       conditions.push(`${col.columnName} ${sqlOp} ?`);
     }
 
-    // Cursor-based pagination: WHERE id > cursor
+    // Cursor-based pagination: WHERE id > cursor (cursor is a RefKey)
     if (query.cursor) {
-      params.push(query.cursor);
+      const parsed = RefKey.parse(query.cursor as RefKey);
+      params.push(parsed.entityId);
       conditions.push(`id > ?`);
     }
 

@@ -52,6 +52,12 @@ export interface Engine<TScope extends Scope = Scope> extends Lifecycle {
 
   /**
    * Load a page of entities by type, with projection controlling the output shape.
+   * Cursors are RefKey strings.
+   *
+   * FIXME: introduce a scope-aware page type (generalized MaxPage) that can hold
+   * both Refs and EntityResults and knows how to upgradeScope. Currently returns
+   * plain Page with RefKey cursors; consumers use MaxPage.fromPage() when they
+   * need scope upgrading.
    */
   loadPage<E extends EntityDefAny>(
     def: E,

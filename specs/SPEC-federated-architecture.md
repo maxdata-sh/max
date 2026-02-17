@@ -143,7 +143,7 @@ NodeHandle<R extends Supervised> {
 
 `R extends Supervised` — the Supervisor can call `health()`, `start()`, `stop()` on any handle via `handle.protocol`. The `R` also carries the level-specific protocol (InstallationProtocol, WorkspaceProtocol), so the orchestrator can call `handle.protocol.sync()`, etc.
 
-`providerKind` is a **metadata tag** set by the ChildProvider at creation time. The Supervisor never branches on it — but it can include it in health reports, logs, status output, and diagnostics. It answers "what kind of handle is this?" without leaking deployment behavior into the abstraction.
+`providerKind` is a **metadata tag** set by the NodeProvider at creation time. The Supervisor never branches on it — but it can include it in health reports, logs, status output, and diagnostics. It answers "what kind of handle is this?" without leaking deployment behavior into the abstraction.
 
 **How transport is hidden**: the `protocol` field is either the real implementation (InProcess) or a proxy that internally serializes calls over a wire protocol (Fs/Docker/Remote). The caller cannot tell the difference — it just calls typed methods.
 
@@ -155,12 +155,12 @@ Remote:     handle.protocol.sync() → [serialize → HTTP → deserialize] → 
 
 Transport (Unix sockets, HTTP, etc.) is an **internal implementation detail** of the proxy, not a public abstraction. Each provider package owns both the client proxy and the server dispatcher for its transport type — they're co-located because they must agree on the wire format. See section 7 (Provider Packages) for details.
 
-### 3.4 ChildProvider\<R extends Supervised\>
+### 3.4 NodeProvider\<R extends Supervised\>
 
 Factory + type-specific supervisor for one deployment strategy. Each provider knows how to create or connect to children of one hosting type, and how to supervise them using type-appropriate mechanisms.
 
 ```
-ChildProvider<R extends Supervised> {
+NodeProvider<R extends Supervised> {
   kind: ProviderKind                          // "fs", "remote", "docker", "in-process"
   create(config): NodeHandle<R>              // spawn a new child
   connect(location): NodeHandle<R>           // bind to an existing child
@@ -169,16 +169,16 @@ ChildProvider<R extends Supervised> {
 ```
 
 Examples:
-- **FsChildProvider** — spawns local Bun processes. Returns handles whose `protocol` is a proxy that serializes calls over Unix sockets
-- **RemoteChildProvider** — connects to a URL. Returns handles whose `protocol` is a proxy that serializes calls over HTTP
-- **DockerChildProvider** — spawns containers. Returns handles whose `protocol` is a proxy that serializes calls over mapped ports
-- **InProcessChildProvider** — instantiates in same process. Returns handles whose `protocol` is the real implementation directly (no proxy, no serialization)
+- **FsNodeProvider** — spawns local Bun processes. Returns handles whose `protocol` is a proxy that serializes calls over Unix sockets
+- **RemoteNodeProvider** — connects to a URL. Returns handles whose `protocol` is a proxy that serializes calls over HTTP
+- **DockerNodeProvider** — spawns containers. Returns handles whose `protocol` is a proxy that serializes calls over mapped ports
+- **InProcessNodeProvider** — instantiates in same process. Returns handles whose `protocol` is the real implementation directly (no proxy, no serialization)
 
-Providers are **pluggable** — the parent registers providers by target type. Adding a new deployment strategy (e.g., DockerChildProvider) doesn't require modifying the parent.
+Providers are **pluggable** — the parent registers providers by target type. Adding a new deployment strategy (e.g., DockerNodeProvider) doesn't require modifying the parent.
 
 ### 3.5 Supervisor\<R extends Supervised\>
 
-Aggregates across ChildProviders. Provides a unified view of all children regardless of hosting type.
+Aggregates across NodeProviders. Provides a unified view of all children regardless of hosting type.
 
 ```
 Supervisor<R extends Supervised> {
@@ -190,15 +190,15 @@ Supervisor<R extends Supervised> {
 }
 ```
 
-A workspace with 2 local installations and 1 remote installation has one Supervisor that aggregates across an FsChildProvider (2 handles) and a RemoteProvider (1 handle). `list()` returns all 3. `health()` checks all 3.
+A workspace with 2 local installations and 1 remote installation has one Supervisor that aggregates across an FsNodeProvider (2 handles) and a RemoteProvider (1 handle). `list()` returns all 3. `health()` checks all 3.
 
 The Supervisor does **not** know about deployment details. It works purely with NodeHandles. It can however report `providerKind` in diagnostics — e.g., "2 fs handles, 1 remote handle."
 
-### 3.6 Supervisor ↔ ChildProvider relationship
+### 3.6 Supervisor ↔ NodeProvider relationship
 
 These are **peers**, not a hierarchy. A level-specific orchestrator (e.g., WorkspaceMax) owns both and coordinates between them:
 
-1. **Creating a child**: orchestrator picks the right ChildProvider based on target type → calls `provider.create(config)` → gets a NodeHandle → registers it with the Supervisor
+1. **Creating a child**: orchestrator picks the right NodeProvider based on target type → calls `provider.create(config)` → gets a NodeHandle → registers it with the Supervisor
 2. **Listing children**: Supervisor aggregates across all providers via `list()`
 3. **Lifecycle**: Supervisor delegates `start()`/`stop()` to each handle via `handle.protocol` — the protocol is either the real implementation or a proxy, both of which know how to execute lifecycle for their deployment type
 
@@ -349,21 +349,21 @@ GlobalMax
   = Supervisor<WorkspaceHandle>
   + GlobalProtocol
   + Engine<GlobalScope>
-  + ChildProviders for workspaces
+  + NodeProviders for workspaces
   + Scope upgrade via ScopeUpgradeable at Workspace→Global boundary
 
 WorkspaceMax
   = Supervisor<InstallationHandle>
   + WorkspaceProtocol
   + Engine<WorkspaceScope>
-  + ChildProviders for installations: [FsChildProvider, RemoteChildProvider, InProcessChildProvider, ...]
+  + NodeProviders for installations: [FsNodeProvider, RemoteNodeProvider, InProcessNodeProvider, ...]
   + Scope upgrade via ScopeUpgradeable at Installation→Workspace boundary
 
 InstallationMax
   = InstallationProtocol
   + Engine<LocalScope>
   + SyncExecutor + ConnectorContext + TaskStore + SyncMeta
-  (leaf — no Supervisor, no scope upgrade, no ChildProviders)
+  (leaf — no Supervisor, no scope upgrade, no NodeProviders)
 ```
 
 ---
@@ -394,27 +394,27 @@ Every deployment strategy can host either level. A provider package exports prov
 
 ### 7.2 Package structure
 
-Each deployment strategy is its own package. The package exports level-specific ChildProvider implementations that share internal deployment mechanics.
+Each deployment strategy is its own package. The package exports level-specific NodeProvider implementations that share internal deployment mechanics.
 
 ```
 @max/provider-fs
-  ├── FsInstallationChildProvider    — spawns a Bun process running InstallationMax
-  ├── FsWorkspaceChildProvider       — spawns a Bun process running WorkspaceMax
+  ├── FsInstallationNodeProvider    — spawns a Bun process running InstallationMax
+  ├── FsWorkspaceNodeProvider       — spawns a Bun process running WorkspaceMax
   └── (shared) FsProcessSupervisor   — PID management, Unix socket transport, process signals
 
 @max/provider-docker
-  ├── DockerInstallationChildProvider
-  ├── DockerWorkspaceChildProvider
+  ├── DockerInstallationNodeProvider
+  ├── DockerWorkspaceNodeProvider
   └── (shared) DockerContainerSupervisor
 
 @max/provider-remote
-  ├── RemoteInstallationChildProvider
-  ├── RemoteWorkspaceChildProvider
+  ├── RemoteInstallationNodeProvider
+  ├── RemoteWorkspaceNodeProvider
   └── (shared) RemoteHttpSupervisor
 
 @max/provider-inprocess
-  ├── InProcessInstallationChildProvider
-  ├── InProcessWorkspaceChildProvider
+  ├── InProcessInstallationNodeProvider
+  ├── InProcessWorkspaceNodeProvider
   └── (shared) — minimal; direct instantiation
 ```
 
@@ -426,7 +426,7 @@ For a given deployment strategy, hosting an installation vs a workspace differs 
 
 - **Entrypoint / image**: the child process runs a different Max "mode" (installation-level vs workspace-level)
 - **Protocol**: what messages the child accepts (InstallationProtocol vs WorkspaceProtocol)
-- **Internal composition**: a workspace child itself has a Supervisor + ChildProviders; an installation child is a leaf
+- **Internal composition**: a workspace child itself has a Supervisor + NodeProviders; an installation child is a leaf
 
 The deployment mechanics (process spawn, health ping, transport) are identical. This is why the shared layer exists within each provider package.
 
@@ -442,9 +442,9 @@ Not all combinations need to exist immediately. The initial implementation cover
 | @max/provider-remote | later | later | When pointing at pre-existing remote Max nodes is needed |
 
 **Current codebase mapping**:
-- The existing project daemon (Rust shim → Bun process with Unix socket) is a proto **FsWorkspaceChildProvider**. It spawns one Bun process per workspace that stays alive for fast access (autocomplete, warm runtimes)
+- The existing project daemon (Rust shim → Bun process with Unix socket) is a proto **FsWorkspaceNodeProvider**. It spawns one Bun process per workspace that stays alive for fast access (autocomplete, warm runtimes)
 - There is **no** Fs installation provider today — all installations run in-process within the workspace daemon
-- The existing `InstallationRuntimeImpl.create()` is a proto **InProcessInstallationChildProvider**
+- The existing `InstallationRuntimeImpl.create()` is a proto **InProcessInstallationNodeProvider**
 
 ### 7.5 Fs workspace provider — why it's day one
 
@@ -455,7 +455,7 @@ The Fs workspace provider is what the current daemon model already does: a long-
 - **Runtime caching**: installation runtimes stay initialized between commands
 - **Isolation**: workspace crashes don't affect the CLI or other workspaces
 
-The daemon is just an FsWorkspaceChildProvider that the global level uses. Reframing it this way makes the current architecture a natural instance of the provider model.
+The daemon is just an FsWorkspaceNodeProvider that the global level uses. Reframing it this way makes the current architecture a natural instance of the provider model.
 
 ### 7.6 InProcess provider — keeping the model uniform
 
@@ -476,10 +476,10 @@ Every child exposes `start()`, `stop()`, and `health()` — regardless of deploy
 
 | Provisioning | start() | stop() | health() |
 |---|---|---|---|
-| Local process (FsChildProvider) | spawn Bun process | SIGTERM | PID liveness check |
-| Docker (DockerChildProvider) | docker start | docker stop | container status API |
-| Remote (RemoteChildProvider) | send start command over transport | send stop command over transport | HTTP health ping |
-| In-process (InProcessChildProvider) | initialize runtime | tear down runtime | always healthy |
+| Local process (FsNodeProvider) | spawn Bun process | SIGTERM | PID liveness check |
+| Docker (DockerNodeProvider) | docker start | docker stop | container status API |
+| Remote (RemoteNodeProvider) | send start command over transport | send stop command over transport | HTTP health ping |
+| In-process (InProcessNodeProvider) | initialize runtime | tear down runtime | always healthy |
 
 For remote children: the remote *server* is always alive. `start()`/`stop()` operate on the *installation within* the server — initializing connectors, opening DBs, etc. The server executes these on behalf of the installation.
 
@@ -505,17 +505,17 @@ What exists today and what it corresponds to in this spec.
 | WorkspaceMax | MaxProjectApp | Proto-workspace. Holds Map\<InstallationId, Runtime\>. No Supervisor abstraction |
 | InstallationMax | InstallationRuntimeImpl | Proto-installation. Composition root wires SQLite components |
 | Supervisor | (none) | Not yet abstracted. MaxProjectApp does ad-hoc supervision |
-| ChildProvider | (none) | Not yet abstracted. FsProjectManager + FsProjectDaemonManager partially cover FsChildProvider |
+| NodeProvider | (none) | Not yet abstracted. FsProjectManager + FsProjectDaemonManager partially cover FsNodeProvider |
 | NodeHandle | (none) | InstallationRuntime is used directly, not through a handle |
 | Scope upgrade (ScopeUpgradeable) | ScopeUpgradeable (partial) | Mechanism exists in type system. Not yet applied at runtime boundaries. No standalone ScopeBoundary abstraction — upgrade is called by the parent, cascade is handled by the types |
 | Transport (internal to providers) | Unix socket server (partial) | Exists for CLI→daemon. Not a public abstraction — will be encapsulated inside provider packages |
 | Engine\<TScope\> | Engine (unparameterized) | Interface exists. Not scope-parameterized. Only SqliteEngine impl |
 | WorkspaceProtocol | MaxProjectApp methods | Ad-hoc. No formal protocol |
 | InstallationProtocol | InstallationRuntime interface | Close — has sync(), engine. Missing search, schema, onboard |
-| FsWorkspaceChildProvider | ProjectDaemonManager (newly extracted) | Proto-version. Current daemon model: spawns Bun process per workspace, Unix socket, PID management |
-| FsInstallationChildProvider | (none) | Not yet implemented. All installations run in-process within the workspace daemon |
-| InProcessInstallationChildProvider | InstallationRuntimeImpl.create() | Proto-version. Wires SQLite components in-process |
-| ProjectManager interface | ProjectManager | Installation CRUD. Migrates into ChildProvider.create/connect |
+| FsWorkspaceNodeProvider | ProjectDaemonManager (newly extracted) | Proto-version. Current daemon model: spawns Bun process per workspace, Unix socket, PID management |
+| FsInstallationNodeProvider | (none) | Not yet implemented. All installations run in-process within the workspace daemon |
+| InProcessInstallationNodeProvider | InstallationRuntimeImpl.create() | Proto-version. Wires SQLite components in-process |
+| ProjectManager interface | ProjectManager | Installation CRUD. Migrates into NodeProvider.create/connect |
 | ScopedInstallationHandle | (none) | No proxy layer. Results are LocalScope only |
 
 ---
@@ -548,11 +548,11 @@ Summary of decisions made during this design and their rationale.
 
 **Rationale**: Makes children portable — the same installation can be bound into multiple workspaces with different IDs. Follows the container orchestration model (containers don't know their service name).
 
-### 10.5 ChildProvider as pluggable deployment strategy
+### 10.5 NodeProvider as pluggable deployment strategy
 
-**Decision**: ChildProviders are registered by target type, not hardcoded. Each provider is both factory and type-specific supervision delegate. Named with `ChildProvider` suffix (e.g., `FsChildProvider`) to disambiguate from other "provider" concepts.
+**Decision**: NodeProviders are registered by target type, not hardcoded. Each provider is both factory and type-specific supervision delegate. Named with `NodeProvider` suffix (e.g., `FsNodeProvider`) to disambiguate from other "provider" concepts.
 
-**Rationale**: Adding a new deployment type (Docker, cloud) shouldn't require modifying the workspace or its Supervisor. Providers encapsulate deployment-specific concerns (PID files, HTTP pings, container APIs). Supervisor and ChildProvider are peers coordinated by the level-specific orchestrator — neither knows about the other.
+**Rationale**: Adding a new deployment type (Docker, cloud) shouldn't require modifying the workspace or its Supervisor. Providers encapsulate deployment-specific concerns (PID files, HTTP pings, container APIs). Supervisor and NodeProvider are peers coordinated by the level-specific orchestrator — neither knows about the other.
 
 ### 10.6 Scope upgrade: parent initiates, thing cascades
 
@@ -568,7 +568,7 @@ Summary of decisions made during this design and their rationale.
 
 ### 10.8 Provider packages are deployment-strategy-scoped, not level-scoped
 
-**Decision**: Each provider package (`@max/provider-fs`, `@max/provider-docker`, etc.) encapsulates one deployment strategy and exports ChildProviders for multiple levels (installation, workspace). Packages are not per-level.
+**Decision**: Each provider package (`@max/provider-fs`, `@max/provider-docker`, etc.) encapsulates one deployment strategy and exports NodeProviders for multiple levels (installation, workspace). Packages are not per-level.
 
 **Rationale**: The deployment mechanics (process spawn, container lifecycle, HTTP health) are identical regardless of what level is running inside. A `@max/provider-docker` package shares Docker supervision logic between its installation and workspace providers. Splitting by level would duplicate deployment mechanics across packages. Splitting by strategy keeps deployment concerns cohesive and level concerns separate.
 

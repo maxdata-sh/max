@@ -126,11 +126,11 @@ describe("RefKey", () => {
 
   describe("isValid", () => {
     test("returns true for valid installation key", () => {
-      expect(RefKey.isValid("installation:User:u1")).toBe(true);
+      expect(RefKey.isValid("ein:User:u1")).toBe(true);
     });
 
-    test("returns true for valid system key", () => {
-      expect(RefKey.isValid("system:inst:User:u1")).toBe(true);
+    test("returns true for valid workspace key", () => {
+      expect(RefKey.isValid("ews:inst:User:u1")).toBe(true);
     });
 
     test("returns false for garbage", () => {

@@ -33,7 +33,7 @@ function createFakeInstallation(id: InstallationId): InstallationClient {
   }
 
   return {
-    schema: { entities: [], root: "Test" } as any as Schema,
+    async schema(){ return { entities: [], root: "Test" } as any as Schema },
     engine: fakeEngine,
     async sync() {
       return {

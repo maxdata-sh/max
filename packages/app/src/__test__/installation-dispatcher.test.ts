@@ -46,7 +46,7 @@ function createFakeInstallation(): {
   }
 
   const client: InstallationClient = {
-    schema: { entities: [], root: "Test" } as any as Schema,
+    async schema(){ return { entities: [], root: "Test" } as any as Schema },
     engine: fakeEngine,
     async sync() { calls.push("sync"); return fakeSyncHandle },
     async health() { calls.push("health"); return HealthStatus.healthy() },

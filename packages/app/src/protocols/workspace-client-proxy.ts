@@ -1,0 +1,68 @@
+/**
+ * WorkspaceClientProxy — Caller-side proxy for WorkspaceClient.
+ *
+ * Composes SupervisedProxy for lifecycle methods. Workspace-specific methods
+ * (listInstallations, createInstallation, removeInstallation) are direct RPCs.
+ *
+ * installation(id) returns an InstallationClientProxy wrapped in a
+ * ScopedTransport that adds { installationId: id } to every request.
+ */
+
+import {
+  SupervisedProxy,
+  type Transport,
+  type RpcRequest,
+  type InstallationId,
+  type HealthStatus,
+  type StartResult,
+  type StopResult,
+} from "@max/core"
+import type { InstallationInfo } from "../project-manager/types.js"
+import type { InstallationClient } from "./installation-client.js"
+import type { CreateInstallationConfig, WorkspaceClient } from "./workspace-client.js"
+import { InstallationClientProxy } from "./installation-client-proxy.js"
+import { ScopedTransport } from "./scoped-transport.js"
+
+export class WorkspaceClientProxy implements WorkspaceClient {
+  private readonly supervised: SupervisedProxy
+
+  constructor(private readonly transport: Transport) {
+    this.supervised = new SupervisedProxy(transport)
+  }
+
+  health(): Promise<HealthStatus> {
+    return this.supervised.health()
+  }
+
+  start(): Promise<StartResult> {
+    return this.supervised.start()
+  }
+
+  stop(): Promise<StopResult> {
+    return this.supervised.stop()
+  }
+
+  async listInstallations(): Promise<InstallationInfo[]> {
+    return this.rpc("listInstallations")
+  }
+
+  installation(id: InstallationId): InstallationClient | undefined {
+    // Returns a proxy routed through this workspace's transport.
+    // Every request from this proxy carries scope.installationId.
+    const scopedTransport = new ScopedTransport(this.transport, { installationId: id })
+    return new InstallationClientProxy(scopedTransport)
+  }
+
+  async createInstallation(config: CreateInstallationConfig): Promise<InstallationId> {
+    return this.rpc("createInstallation", config)
+  }
+
+  async removeInstallation(id: InstallationId): Promise<void> {
+    return this.rpc("removeInstallation", id)
+  }
+
+  private rpc(method: string, ...args: unknown[]): Promise<any> {
+    const request: RpcRequest = { id: crypto.randomUUID(), target: "", method, args }
+    return this.transport.send(request)
+  }
+}

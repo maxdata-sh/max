@@ -18,21 +18,22 @@ export class EngineHandler<TScope extends Scope = Scope> {
   constructor(private readonly engine: Engine<TScope>) {}
 
   dispatch(method: string, args: readonly unknown[]): Promise<unknown> {
+
     switch (method) {
-      case "load":
+      case 'load':
         return this.engine.load(args[0] as any, args[1] as any)
-      case "loadField":
+      case 'loadField':
         return this.engine.loadField(args[0] as any, args[1] as any)
-      case "loadCollection":
-        return this.engine.loadCollection(args[0] as any, args[1] as any, args[2] as any)
-      case "store":
+      case 'loadCollection':
+        return this.engine.loadCollection<any,any>(args[0] as any, args[1] as any, args[2] as any)
+      case 'store':
         return this.engine.store(args[0] as any)
-      case "loadPage":
+      case 'loadPage':
         return this.engine.loadPage(args[0] as any, args[1] as any, args[2] as any)
-      case "query":
+      case 'query':
         return this.engine.query(args[0] as any)
       default:
-        throw ErrUnknownMethod.create({ target: "engine", method })
+        throw ErrUnknownMethod.create({ target: 'engine', method })
     }
   }
 }

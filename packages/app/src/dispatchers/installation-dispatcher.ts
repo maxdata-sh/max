@@ -20,7 +20,8 @@ import {
   ErrSyncHandleNotFound,
   type RpcRequest,
   type InstallationScope,
-} from "@max/core"
+  ErrNotImplemented,
+} from '@max/core'
 import type { SyncHandle, SyncId } from "@max/execution"
 import type { InstallationClient } from "../protocols/installation-client.js"
 
@@ -66,7 +67,7 @@ export class InstallationDispatcher {
 
       // Schema (property access)
       case "schema":
-        return Promise.resolve(this.node.schema)
+        return this.node.schema()
 
       // Sync — returns handle data, registers server-side handle
       case "sync":

@@ -9,3 +9,9 @@
 export type { InstallationClient } from "./installation-client.js"
 export type { WorkspaceClient, CreateInstallationConfig } from "./workspace-client.js"
 export type { GlobalClient } from "./global-client.js"
+
+// Client proxies
+export { InstallationClientProxy } from "./installation-client-proxy.js"
+export { WorkspaceClientProxy } from "./workspace-client-proxy.js"
+export { RemoteSyncHandle } from "./remote-sync-handle.js"
+export { ScopedTransport } from "./scoped-transport.js"

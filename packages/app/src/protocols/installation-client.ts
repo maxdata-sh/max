@@ -12,8 +12,8 @@ import type { Engine, InstallationScope, Schema, Supervised } from "@max/core"
 import type { SyncHandle } from "@max/execution"
 
 export interface InstallationClient extends Supervised {
-  /** The connector's entity schema. Static after initialization. */
-  readonly schema: Schema
+  /** The connector's entity schema. Can be cached after first retrieval */
+  schema(): Promise<Schema>
 
   /** Query engine for this installation's data. */
   readonly engine: Engine<InstallationScope>

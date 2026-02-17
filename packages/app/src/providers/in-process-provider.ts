@@ -31,13 +31,23 @@ import { WorkspaceMax } from "../federation/workspace-max.js"
 // ============================================================================
 
 /**
- * Stub transport for in-process children. Not used — callers access
- * handle.supervised directly for zero-overhead method calls.
+ * Callback-based transport for in-process children.
+ *
+ * The "message" is the operation itself — a callback that receives the target
+ * instance and returns the result. The transport just applies it.
+ *
+ *   await transport.send((target: InstallationProtocol) => target.sync())
+ *
+ * This keeps the abstraction clean: callers can use either handle.supervised
+ * (direct) or handle.transport.send (uniform) — both work, both reach the
+ * same instance, neither throws.
  */
-const InProcessTransport: Transport = {
-  async send(): Promise<unknown> {
-    throw new Error("InProcess: use handle.supervised directly, not transport")
-  },
+function inProcessTransport<T>(target: T): Transport {
+  return {
+    async send(message: unknown): Promise<unknown> {
+      return (message as (t: T) => unknown)(target)
+    },
+  }
 }
 
 const PROVIDER_KIND: ProviderKind = "in-process"
@@ -73,7 +83,7 @@ export class InProcessInstallationProvider
       id: runtime.info.id,
       providerKind: PROVIDER_KIND,
       supervised: runtime,
-      transport: InProcessTransport,
+      transport: inProcessTransport(runtime),
     }
 
     this.handles.set(handle.id, handle)
@@ -112,7 +122,7 @@ export class InProcessWorkspaceProvider
       id,
       providerKind: PROVIDER_KIND,
       supervised: workspace,
-      transport: InProcessTransport,
+      transport: inProcessTransport(workspace),
     }
 
     this.handles.set(id, handle)

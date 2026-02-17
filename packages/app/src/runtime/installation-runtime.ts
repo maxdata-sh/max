@@ -67,7 +67,7 @@ export class InstallationRuntimeImpl implements InstallationRuntime, Installatio
     return this.config.managed;
   }
 
-  get schema(): Schema {
+  async schema(): Promise<Schema> {
     return this.config.schema;
   }
 

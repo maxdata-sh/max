@@ -35,6 +35,9 @@ export type {
   SyncRegistry,
 } from "./sync-handle.js";
 
+// FIXME: we should pull this into @max/execution
+export { SyncPlan } from '@max/core'
+
 // Registry
 export type { ExecutionRegistry } from "./registry.js";
 

@@ -1,18 +1,18 @@
 /**
- * ChildProvider — Factory + type-specific supervisor for one deployment strategy.
+ * NodeProvider — Factory + type-specific supervisor for one deployment strategy.
  *
  * Each provider knows how to create or connect to children of one hosting type,
  * and how to supervise them using type-appropriate mechanisms.
  *
  * Providers are pluggable — the parent registers providers by target type.
- * Adding a new deployment strategy (e.g., DockerChildProvider) doesn't require
+ * Adding a new deployment strategy (e.g., DockerNodeProvider) doesn't require
  * modifying the parent or its Supervisor.
  *
  * Examples:
- *   - FsChildProvider: spawns local Bun processes, PID files, Unix sockets
- *   - RemoteChildProvider: connects to a URL, HTTP health, HTTP transport
- *   - DockerChildProvider: spawns containers, Docker API, mapped ports
- *   - InProcessChildProvider: instantiates in same process, no overhead
+ *   - FsNodeProvider: spawns local Bun processes, PID files, Unix sockets
+ *   - RemoteNodeProvider: connects to a URL, HTTP health, HTTP transport
+ *   - DockerNodeProvider: spawns containers, Docker API, mapped ports
+ *   - InProcessNodeProvider: instantiates in same process, no overhead
  *
  * @typeParam R - The supervised interface children expose
  * @typeParam TId - Parent-assigned identity type
@@ -30,7 +30,7 @@ import type { NodeHandle } from "./node-handle.js"
  */
 export type ProviderKind = Id<"provider-kind">
 
-export interface ChildProvider<R extends Supervised, TId extends string = string> {
+export interface NodeProvider<R extends Supervised, TId extends string = string> {
   readonly kind: ProviderKind
 
   /** Spawn or provision a new child. */

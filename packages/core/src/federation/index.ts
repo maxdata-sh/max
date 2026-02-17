@@ -21,7 +21,7 @@ export type { Transport } from "./transport.js"
 export type { NodeHandle } from "./node-handle.js"
 
 // ChildProvider + ProviderKind
-export type { ProviderKind, ChildProvider } from "./child-provider.js"
+export type { ProviderKind, NodeProvider } from "./node-provider.js"
 
 // Supervisor + AggregateHealthStatus
 export type { AggregateHealthStatus, Supervisor } from "./supervisor.js"

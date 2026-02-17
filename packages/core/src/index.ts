@@ -157,7 +157,7 @@ export type {
   Transport,
   NodeHandle,
   ProviderKind,
-  ChildProvider,
+  NodeProvider,
   AggregateHealthStatus,
   Supervisor,
 } from "./federation/index.js";

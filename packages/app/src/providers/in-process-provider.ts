@@ -15,7 +15,7 @@ import type {
   WorkspaceId,
   ProviderKind,
   NodeHandle,
-  ChildProvider,
+  NodeProvider,
   Supervisor,
 } from "@max/core"
 import type { ConnectorRegistry } from "@max/connector"
@@ -37,7 +37,7 @@ export interface InProcessInstallationDeps {
 }
 
 export class InProcessInstallationProvider
-  implements ChildProvider<InstallationProtocol, InstallationId>
+  implements NodeProvider<InstallationProtocol, InstallationId>
 {
   readonly kind: ProviderKind = PROVIDER_KIND
   private readonly handles = new Map<InstallationId, NodeHandle<InstallationProtocol, InstallationId>>()
@@ -83,7 +83,7 @@ export interface InProcessWorkspaceConfig {
 }
 
 export class InProcessWorkspaceProvider
-  implements ChildProvider<WorkspaceProtocol, WorkspaceId>
+  implements NodeProvider<WorkspaceProtocol, WorkspaceId>
 {
   readonly kind: ProviderKind = PROVIDER_KIND
   private readonly handles = new Map<WorkspaceId, NodeHandle<WorkspaceProtocol, WorkspaceId>>()

@@ -25,7 +25,7 @@ export interface WorkspaceClient extends Supervised {
   installation(id: InstallationId): InstallationClient | undefined
 
   /** Create a new installation from serializable config. */
-  createInstallation(config: CreateInstallationConfig): Promise<InstallationId>
+  createInstallation(config: CreateInstallationConfig): Promise<InstallationClient>
 
   /** Tear down and remove an installation. */
   removeInstallation(id: InstallationId): Promise<void>

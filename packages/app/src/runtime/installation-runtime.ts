@@ -51,6 +51,8 @@ interface InstallationRuntimeConfig {
   startedAt: Date;
 }
 
+
+// FIXME: CLAUDE: We're in the process of moving this into a provider-inprocess package
 export class InstallationRuntimeImpl implements InstallationRuntime, InstallationClient {
   private readonly config: InstallationRuntimeConfig;
 
@@ -109,7 +111,8 @@ export class InstallationRuntimeImpl implements InstallationRuntime, Installatio
   // Factory
   // --------------------------------------------------------------------------
 
-  static async create(deps: {
+  /** This method _assumes_ that you've already connected the connector - meaning it exists on disk already */
+  static async deprecated_create_connect(deps: {
     projectManager: ProjectManager;
     connectorRegistry: ConnectorRegistry;
     connector: string;

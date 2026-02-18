@@ -5,14 +5,8 @@
  * No runtime behaviour. Passable independently of the connector itself.
  */
 
-import {
-  StaticTypeCompanion,
-  Inspect,
-  Lazy,
-  type EntityDefAny,
-  type EntityType,
-} from "./index.js";
-import { ErrRootNotInEntities } from "./errors/errors.js";
+import { type EntityDefAny, type EntityType, Inspect, Lazy, StaticTypeCompanion } from './index.js'
+import { ErrRootNotInEntities } from './errors/errors.js'
 
 // ============================================================================
 // EntityRelationship

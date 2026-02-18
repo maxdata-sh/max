@@ -21,9 +21,11 @@ export type EntityFields<E extends EntityDefAny> = {
   [K in keyof E["fields"]]: FieldType<E["fields"][K]>;
 };
 
-export type EntityFieldsOf<E extends EntityDefAny, K extends keyof EntityFields<E>> = {
+export type EntityFieldsPick<E extends EntityDefAny, K extends keyof EntityFields<E>> = {
   [P in K]: EntityFields<E>[P]
 }
+
+export type EntityFieldsKeys<E extends EntityDefAny> = keyof EntityFields<E> & string
 
 /** Get keys that are collection fields */
 export type CollectionKeys<E extends EntityDefAny> = {

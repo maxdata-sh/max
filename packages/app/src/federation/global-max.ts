@@ -14,29 +14,28 @@ import {
 } from "@max/core"
 import type { WorkspaceClient } from "../protocols/workspace-client.js"
 import type { GlobalClient } from "../protocols/global-client.js"
+import {WorkspaceSupervisor} from "./supervisors.js";
 
 export class GlobalMax implements GlobalClient {
-  readonly workspaces: Supervisor<WorkspaceClient, WorkspaceId>
+  readonly workspaceSupervisor: WorkspaceSupervisor
 
-  constructor(workspaces: Supervisor<WorkspaceClient, WorkspaceId>) {
-    this.workspaces = workspaces
+  constructor(workspaces: WorkspaceSupervisor) {
+    this.workspaceSupervisor = workspaces
   }
 
   workspace(id: WorkspaceId): WorkspaceClient | undefined {
-    return this.workspaces.get(id)?.client
+    return this.workspaceSupervisor.get(id)?.client
   }
 
   async health() {
-    const aggregate = await this.workspaces.health()
+    const aggregate = await this.workspaceSupervisor.health()
     return HealthStatus[aggregate.status](
-      aggregate.status !== "healthy"
-        ? `${aggregate.children.size} workspace(s) checked`
-        : undefined,
+      aggregate.status !== 'healthy' ? `${aggregate.children.size} workspace(s) checked` : undefined
     )
   }
 
   async start(): Promise<StartResult> {
-    const handles = this.workspaces.list()
+    const handles = this.workspaceSupervisor.list()
     for (const handle of handles) {
       await handle.client.start()
     }
@@ -44,7 +43,7 @@ export class GlobalMax implements GlobalClient {
   }
 
   async stop(): Promise<StopResult> {
-    const handles = this.workspaces.list()
+    const handles = this.workspaceSupervisor.list()
     for (let i = handles.length - 1; i >= 0; i--) {
       await handles[i].client.stop()
     }

@@ -15,21 +15,26 @@
  * const page = await engine.query(q)
  */
 
-import type { EntityDefAny } from "./entity-def.js";
-import type { EntityFields } from "./field-types.js";
-import { StaticTypeCompanion } from "./companion.js";
+import type {EntityDefAny} from "./entity-def.js";
+import type { EntityFields, EntityFieldsKeys } from './field-types.js'
+import {StaticTypeCompanion} from "./companion.js";
+import {FieldsSelect} from "./fields-selector.js";
 
 // ============================================================================
 // Projection discriminators
 // ============================================================================
 
 export type RefsProjection = { readonly kind: "refs" };
-export type SelectProjection<K extends string = string> = {
+export type SelectProjection<E extends EntityDefAny, K extends EntityFieldsKeys<E>> = {
   readonly kind: "select";
   readonly fields: K[];
 };
 export type AllProjection = { readonly kind: "all" };
-export type Projection = RefsProjection | SelectProjection | AllProjection;
+
+export type Projection<E extends EntityDefAny = EntityDefAny> =
+  | RefsProjection
+  | SelectProjection<E, EntityFieldsKeys<E>>
+  | AllProjection;
 
 // ============================================================================
 // Query descriptor — pure data, serializable
@@ -158,12 +163,14 @@ class QueryBuilderImpl<E extends EntityDefAny> implements QueryBuilder<E> {
 // ============================================================================
 
 export const Projection = StaticTypeCompanion({
-  refs: { kind: "refs" } as RefsProjection,
-  all: { kind: "all" } as AllProjection,
-  select<K extends string>(...fields: K[]): SelectProjection<K> {
-    return { kind: "select", fields };
+  refs: { kind: 'refs' } as RefsProjection,
+  all: { kind: 'all' } as AllProjection,
+  select<E extends EntityDefAny, K extends keyof EntityFields<E>>(
+    ...fields: K[]
+  ): FieldsSelect<E, K> {
+    return { kind: 'select', fields }
   },
-});
+})
 
 // ============================================================================
 // Query companion object (entry point)

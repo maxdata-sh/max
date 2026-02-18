@@ -61,6 +61,11 @@ export const ErrNotImplemented = Core.define("not_implemented", {
   message: () => "Not implemented!"
 })
 
+export const ErrNotSupported = Core.define('not_supported', {
+  facets: [NotSupported],
+  message: () => 'Operation not supported',
+})
+
 /** Accessed a field that was not loaded */
 export const ErrFieldNotLoaded = Core.define("field_not_loaded", {
   facets: [HasEntityField],

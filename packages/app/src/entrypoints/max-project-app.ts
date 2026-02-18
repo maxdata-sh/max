@@ -64,7 +64,7 @@ export class MaxProjectApp {
     const cached = this.runtimes.get(managed.id)
     if (cached) return cached
 
-    const runtime = await InstallationRuntimeImpl.create({
+    const runtime = await InstallationRuntimeImpl.deprecated_create_connect({
       projectManager: this.deps.projectManager,
       connectorRegistry: this.deps.connectorRegistry,
       connector,

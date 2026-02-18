@@ -21,7 +21,3 @@ console.log(`  Tasks completed: ${result.tasksCompleted}`);
 console.log(`  Tasks failed:    ${result.tasksFailed}`);
 
 await runtime.lifecycle.stop();
-
-
-declare const x: Supervisor<InstallationClient, InstallationId>
-x.list().map(h => h.client)

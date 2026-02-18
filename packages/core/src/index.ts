@@ -6,6 +6,8 @@
 export { hardBrand } from "./brand.js";
 export type { SoftBrand, HardBrand, Id } from "./brand.js";
 
+export {ISODateString} from "./date-util.js"
+
 // Scope
 export { Scope } from "./scope.js";
 export type { InstallationScope, WorkspaceScope } from "./scope.js";

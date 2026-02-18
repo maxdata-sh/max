@@ -25,8 +25,9 @@ import {
   type SelectProjection,
   type RefsProjection,
   type AllProjection,
-  type EntityFieldsOf,
+  type EntityFieldsPick,
   RefKey,
+  EntityFieldsKeys,
 } from '@max/core'
 import { SqliteSchema } from "./schema.js";
 import type { TableDef, ColumnDef } from "./table-def.js";
@@ -158,9 +159,9 @@ export class SqliteEngine implements Engine<InstallationScope> {
     page?: PageRequest
   ): Promise<Page<Ref<E>>>;
 
-  loadPage<E extends EntityDefAny, K extends keyof EntityFields<E>>(
+  loadPage<E extends EntityDefAny, K extends EntityFieldsKeys<E>>(
     def: E,
-    projection: SelectProjection<K & string>,
+    projection: SelectProjection<E,K>,
     page?: PageRequest
   ): Promise<Page<EntityResult<E, K>>>;
 
@@ -168,7 +169,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
     def: E,
     projection: AllProjection,
     page?: PageRequest
-  ): Promise<Page<EntityResult<E, keyof EntityFields<E>>>>;
+  ): Promise<Page<EntityResult<E, EntityFieldsKeys<E>>>>;
 
   // loadPage implementation
   async loadPage<E extends EntityDefAny>(
@@ -232,8 +233,8 @@ export class SqliteEngine implements Engine<InstallationScope> {
   }
 
   // Overload signatures
-  query<E extends EntityDefAny, K extends keyof EntityFields<E>>(
-    query: EntityQuery<E, SelectProjection<K & string>>
+  query<E extends EntityDefAny, K extends EntityFieldsKeys<E>>(
+    query: EntityQuery<E, SelectProjection<E,K>>
   ): Promise<Page<EntityResult<E, K>>>;
 
   query<E extends EntityDefAny>(
@@ -242,7 +243,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
 
   query<E extends EntityDefAny>(
     query: EntityQuery<E, AllProjection>
-  ): Promise<Page<EntityResult<E, keyof EntityFields<E>>>>;
+  ): Promise<Page<EntityResult<E, EntityFieldsKeys<E>>>>;
 
   // Implementation
   async query<E extends EntityDefAny>(
@@ -290,7 +291,7 @@ export class SqliteEngine implements Engine<InstallationScope> {
           for (const col of columns) {
             data[col.fieldName] = this.fromSqlValue(row[col.columnName], col, query.def);
           }
-          return EntityResult.from(ref, data as EntityFieldsOf<E, string>)
+          return EntityResult.from(ref, data as EntityFieldsPick<E, string>)
         });
         return this.toCursorPage(items, query.limit, result => result.ref.toKey() as string);
       }

@@ -16,9 +16,10 @@ import {
 import * as Completion from '@optique/core/completion'
 import { ShellCompletion } from '@optique/core/completion'
 import { flag, parseSync, passThrough } from '@optique/core'
-import { object, or } from '@optique/core/constructs'
+import {group, object, or } from '@optique/core/constructs'
 import { option } from '@optique/core/primitives'
 import { withDefault } from '@optique/core/modifiers'
+import { defineProgram } from '@optique/core/program'
 import { string } from '@optique/core/valueparser'
 import { Mode, Parser, suggestAsync, type Suggestion } from '@optique/core/parser'
 import { ProjectCompleters } from './parsers/project-completers.js'
@@ -39,6 +40,7 @@ import { syncCommandBuild } from './commands/sync-command.js'
 import { runOnboarding } from './onboarding-runner.js'
 import { DirectPrompter, type Prompter } from './prompter.js'
 import { DaemonPrinters } from './printers/daemon-printers.js'
+import {message} from "@optique/core/message";
 
 const shells: Record<string, ShellCompletion> = {
   zsh: Completion.zsh,
@@ -98,11 +100,13 @@ class CLI {
   program = LazyX.once(() =>
     or(
       //
-      this.commands.all.connect,
-      this.commands.all.sync,
-      this.commands.all.daemon,
-      this.commands.all.schema,
-      this.commands.all.init
+      group("project", or(
+        this.commands.all.init,
+        this.commands.all.connect,
+        this.commands.all.sync,
+        this.commands.all.schema,
+      )),
+      group('system', this.commands.all.daemon)
     )
   )
 
@@ -144,7 +148,8 @@ class CLI {
 
   async runSync(arg: CmdInput<'sync'>, color: boolean) {
     const printer = this.printerFor(color)
-    const runtime = await this.project.runtime(arg.connector, arg.name)
+    const [connector, name] = arg.target
+    const runtime = await this.project.runtime(connector, name)
 
     const handle = await runtime.sync()
     const result = await handle.completion()

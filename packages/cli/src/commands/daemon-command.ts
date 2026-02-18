@@ -1,5 +1,5 @@
 import { command, constant } from '@optique/core/primitives'
-import { object, or } from '@optique/core/constructs'
+import {group, object, or } from '@optique/core/constructs'
 import { message } from '@optique/core/message'
 
 export const daemonCommand = command(

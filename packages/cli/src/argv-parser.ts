@@ -1,6 +1,6 @@
 import {CliResponse} from "./types.js";
-import { Mode, Parser } from '@optique/core/parser'
-import { runParserAsync, RunParserError } from '@optique/core/facade'
+import {Mode, Parser} from '@optique/core/parser'
+import {runParserAsync, RunParserError} from '@optique/core/facade'
 import {message} from "@optique/core/message";
 
 /** Sentinel thrown by runParserAsync callbacks to signal help/error was shown. */
@@ -24,21 +24,39 @@ export async function parseAndValidateArgs<T>(
   try {
     /** NOTE: We could parse ourselves, rather than using opqtique's full batteries-included parse method.
      *  It will give us greater control over how help and completions are rendered. Leaving this for another time.
+     *  UPDATE / FIXME:
+     *    RIGHT: Here's the rub - optique is pretty opinionated about help text, and i don't like its opinions. Short answer:
+     *    port the formatDocPage logic from here https://github.com/dahlia/optique/blob/75957cc504d15fb2d14cc40677cd1ac152e42905/packages/core/src/facade.ts#L13
+     *    into an output format we're happy with
+     *
      * */
     const value = await runParserAsync(parser, programName, args, {
       colors: useColor,
-      completion:{
-        mode: 'command',
-        onShow: () => { throw COMPLETIONS_SHOWN }
+      aboveError: 'help',
+      completion: {
+        mode: 'both',
+        group: 'meta',
+        helpVisibility: 'singular',
       },
       help: {
-        mode: 'option',
-        onShow: () => { throw HELP_SHOWN; },
+        group: 'meta',
+        mode: 'both',
+        onShow: () => {
+
+          throw HELP_SHOWN
+        },
       },
-      onError: () => { throw ERROR_SHOWN; },
-      stdout: (text) => { stdout += text + "\n"; },
-      stderr: (text) => { stderr += text + "\n"; },
-    });
+      showChoices: true,
+      onError: () => {
+        throw ERROR_SHOWN
+      },
+      stdout: (text) => {
+        stdout += text + '\n'
+      },
+      stderr: (text) => {
+        stderr += text + '\n'
+      },
+    })
     return { ok: true, value: value as T };
   } catch (e) {
     if (e === HELP_SHOWN) {

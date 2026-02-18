@@ -9,11 +9,9 @@
 
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { ErrNotSupported, type InstallationId, type ProviderKind } from '@max/core'
-import type { InstallationHandle } from '../federation/handle-types.js'
-import type { InstallationNodeProvider } from './installation-node-provider.js'
-import { InstallationClientProxy } from '../protocols/installation-client-proxy.js'
-import { SubprocessTransport } from '../transport/subprocess-transport.js'
+import { type InstallationId, type ProviderKind } from '@max/core'
+import type { InstallationHandle, InstallationNodeProvider } from '@max/federation'
+import { InstallationClientProxy, SubprocessTransport } from '@max/federation'
 
 const SUBPROCESS_PROVIDER_KIND: ProviderKind = 'subprocess'
 

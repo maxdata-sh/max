@@ -1,4 +1,5 @@
 import {
+  DefaultSupervisor,
   ErrDaemonDisabled,
   ErrInvariant,
   ErrProjectNotInitialised,
@@ -6,41 +7,44 @@ import {
   FsProjectDaemonManager,
   FsProjectManager,
   GlobalConfig,
+  GlobalMax,
+  InMemoryWorkspaceRegistry,
+  InProcessWorkspaceProvider,
   MaxGlobalApp,
   MaxGlobalAppDependencies,
   MaxProjectApp,
   MaxProjectAppDependencies,
   ProjectConfig,
+  SubprocessInstallationProvider,
 } from '@max/federation'
 
 import * as Completion from '@optique/core/completion'
-import { ShellCompletion } from '@optique/core/completion'
-import { flag, parseSync, passThrough } from '@optique/core'
-import {group, object, or } from '@optique/core/constructs'
-import { option } from '@optique/core/primitives'
-import { withDefault } from '@optique/core/modifiers'
-import { defineProgram } from '@optique/core/program'
-import { string } from '@optique/core/valueparser'
-import { Mode, Parser, suggestAsync, type Suggestion } from '@optique/core/parser'
-import { ProjectCompleters } from './parsers/project-completers.js'
+import {ShellCompletion} from '@optique/core/completion'
+import {flag, parseSync, passThrough} from '@optique/core'
+import {group, object, or} from '@optique/core/constructs'
+import {option} from '@optique/core/primitives'
+import {withDefault} from '@optique/core/modifiers'
+import {string} from '@optique/core/valueparser'
+import {Mode, Parser, suggestAsync, type Suggestion} from '@optique/core/parser'
+import {ProjectCompleters} from './parsers/project-completers.js'
 import * as fs from 'node:fs'
 
-import { LazyOne, LazyX, makeLazy, MaxError } from '@max/core'
-import { CliPrinter, Fmt } from './cli-printable.js'
-import { SchemaPrinters } from './printers/schema-printers.js'
+import {LazyOne, LazyX, makeLazy, MaxError} from '@max/core'
+import {CliPrinter, Fmt} from './cli-printable.js'
+import {SchemaPrinters} from './printers/schema-printers.js'
 import * as path from 'node:path'
-import { createSocketServer } from './socket-server.js'
-import { CliRequest, CliResponse } from './types.js'
-import { parseAndValidateArgs } from './argv-parser.js'
-import { daemonCommand } from './commands/daemon-command.js'
-import { schemaCommandBuild } from './commands/schema-command.js'
-import { connectCommandBuild } from './commands/connect-command.js'
-import { initCommand } from './commands/init-command.js'
-import { syncCommandBuild } from './commands/sync-command.js'
-import { runOnboarding } from './onboarding-runner.js'
-import { DirectPrompter, type Prompter } from './prompter.js'
-import { DaemonPrinters } from './printers/daemon-printers.js'
-import {message} from "@optique/core/message";
+import {createSocketServer} from './socket-server.js'
+import {CliRequest, CliResponse} from './types.js'
+import {parseAndValidateArgs} from './argv-parser.js'
+import {daemonCommand} from './commands/daemon-command.js'
+import {schemaCommandBuild} from './commands/schema-command.js'
+import {connectCommandBuild} from './commands/connect-command.js'
+import {initCommand} from './commands/init-command.js'
+import {syncCommandBuild} from './commands/sync-command.js'
+import {runOnboarding} from './onboarding-runner.js'
+import {DirectPrompter, type Prompter} from './prompter.js'
+import {DaemonPrinters} from './printers/daemon-printers.js'
+import {runSubprocess, subprocessParsers} from './subprocess-entry.js'
 
 const shells: Record<string, ShellCompletion> = {
   zsh: Completion.zsh,
@@ -68,7 +72,16 @@ class CLI {
     const globalDeps: MaxGlobalAppDependencies = makeLazy<MaxGlobalAppDependencies>({
       config: () => cfg,
     })
-    this.global = new MaxGlobalApp(globalDeps)
+
+    // const workspaceProvider = new InProcessWorkspaceProvider()
+    // const installationProvider = new SubprocessInstallationProvider()
+
+    // this.globalMax = new GlobalMax({
+    //   workspaceProvider,
+    //   registry: new InMemoryWorkspaceRegistry(),
+    //   workspaceSupervisor: new DefaultSupervisor(),
+    // })
+    // this.global = new MaxGlobalApp(globalDeps)
     const projectDeps: MaxProjectAppDependencies = makeLazy<MaxProjectAppDependencies>({
       daemonManager: () => new FsProjectDaemonManager(projectDeps.projectConfig),
       projectManager: () => new FsProjectManager(projectDeps.projectConfig.paths.projectRootPath),
@@ -273,8 +286,6 @@ class CLI {
 // ============================================================================
 // Subprocess mode — early exit if --subprocess is present
 // ============================================================================
-
-import { subprocessParsers, runSubprocess } from './subprocess-entry.js'
 
 const subprocessParsed = parseSync(subprocessParsers, process.argv.slice(2))
 if (subprocessParsed.success && subprocessParsed.value.subprocess) {

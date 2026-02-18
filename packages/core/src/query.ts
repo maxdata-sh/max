@@ -70,7 +70,7 @@ export type QueryOrdering = {
 // ============================================================================
 
 export interface QueryBuilder<E extends EntityDefAny> {
-  where<K extends keyof EntityFields<E>>(
+  where<K extends EntityFieldsKeys<E>>(
     field: K,
     op: "=" | "!=" | ">" | "<" | ">=" | "<=" | "contains",
     value: EntityFields<E>[K],
@@ -78,16 +78,16 @@ export interface QueryBuilder<E extends EntityDefAny> {
 
   limit(n: number): QueryBuilder<E>;
   after(cursor: string): QueryBuilder<E>;
-  orderBy<K extends keyof EntityFields<E>>(
+  orderBy<K extends EntityFieldsKeys<E>>(
     field: K,
     dir?: "asc" | "desc",
   ): QueryBuilder<E>;
 
   // Terminal methods — finalize into EntityQuery
   refs(): EntityQuery<E, RefsProjection>;
-  select<K extends keyof EntityFields<E>>(
+  select<K extends EntityFieldsKeys<E>>(
     ...fields: K[]
-  ): EntityQuery<E, SelectProjection<K & string>>;
+  ): EntityQuery<E, SelectProjection<E,K>>;
   selectAll(): EntityQuery<E, AllProjection>;
 }
 
@@ -105,7 +105,7 @@ class QueryBuilderImpl<E extends EntityDefAny> implements QueryBuilder<E> {
 
   constructor(private _def: E) {}
 
-  where<K extends keyof EntityFields<E>>(
+  where<K extends EntityFieldsKeys<E>>(
     field: K,
     op: "=" | "!=" | ">" | "<" | ">=" | "<=" | "contains",
     value: EntityFields<E>[K],
@@ -124,7 +124,7 @@ class QueryBuilderImpl<E extends EntityDefAny> implements QueryBuilder<E> {
     return this;
   }
 
-  orderBy<K extends keyof EntityFields<E>>(
+  orderBy<K extends EntityFieldsKeys<E>>(
     field: K,
     dir: "asc" | "desc" = "asc",
   ): QueryBuilder<E> {
@@ -136,10 +136,10 @@ class QueryBuilderImpl<E extends EntityDefAny> implements QueryBuilder<E> {
     return this.build({ kind: "refs" });
   }
 
-  select<K extends keyof EntityFields<E>>(
+  select<K extends EntityFieldsKeys<E>>(
     ...fields: K[]
-  ): EntityQuery<E, SelectProjection<K & string>> {
-    return this.build({ kind: "select", fields: fields as (K & string)[] });
+  ): EntityQuery<E, SelectProjection<E,K>> {
+    return this.build({ kind: "select", fields: fields });
   }
 
   selectAll(): EntityQuery<E, AllProjection> {
@@ -165,7 +165,7 @@ class QueryBuilderImpl<E extends EntityDefAny> implements QueryBuilder<E> {
 export const Projection = StaticTypeCompanion({
   refs: { kind: 'refs' } as RefsProjection,
   all: { kind: 'all' } as AllProjection,
-  select<E extends EntityDefAny, K extends keyof EntityFields<E>>(
+  select<E extends EntityDefAny, K extends EntityFieldsKeys<E>>(
     ...fields: K[]
   ): FieldsSelect<E, K> {
     return { kind: 'select', fields }

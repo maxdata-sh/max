@@ -19,7 +19,7 @@ import type { Scope } from "../scope.js"
 import type { EntityDefAny } from "../entity-def.js"
 import type { EntityInput } from "../entity-input.js"
 import type { EntityResult } from "../entity-result.js"
-import type { EntityFields } from "../field-types.js"
+import type { EntityFields, EntityFieldsKeys, EntityFieldsPick } from '../field-types.js'
 import type { CollectionKeys, CollectionTargetRef } from "../field-types.js"
 import type { FieldsAll, FieldsSelect } from "../fields-selector.js"
 import type { Page, PageRequest } from "../pagination.js"
@@ -39,7 +39,7 @@ export class EngineProxy<TScope extends Scope = Scope> implements Engine<TScope>
   // load
   // --------------------------------------------------------------------------
 
-  async load<E extends EntityDefAny, K extends keyof EntityFields<E>>(
+  async load<E extends EntityDefAny, K extends EntityFieldsKeys<E>>(
     ref: Ref<E>,
     fields: FieldsSelect<E, K>,
   ): Promise<EntityResult<E, K>>
@@ -47,7 +47,7 @@ export class EngineProxy<TScope extends Scope = Scope> implements Engine<TScope>
   async load<E extends EntityDefAny>(
     ref: Ref<E>,
     fields: FieldsAll | "*",
-  ): Promise<EntityResult<E, keyof EntityFields<E>>>
+  ): Promise<EntityResult<E, EntityFieldsKeys<E>>>
 
   async load(ref: Ref<any>, fields: unknown): Promise<any> {
     return this.rpc("load", ref, fields)
@@ -57,7 +57,7 @@ export class EngineProxy<TScope extends Scope = Scope> implements Engine<TScope>
   // loadField
   // --------------------------------------------------------------------------
 
-  async loadField<E extends EntityDefAny, K extends keyof EntityFields<E>>(
+  async loadField<E extends EntityDefAny, K extends EntityFieldsKeys<E>>(
     ref: Ref<E>,
     field: K,
   ): Promise<EntityFields<E>[K]> {
@@ -94,9 +94,9 @@ export class EngineProxy<TScope extends Scope = Scope> implements Engine<TScope>
     page?: PageRequest,
   ): Promise<Page<Ref<E>>>
 
-  loadPage<E extends EntityDefAny, K extends keyof EntityFields<E>>(
+  loadPage<E extends EntityDefAny, K extends EntityFieldsKeys<E>>(
     def: E,
-    projection: SelectProjection<K & string>,
+    projection: SelectProjection<E,K>,
     page?: PageRequest,
   ): Promise<Page<EntityResult<E, K>>>
 
@@ -104,7 +104,7 @@ export class EngineProxy<TScope extends Scope = Scope> implements Engine<TScope>
     def: E,
     projection: AllProjection,
     page?: PageRequest,
-  ): Promise<Page<EntityResult<E, keyof EntityFields<E>>>>
+  ): Promise<Page<EntityResult<E, EntityFieldsKeys<E>>>>
 
   async loadPage(def: any, projection: any, page?: any): Promise<any> {
     return this.rpc("loadPage", def, projection, page)
@@ -114,8 +114,8 @@ export class EngineProxy<TScope extends Scope = Scope> implements Engine<TScope>
   // query
   // --------------------------------------------------------------------------
 
-  query<E extends EntityDefAny, K extends keyof EntityFields<E>>(
-    query: EntityQuery<E, SelectProjection<K & string>>,
+  query<E extends EntityDefAny, K extends EntityFieldsKeys<E>>(
+    query: EntityQuery<E, SelectProjection<E,K>>,
   ): Promise<Page<EntityResult<E, K>>>
 
   query<E extends EntityDefAny>(
@@ -124,7 +124,7 @@ export class EngineProxy<TScope extends Scope = Scope> implements Engine<TScope>
 
   query<E extends EntityDefAny>(
     query: EntityQuery<E, AllProjection>,
-  ): Promise<Page<EntityResult<E, keyof EntityFields<E>>>>
+  ): Promise<Page<EntityResult<E, EntityFieldsKeys<E>>>>
 
   async query(query: any): Promise<any> {
     return this.rpc("query", query)

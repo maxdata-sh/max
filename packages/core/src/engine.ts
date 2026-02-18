@@ -10,6 +10,7 @@ import {
   CollectionTargetRef,
   EntityFieldsKeys,
   EntityFields,
+  EntityFieldsPick,
 } from './field-types.js'
 import type { FieldsAll, FieldsSelect } from "./fields-selector.js";
 import type { Lifecycle } from "./lifecycle.js";
@@ -30,12 +31,12 @@ export interface Engine<TScope extends Scope = Scope> extends Lifecycle {
   load<E extends EntityDefAny>(
     ref: Ref<E>,
     fields: FieldsAll | '*'
-  ): Promise<EntityResult<E, keyof EntityFields<E>>>
+  ): Promise<EntityResult<E, EntityFieldsKeys<E>>>
 
   /**
    * Load a single field directly.
    */
-  loadField<E extends EntityDefAny, K extends keyof EntityFields<E>>(
+  loadField<E extends EntityDefAny, K extends EntityFieldsKeys<E>>(
     ref: Ref<E>,
     field: K
   ): Promise<EntityFields<E>[K]>
@@ -76,7 +77,7 @@ export interface Engine<TScope extends Scope = Scope> extends Lifecycle {
     def: E,
     projection: AllProjection,
     page?: PageRequest
-  ): Promise<Page<EntityResult<E, keyof EntityFields<E>>>>
+  ): Promise<Page<EntityResult<E, EntityFieldsKeys<E>>>>
 
   loadPage<E extends EntityDefAny>(
     def: E,
@@ -97,5 +98,5 @@ export interface Engine<TScope extends Scope = Scope> extends Lifecycle {
 
   query<E extends EntityDefAny>(
     query: EntityQuery<E, AllProjection>
-  ): Promise<Page<EntityResult<E, keyof EntityFields<E>>>>
+  ): Promise<Page<EntityResult<E, EntityFieldsKeys<E>>>>
 }

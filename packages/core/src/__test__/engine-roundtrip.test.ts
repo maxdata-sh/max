@@ -97,6 +97,7 @@ describe("Engine proxy+handler roundtrip", () => {
   test("loadField round-trips", async () => {
     const { proxy, calls } = wireUp()
     const result = await proxy.loadField(AcmeUser.ref('u1'), 'displayName')
+
     expect(calls).toHaveLength(1)
     expect(calls[0].method).toBe("loadField")
     expect(result).toBe("field-value")

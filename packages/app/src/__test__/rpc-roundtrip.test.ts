@@ -13,6 +13,7 @@ import {
   StopResult,
   LifecycleManager,
   LoopbackTransport,
+  LoopbackSerializedTransport,
   MaxError,
   NotFound,
   BadInput,
@@ -20,7 +21,11 @@ import {
   type InstallationScope,
   type InstallationId,
   type Schema,
-} from "@max/core"
+  type Transport,
+  RpcRequest,
+  DispatchFn,
+  RpcResponse,
+} from '@max/core'
 import type { SyncHandle, SyncId, SyncPlan, SyncResult, SyncStatus } from "@max/execution"
 import type { InstallationClient } from "../protocols/installation-client.js"
 import type { WorkspaceClient, CreateInstallationConfig } from "../protocols/workspace-client.js"
@@ -92,7 +97,7 @@ function createFakeWorkspace(): WorkspaceClient {
       return installations.get(id)
     },
     async createInstallation(config: CreateInstallationConfig) {
-      return "inst-new" as InstallationId
+      return 'inst-new'
     },
     async removeInstallation(id: InstallationId) {},
     async health() { return HealthStatus.healthy() },
@@ -100,6 +105,8 @@ function createFakeWorkspace(): WorkspaceClient {
     async stop() { return StopResult.stopped() },
   }
 }
+
+
 
 // -- Wiring helpers -----------------------------------------------------------
 
@@ -112,7 +119,7 @@ function wireInstallation(real: InstallationClient) {
 
 function wireWorkspace(real: WorkspaceClient) {
   const dispatcher = new WorkspaceDispatcher(real)
-  const transport = new LoopbackTransport((req) => dispatcher.dispatch(req))
+  const transport = new LoopbackSerializedTransport((req) => dispatcher.dispatch(req))
   const proxy = new WorkspaceClientProxy(transport)
   return { proxy, dispatcher }
 }

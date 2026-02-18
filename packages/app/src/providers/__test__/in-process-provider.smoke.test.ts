@@ -30,10 +30,11 @@ describe('in-process-provider', () => {
         },
       })
 
-      const acme = await workspace.client.createInstallation({
+      const acmeId = await workspace.client.createInstallation({
         name: 'default',
         connector: 'acme',
       })
+      const acme = await workspace.client.installation(acmeId)!
 
       console.log({
         installations: await workspace.client.listInstallations(),

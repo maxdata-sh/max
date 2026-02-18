@@ -32,3 +32,14 @@ export class LoopbackTransport implements Transport {
     // No-op — no real connection to close
   }
 }
+
+/** Useful for smoke-testing that RpcRequest's args are round-trip serializable */
+export class LoopbackSerializedTransport extends LoopbackTransport {
+  constructor(dispatch: DispatchFn) {
+    super(async (input: RpcRequest) => {
+      const serialized = JSON.stringify(input)
+      const deserialized = JSON.parse(serialized)
+      return dispatch(deserialized)
+    })
+  }
+}

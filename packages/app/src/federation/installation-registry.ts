@@ -1,4 +1,5 @@
 import { ConnectorType, InstallationId, ISODateString, ProviderKind } from '@max/core'
+import { ErrRegistryEntryNotFound } from './errors.js'
 
 export interface InstallationRegistryEntry {
   readonly id: InstallationId
@@ -19,8 +20,12 @@ export interface InstallationRegistry {
 
 export class InMemoryInstallationRegistry implements InstallationRegistry {
   private map = new Map<InstallationId, InstallationRegistryEntry>()
-  add = (entry:InstallationRegistryEntry) => this.map.set(entry.id, entry)
+  add = (entry: InstallationRegistryEntry) => this.map.set(entry.id, entry)
   get = (id: InstallationId) => this.map.get(id)
   list = () => [...this.map.values()]
-  remove = (id: InstallationId) => this.map.delete(id)
+  remove = (id: InstallationId) => {
+    if (!this.map.delete(id)) {
+      throw ErrRegistryEntryNotFound.create({ id })
+    }
+  }
 }

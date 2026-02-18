@@ -2,18 +2,16 @@
  * WorkspaceMax — Manages installations. Provides cross-installation operations.
  *
  * Implements WorkspaceClient. Holds a Supervisor internally (not exposed on
- * the client surface). Real implementation of listInstallations,
- * createInstallation, and removeInstallation requires a Registry and
- * NodeProvider wiring — deferred to a follow-up task.
+ * the client surface). Registry persists installation metadata to max.json;
+ * Supervisor manages live handles in memory.
  */
 
 import {
-  ErrNotImplemented,
   HealthStatus,
   StartResult,
   StopResult,
+  ISODateString,
   type InstallationId,
-  type Supervisor, ISODateString,
 } from "@max/core"
 import type { InstallationClient } from "../protocols/installation-client.js"
 import type { CreateInstallationConfig, WorkspaceClient } from "../protocols/workspace-client.js"
@@ -55,22 +53,18 @@ export class WorkspaceMax implements WorkspaceClient {
     return this.supervisor.get(id)?.client
   }
 
-  async createInstallation(config: CreateInstallationConfig): Promise<InstallationClient> {
+  async createInstallation(config: CreateInstallationConfig): Promise<InstallationId> {
     const result = await this.installationProvider.create(config)
-    // FIXME: CLAUDE: We need a connector-def style serialisable object here, schema isn't enough
-    // I've left some notes for myself as to how to approach this
-    // For now, the information we give back here is incomplete
-    const schema = await result.client.schema()
     this.registry.add({
       id: result.id,
-      connector: `standin:@max/${schema.namespace}`, // <- we can't get this from schema
-      name: `standin:${schema.namespace}-default`, // <- we can't get this yet
+      connector: config.connector,
+      name: config.name ?? config.connector,
       connectedAt: ISODateString.now(),
-      providerKind: this.installationProvider.kind,
-      location: 'standin:unknown-location', // <- i think we need the installationProvider to give us one
+      providerKind: config.providerKind ?? this.installationProvider.kind,
+      location: null, // provider-supplied location — deferred until boot sequence
     })
     this.supervisor.register(result)
-    return result.client
+    return result.id
   }
 
   async removeInstallation(id: InstallationId): Promise<void> {

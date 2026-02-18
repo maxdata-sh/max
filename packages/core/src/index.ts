@@ -182,7 +182,7 @@ export type {
 } from "./federation/index.js";
 
 // Proxies — proxy+handler pairs for interfaces crossing process boundaries
-export { EngineProxy, EngineHandler, SupervisedProxy, SupervisedHandler, LoopbackTransport } from "./proxies/index.js";
+export * from "./proxies/index.js";
 export type { DispatchFn } from "./proxies/index.js";
 
 // Utilities

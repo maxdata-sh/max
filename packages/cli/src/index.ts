@@ -270,6 +270,21 @@ class CLI {
   }
 }
 
+// ============================================================================
+// Subprocess mode — early exit if --subprocess is present
+// ============================================================================
+
+import { subprocessParsers, runSubprocess } from './subprocess-entry.js'
+
+const subprocessParsed = parseSync(subprocessParsers, process.argv.slice(2))
+if (subprocessParsed.success && subprocessParsed.value.subprocess) {
+  await runSubprocess(subprocessParsed.value)
+} else {
+
+// ============================================================================
+// Normal CLI mode
+// ============================================================================
+
 const rustShimParsers = object({
   devMode: withDefault(flag('--dev-mode'), () => process.env.MAX_DEV_MODE === 'true'),
   projectRoot: withDefault(option('--project-root', string()), () => process.cwd()),
@@ -355,3 +370,5 @@ if (parsed.success) {
   console.error('Unexpected error')
   throw new Error(parsed.error.join('\n'))
 }
+
+} // end subprocess else

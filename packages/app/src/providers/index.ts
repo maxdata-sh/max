@@ -11,3 +11,8 @@ export {
   type InProcessInstallationDeps,
   type InProcessWorkspaceConfig,
 } from "./in-process-provider.js"
+
+export {
+  SubprocessInstallationProvider,
+  type SubprocessInstallationConfig,
+} from "./subprocess-installation-provider.js"

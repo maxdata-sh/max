@@ -91,6 +91,7 @@
         "@max/execution-local": "workspace:*",
         "@max/execution-sqlite": "workspace:*",
         "@max/federation": "workspace:*",
+        "@max/platform-bun": "workspace:*",
         "@max/storage-sqlite": "workspace:*",
         "@types/bun": "latest",
         "typescript": "catalog:",
@@ -105,6 +106,7 @@
         "@max/connector-linear": "workspace:*",
         "@max/core": "workspace:*",
         "@max/federation": "workspace:*",
+        "@max/platform-bun": "workspace:*",
         "@optique/core": "0.10.3",
         "@optique/run": "0.10.3",
         "yargs-parser": "^21.1.1",
@@ -185,7 +187,25 @@
         "@max/core": "workspace:*",
         "@max/execution": "workspace:*",
         "@max/execution-local": "workspace:*",
+      },
+      "devDependencies": {
         "@max/execution-sqlite": "workspace:*",
+        "@max/platform-bun": "workspace:*",
+        "@max/storage-sqlite": "workspace:*",
+        "@types/bun": "latest",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/platform-bun": {
+      "name": "@max/platform-bun",
+      "version": "0.1.0",
+      "dependencies": {
+        "@max/connector": "workspace:*",
+        "@max/core": "workspace:*",
+        "@max/execution": "workspace:*",
+        "@max/execution-local": "workspace:*",
+        "@max/execution-sqlite": "workspace:*",
+        "@max/federation": "workspace:*",
         "@max/storage-sqlite": "workspace:*",
       },
       "devDependencies": {
@@ -237,6 +257,8 @@
     "@max/execution-sqlite": ["@max/execution-sqlite@workspace:packages/execution-sqlite"],
 
     "@max/federation": ["@max/federation@workspace:packages/federation"],
+
+    "@max/platform-bun": ["@max/platform-bun@workspace:packages/platform-bun"],
 
     "@max/storage-sqlite": ["@max/storage-sqlite@workspace:packages/storage-sqlite"],
 
@@ -394,6 +416,8 @@
 
     "@max/federation/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
 
+    "@max/platform-bun/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
+
     "@max/storage-sqlite/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
 
     "@max/acme/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
@@ -421,6 +445,8 @@
     "@max/execution/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
 
     "@max/federation/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
+
+    "@max/platform-bun/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
 
     "@max/storage-sqlite/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
   }

@@ -113,6 +113,7 @@ export class SubprocessInstallationProvider implements InstallationNodeProvider 
     while (true) {
       const { value, done } = await reader.read()
       if (done) {
+        // FIXME: This needs a MaxError
         throw new Error('Subprocess exited before sending ready signal')
       }
 

@@ -4,8 +4,6 @@ import * as path from "node:path";
 import * as os from "node:os";
 import type { ConnectorType } from "@max/core";
 import {FsProjectManager} from "../fs-project-manager.js";
-import {UninitializedProjectManager} from "../uninitialized-project-manager.js";
-import {ProjectManager} from "../project-manager.js";
 
 let tmpDir: string;
 
@@ -60,23 +58,6 @@ describe("construction", () => {
   });
 });
 
-// ============================================================================
-// UninitializedProjectManager
-// ============================================================================
-
-describe("UninitializedProjectManager", () => {
-  test("throws on every method", () => {
-    const pm: ProjectManager = new UninitializedProjectManager(tmpDir);
-
-    expect(() => pm.prepare(acme)).toThrow("Not a Max project");
-    expect(() => pm.get(acme)).toThrow("Not a Max project");
-    expect(() => pm.has(acme)).toThrow("Not a Max project");
-    expect(() => pm.list()).toThrow("Not a Max project");
-    expect(() => pm.credentialStoreFor({ connector: acme, name: "default" })).toThrow("Not a Max project");
-    expect(() => pm.commit({ connector: acme, name: "default" }, {})).toThrow("Not a Max project");
-    expect(() => pm.delete(acme)).toThrow("Not a Max project");
-  });
-});
 
 // ============================================================================
 // prepare

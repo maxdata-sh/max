@@ -52,7 +52,7 @@ interface CachedToken {
   expiresAt: number;
 }
 
-class CredentialProviderImpl implements CredentialProvider {
+export class InMemoryCredentialProvider implements CredentialProvider {
   /** Maps access token name → OAuthCredential for lookup from refs */
   private oauthByAccessName: Map<string, OAuthCredential>;
   private tokenCache = new Map<string, CachedToken>();
@@ -140,8 +140,9 @@ class CredentialProviderImpl implements CredentialProvider {
 // CredentialProvider Static Methods
 // ============================================================================
 
+// FIXME: We'll delete this. It's not appropriate as a "global"
 export const CredentialProvider = StaticTypeCompanion({
   create(store: CredentialStore, oauthCredentials?: OAuthCredential[]): CredentialProvider {
-    return new CredentialProviderImpl(store, oauthCredentials ?? []);
+    return new InMemoryCredentialProvider(store, oauthCredentials ?? []);
   },
 });

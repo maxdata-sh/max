@@ -9,24 +9,34 @@ import { InMemoryInstallationRegistry } from '../../federation/installation-regi
 import { FsConnectorRegistry } from '../../connector-registry/fs-connector-registry.js'
 import { AcmeUser } from '@max/connector-acme'
 import { Projection } from '@max/core'
+import {createInstallationInProcess} from "@max/platform-bun";
 
 describe('in-process-provider', () => {
   test('smoke test', async () => {
     try {
+      const projectManager = new FsProjectManager(
+        '/Users/ben/projects/playground/max/max/bun-test-project'
+      )
+      const connectorRegistry = new FsConnectorRegistry({ acme: '@max/connector-acme' })
       const workspaceProvider = new InProcessWorkspaceProvider()
+      const installationProvider = new InProcessInstallationProvider((input) => {
+        return createInstallationInProcess({
+          scope: input.scope,
+          value: {
+            connectorRegistry,
+            projectManager,
+            connector: input.value.connector,
+            name: input.value.name,
+          },
+        })
+      })
+
       const workspace = await workspaceProvider.create({
         id: 'workspace1',
         workspace: {
           registry: new InMemoryInstallationRegistry(),
           installationSupervisor: new DefaultSupervisor(),
-          installationProvider: new InProcessInstallationProvider({
-            connectorRegistry: new FsConnectorRegistry({
-              acme: '@max/connector-acme',
-            }),
-            projectManager: new FsProjectManager(
-              '/Users/ben/projects/playground/max/max/bun-test-project'
-            ),
-          }),
+          installationProvider: installationProvider,
         },
       })
 

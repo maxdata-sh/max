@@ -53,7 +53,7 @@ export class WorkspaceClientProxy implements WorkspaceClient {
     return new InstallationClientProxy(scopedTransport)
   }
 
-  // FIXME: CLAUDE: I think the "Workspace" domain needs a view on an InstallationClient that extends the client with the installation's metadata. It will be unnecessarily cumbersome without it
+  // FIXME: I think the "Workspace" domain needs a view on an InstallationClient that extends the client with the installation's metadata. It will be unnecessarily cumbersome without it
   // For now, i'm working around it.
   // Actually, on further reflection - this is simply a case of Scope-aware clients. We need an InstallationClient<WorkspaceScope> (or some variant on that concept)
   async createInstallation(config: CreateInstallationConfig): Promise<InstallationId> {

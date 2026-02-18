@@ -1,5 +1,5 @@
 {
-  "name": "@max/federation",
+  "name": "@max/platform-bun",
   "version": "0.1.0",
   "type": "module",
   "exports": {
@@ -12,15 +12,16 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@max/federation": "workspace:*",
     "@max/core": "workspace:*",
     "@max/connector": "workspace:*",
     "@max/execution": "workspace:*",
-    "@max/execution-local": "workspace:*"
+    "@max/execution-local": "workspace:*",
+    "@max/execution-sqlite": "workspace:*",
+    "@max/storage-sqlite": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "typescript": "catalog:",
-    "@max/storage-sqlite": "workspace:*",
-    "@max/execution-sqlite": "workspace:*"
+    "typescript": "catalog:"
   }
 }

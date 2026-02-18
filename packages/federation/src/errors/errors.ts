@@ -8,6 +8,18 @@ export const ErrConnectorNotFound = AppBoundary.define("connector_not_found", {
   message: (d) => `Unknown connector: ${d.connector}`,
 });
 
+export const ErrWorkspaceHandleNotFound = AppBoundary.define('workspace_handle_not_found', {
+  customProps: ErrFacet.props<{ workspace: string }>(),
+  facets: [NotFound],
+  message: (d) => `Unknown workspace`,
+})
+
+export const ErrInstallationHandleNotFound = AppBoundary.define('installation_handle_not_found', {
+  customProps: ErrFacet.props<{ installation: string }>(),
+  facets: [NotFound],
+  message: (d) => `Unknown installation ${d.installation}`,
+})
+
 export const ErrNoOnboarding = AppBoundary.define("no_onboarding", {
   customProps: ErrFacet.props<{ connector: string }>(),
   facets: [BadInput],

@@ -67,7 +67,7 @@ export interface Engine<TScope extends Scope = Scope> extends Lifecycle {
    */
   loadPage<E extends EntityDefAny, K extends EntityFieldsKeys<E>>(
     def: E,
-    // FIXME: CLAUDE: We have two mechanisms to supply projections - Fields.select and Projection.select
+    // FIXME: We have two mechanisms to supply projections - Fields.select and Projection.select
     //  they are basically identical - we need to unify these
     projection: FieldsSelect<E, K>,
     page?: PageRequest

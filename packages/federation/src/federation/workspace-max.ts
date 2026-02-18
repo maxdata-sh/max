@@ -12,7 +12,8 @@ import {
   StopResult,
   ISODateString,
   type InstallationId,
-} from "@max/core"
+  Scope,
+} from '@max/core'
 import type { InstallationClient } from "../protocols/installation-client.js"
 import type { CreateInstallationConfig, WorkspaceClient } from "../protocols/workspace-client.js"
 import type { InstallationInfo } from "../project-manager/types.js"
@@ -38,13 +39,14 @@ export class WorkspaceMax implements WorkspaceClient {
   }
 
   async listInstallations(): Promise<InstallationInfo[]> {
-    const items = await this.registry.list()
+    const items = this.registry.list()
     return items.map(
       (item): InstallationInfo => ({
         connector: item.connector,
         name: item.name,
         id: item.id,
         connectedAt: item.connectedAt,
+        location: item.location
       })
     )
   }
@@ -54,7 +56,10 @@ export class WorkspaceMax implements WorkspaceClient {
   }
 
   async createInstallation(config: CreateInstallationConfig): Promise<InstallationId> {
-    const result = await this.installationProvider.create(config)
+    const result = await this.installationProvider.create({
+      scope: Scope.workspace("no id available"),
+      value: config
+    })
     this.registry.add({
       id: result.id,
       connector: config.connector,
@@ -64,6 +69,7 @@ export class WorkspaceMax implements WorkspaceClient {
       location: null, // provider-supplied location — deferred until boot sequence
     })
     this.supervisor.register(result)
+    await result.client.start()
     return result.id
   }
 
@@ -84,7 +90,14 @@ export class WorkspaceMax implements WorkspaceClient {
   async start(): Promise<StartResult> {
     const handles = this.supervisor.list()
     for (const handle of handles) {
-      await handle.client.start()
+      const result = await handle.client.start()
+      // FIXME: We need to log / throw errors if start has failures
+      if (result.outcome === 'error' || result.outcome === 'refused'){
+        const reason = result.outcome === 'error' ? result.error : result.reason
+        console.warn(`Failed to start installation handle=${handle.id} for provider=${handle.providerKind}`, reason)
+      }else{
+        console.log(`Started installation ${handle.id} successfully`)
+      }
     }
     return StartResult.started()
   }

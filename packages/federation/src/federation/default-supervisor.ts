@@ -20,6 +20,10 @@ export class DefaultSupervisor<R extends Supervised, TId extends string = string
 {
   private readonly handles = new Map<TId, NodeHandle<R, TId>>()
 
+
+  // FIXME: I'm wondering whether register ought to be registerAndStart.
+  // it introduces async semantics.. but i'm not sure in what scenario we want to register and _not_ start...
+  // Worth a discussion.
   register(handle: NodeHandle<R, TId>): void {
     this.handles.set(handle.id, handle)
   }

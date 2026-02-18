@@ -2,8 +2,8 @@ import { ProjectConfig } from '../config/project-config.js'
 import { ManagedInstallation, PendingInstallation, ProjectManager } from '../project-manager/index.js'
 import type { ConnectorRegistry, CredentialStore, OnboardingFlowAny } from '@max/connector'
 import type { InstallationId, Schema } from '@max/core'
-import { InstallationRuntimeImpl, type InstallationRuntime, type InstallationRuntimeInfo } from '../runtime/index.js'
 import {ProjectDaemonManager} from "../project-daemon-manager/project-daemon-manager.js";
+import { InstallationMax, InstallationRuntimeInfo } from '../federation/installation-max.js'
 
 export interface PreparedConnection {
   readonly pending: PendingInstallation
@@ -17,8 +17,9 @@ export interface MaxProjectAppDependencies {
   daemonManager: ProjectDaemonManager
 }
 
+/** @deprecated: Using WorkspaceMax instead */
 export class MaxProjectApp {
-  private runtimes = new Map<InstallationId, InstallationRuntimeImpl>()
+  private runtimes = new Map<InstallationId, InstallationMax>()
 
   constructor(private deps: MaxProjectAppDependencies) {}
 
@@ -58,29 +59,13 @@ export class MaxProjectApp {
   }
 
   /** Get or create a runtime for the given installation. */
-  async runtime(connector: string, name?: string): Promise<InstallationRuntime> {
-    const managed = this.deps.projectManager.get(connector, name)
-
-    const cached = this.runtimes.get(managed.id)
-    if (cached) return cached
-
-    const runtime = await InstallationRuntimeImpl.deprecated_create_connect({
-      projectManager: this.deps.projectManager,
-      connectorRegistry: this.deps.connectorRegistry,
-      connector,
-      name,
-    })
-
-    this.runtimes.set(managed.id, runtime)
-    return runtime
+  async runtime(connector: string, name?: string): Promise<InstallationMax> {
+    throw 'mid-deprecation'
   }
 
   /** List all currently active runtimes. */
   listRuntimes(): InstallationRuntimeInfo[] {
-    return [...this.runtimes.values()].map((rt) => ({
-      info: rt.info,
-      startedAt: rt.startedAt,
-    }))
+    throw 'mid-deprecation'
   }
 
   /** Stop all active runtimes (for clean shutdown). */

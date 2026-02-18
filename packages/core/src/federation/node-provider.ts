@@ -30,11 +30,11 @@ import type { NodeHandle } from "./node-handle.js"
  */
 export type ProviderKind = Id<"provider-kind">
 
-export interface NodeProvider<R extends Supervised, TId extends string = string> {
+export interface NodeProvider<R extends Supervised, TId extends string = string, TConfig = unknown> {
   readonly kind: ProviderKind
 
   /** Spawn or provision a new child. */
-  create(config: unknown): Promise<NodeHandle<R, TId>>
+  create(config: TConfig): Promise<NodeHandle<R, TId>>
 
   /** Bind to an existing child at a known location. */
   connect(location: unknown): Promise<NodeHandle<R, TId>>

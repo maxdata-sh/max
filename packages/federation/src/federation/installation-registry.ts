@@ -1,5 +1,6 @@
 import { ConnectorType, InstallationId, ISODateString, ProviderKind } from '@max/core'
 import { ErrRegistryEntryNotFound } from './errors.js'
+import {BasicRegistry, InMemoryBasicRegistry} from "./basic-registry.js";
 
 export interface InstallationRegistryEntry {
   readonly id: InstallationId
@@ -10,22 +11,14 @@ export interface InstallationRegistryEntry {
   readonly location: unknown // provider-specific, stored opaquely
 }
 
-export interface InstallationRegistry {
-  add(entry: InstallationRegistryEntry): void
-  remove(id: InstallationId): void
-  get(id: InstallationId): InstallationRegistryEntry | undefined
-  list(): InstallationRegistryEntry[]
-}
+export interface InstallationRegistry extends BasicRegistry<InstallationRegistryEntry, InstallationId> {}
 
 
-export class InMemoryInstallationRegistry implements InstallationRegistry {
-  private map = new Map<InstallationId, InstallationRegistryEntry>()
-  add = (entry: InstallationRegistryEntry) => this.map.set(entry.id, entry)
-  get = (id: InstallationId) => this.map.get(id)
-  list = () => [...this.map.values()]
-  remove = (id: InstallationId) => {
-    if (!this.map.delete(id)) {
-      throw ErrRegistryEntryNotFound.create({ id })
-    }
+export class InMemoryInstallationRegistry
+  extends InMemoryBasicRegistry<InstallationRegistryEntry, InstallationId>
+  implements InstallationRegistry
+{
+  constructor() {
+    super((value) => value.id)
   }
 }

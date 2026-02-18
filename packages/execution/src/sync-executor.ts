@@ -15,7 +15,7 @@
  * This model survives restarts — all state is in the task store.
  */
 
-import type {SyncPlan} from "@max/core";
+import { Lifecycle, LifecycleManager, SyncPlan } from '@max/core'
 
 import type {Task, TaskId} from "./task.js";
 import type {TaskStore} from "./task-store.js";
@@ -36,7 +36,13 @@ export interface SyncExecutorConfig {
 // SyncExecutor
 // ============================================================================
 
-export class SyncExecutor {
+export class SyncExecutor implements Lifecycle {
+
+
+  // FIXME: We need to propagate lifecycle onto these dependencies.
+  // They're not currently lifecycle aware
+  lifecycle = LifecycleManager.auto(() => [])
+
   private taskRunner: TaskRunner;
   private taskStore: TaskStore;
   private expander: PlanExpander;

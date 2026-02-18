@@ -9,6 +9,7 @@ export interface MaxGlobalAppDependencies {
   config: GlobalConfig
 }
 
+/** @deprecated: Using GlobalMax instead */
 export class MaxGlobalApp {
   constructor(public deps: MaxGlobalAppDependencies) {}
 

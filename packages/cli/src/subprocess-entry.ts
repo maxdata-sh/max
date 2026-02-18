@@ -9,19 +9,20 @@
  * parent process can connect.
  */
 
-import { parseSync } from '@optique/core'
-import { flag, passThrough } from '@optique/core'
+import { flag } from '@optique/core'
 import { object } from '@optique/core/constructs'
 import { option } from '@optique/core/primitives'
 import { withDefault } from '@optique/core/modifiers'
 import { string } from '@optique/core/valueparser'
 import {
-  FsProjectManager,
-  FsConnectorRegistry,
-  InstallationRuntimeImpl,
-  InstallationDispatcher,
   createRpcSocketServer,
+  FsConnectorRegistry,
+  FsProjectManager,
+  InProcessInstallationProvider,
+  InstallationDispatcher,
 } from '@max/federation'
+import { createInstallationInProcess } from '@max/platform-bun'
+import { InstallationId, Scope } from '@max/core'
 
 export const subprocessParsers = object({
   subprocess: flag('--subprocess'),
@@ -40,43 +41,67 @@ export interface SubprocessArgs {
   socketPath: string
 }
 
-export async function runSubprocess(args: SubprocessArgs): Promise<void> {
-  const { role, connector, projectRoot, socketPath, name } = args
+const SUBPROCESS_PROVIDER_KIND = 'subprocess'
 
-  if (role !== 'installation') {
-    console.error(`Unknown subprocess role: ${role}`)
+export async function runSubprocess(args: SubprocessArgs): Promise<void> {
+
+
+
+  if (args.role !== 'installation') {
+    console.error(`Unknown subprocess role: ${args.role}`)
     process.exit(1)
   }
 
-  if (!connector || !socketPath) {
+  if (!args.connector || !args.socketPath) {
     console.error('--connector and --socket-path are required for subprocess mode')
     process.exit(1)
   }
 
-  const projectManager = new FsProjectManager(projectRoot)
-  const connectorRegistry = new FsConnectorRegistry({ [connector]: `@max/connector-${connector}` })
+  // I think, theoretically, if we're in "installation" mode, we don't have workspace scope -
+  // If we were, instead, to be in workspace mode, we'd be supervising installations and maintaining their ids.
+  const installationId: InstallationId = '<no id available>'
+  const scope = Scope.workspace(installationId)
 
-  const runtime = await InstallationRuntimeImpl.deprecated_create_connect({
-    projectManager,
-    connectorRegistry,
-    connector,
-    name: name || undefined,
+  const projectManager = new FsProjectManager(args.projectRoot)
+  const connectorRegistry = new FsConnectorRegistry({ [args.connector]: `@max/connector-${args.connector}` })
+
+  const installationProvider = new InProcessInstallationProvider((input) => {
+    return createInstallationInProcess({
+      scope: input.scope,
+      value: {
+        connectorRegistry,
+        projectManager,
+        connector: input.value.connector,
+        name: input.value.name,
+      },
+    })
   })
 
-  const dispatcher = new InstallationDispatcher(runtime)
+  const runtime = await installationProvider.create({
+    scope: scope,
+    value: {
+      providerKind: SUBPROCESS_PROVIDER_KIND,
+      connector: args.connector,
+      config: undefined,
+      name: args.name
+    },
+  })
+
+
+  const dispatcher = new InstallationDispatcher(runtime.client)
 
   createRpcSocketServer({
-    socketPath,
+    socketPath: args.socketPath,
     dispatch: (req) => dispatcher.dispatch(req),
   })
 
   // Signal readiness to parent process
-  const ready = JSON.stringify({ socketPath, installationId: runtime.info.id })
+  const ready = JSON.stringify({ socketPath: args.socketPath, installationId: runtime.id })
   process.stdout.write(ready + '\n')
 
   // Clean shutdown
   process.on('SIGTERM', async () => {
-    await runtime.lifecycle.stop()
+    await runtime.client.stop()
     process.exit(0)
   })
 }

@@ -46,4 +46,5 @@ export interface InstallationInfo {
   readonly name: string;
   readonly id: InstallationId;
   readonly connectedAt: string;
+  readonly location: unknown
 }

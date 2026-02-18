@@ -23,6 +23,11 @@ export interface WorkspaceScope {
 
 export type Scope = InstallationScope | WorkspaceScope;
 
+export type ScopedResource<T, TScope extends Scope> = {
+  scope: TScope
+  value: T
+}
+
 export const Scope = StaticTypeCompanion({
   installation(): InstallationScope {
     return { kind: 'installation' }
@@ -37,6 +42,10 @@ export const Scope = StaticTypeCompanion({
   },
 
   isWorkspace(scope: Scope): scope is WorkspaceScope {
-    return scope.kind === "workspace";
+    return scope.kind === 'workspace'
+  },
+
+  wrap<T, S extends Scope>(scope: S, value: T): ScopedResource<T, S> {
+    return { scope, value }
   },
 })

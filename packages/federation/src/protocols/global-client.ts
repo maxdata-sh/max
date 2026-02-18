@@ -8,14 +8,36 @@
  * practice, the CLI or cloud control plane manages it directly).
  */
 
-import type { WorkspaceId, Supervised, Supervisor } from "@max/core"
-import type { WorkspaceClient } from "./workspace-client.js"
-import {WorkspaceSupervisor} from "../federation/supervisors.js";
+import { ISODateString, ProviderKind, Supervised, WorkspaceId } from '@max/core'
+import {  WorkspaceClient } from './workspace-client.js'
+
+export interface WorkspaceInfo {
+  readonly id: WorkspaceId
+  readonly name: string
+  readonly connectedAt: ISODateString
+  readonly providerKind: ProviderKind
+  readonly location: unknown // provider-specific, stored opaquely
+}
 
 export interface GlobalClient extends Supervised {
-  /** Supervisor over all workspaces. */
-  readonly workspaceSupervisor: WorkspaceSupervisor
+  listWorkspaces(): Promise<WorkspaceInfo[]>
 
   /** Synchronous lookup of a single workspace by its parent-assigned ID. */
   workspace(id: WorkspaceId): WorkspaceClient | undefined
+
+  /** Create a new workspace from serializable config. */
+  createWorkspace(config: CreateWorkspaceConfig): Promise<WorkspaceId>
+
+  /** Tear down and remove a workspace. */
+  removeWorkspace(id: WorkspaceId): Promise<void>
+}
+
+/**
+ * Serializable configuration for creating a new workspace.
+ * Intent-based — the global app figures out how to provision it.
+ */
+export interface CreateWorkspaceConfig {
+  readonly name?: string
+  readonly providerKind?: ProviderKind
+  readonly config?: unknown
 }

@@ -16,3 +16,6 @@ export {
   SubprocessInstallationProvider,
   type SubprocessInstallationConfig,
 } from "./subprocess-installation-provider.js"
+
+export type { InstallationNodeProvider } from './installation-node-provider.js'
+export type { WorkspaceNodeProvider } from './workspace-node-provider.js'

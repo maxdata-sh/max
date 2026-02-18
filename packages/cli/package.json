@@ -21,7 +21,8 @@
     "@max/core": "workspace:*",
     "@optique/core": "0.10.3",
     "@optique/run": "0.10.3",
-    "yargs-parser": "^21.1.1"
+    "yargs-parser": "^21.1.1",
+    "@max/platform-bun": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "latest",

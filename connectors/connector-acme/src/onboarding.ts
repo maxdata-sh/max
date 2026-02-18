@@ -8,7 +8,7 @@ import { AcmeApiToken } from "./credentials.js";
 import type { AcmeConfig } from "./config.js";
 
 export const AcmeOnboarding = OnboardingFlow.create<AcmeConfig>([
-  // FIXME: CLAUDE: I think we ought to be able to treat credentials like fields.
+  // FIXME: I think we ought to be able to treat credentials like fields.
   // Right now there's a rendering bug where, when this prints in the terminal, when I'm asked for the credentials, the read line prompt just says "Connection details". I think that's because there is no label.
   // But what would make more sense is to have a reference to a credential and for it to be a credential field, and then to have those rendered as password protected in the terminal.
   InputStep.create({

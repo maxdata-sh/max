@@ -16,11 +16,17 @@ import {ErrInstallationAlreadyExists, ErrInstallationNotFound, ErrProjectNotInit
 import {FsCredentialStore} from "../credential-store/fs-credential-store.js";
 import {findProjectRoot} from "./find-project-root.js";
 
+/** @deprecated: The "project-manager" concept is poorly defined now that we have {Global,Workspace,Installation}Max
+ *  What this really is is a file-system-based installation registry with extra steps.
+ *  We should rename / distribute accordingly.
+ *  It certainly doens't belong in federation package - maybe @max/platform-bun
+ *  FIXME
+ * */
 export class FsProjectManager implements ProjectManager {
   constructor(private readonly maxProjectRoot: string) {
     const root = findProjectRoot(maxProjectRoot)
     if (root !== maxProjectRoot){
-      if (!root) throw ErrProjectNotInitialised.create({maxProjectRoot:maxProjectRoot});
+      if (!root) throw ErrProjectNotInitialised.create({maxProjectRoot:maxProjectRoot}, `${root}`);
     }
   }
 
@@ -129,6 +135,7 @@ export class FsProjectManager implements ProjectManager {
           name: data.name,
           id: data.id,
           connectedAt: data.connectedAt,
+          location: `file://${filePath}`
         });
       }
     }

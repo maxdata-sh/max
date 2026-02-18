@@ -6,7 +6,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-		"@max/acme": "workspace:*",
+    "@max/acme": "workspace:*",
     "@max/connector-acme": "workspace:*",
     "@max/federation": "workspace:*",
     "@max/core": "workspace:*",
@@ -14,6 +14,7 @@
     "@max/execution-local": "workspace:*",
     "@max/execution-sqlite": "workspace:*",
     "@max/storage-sqlite": "workspace:*",
+    "@max/platform-bun": "workspace:*",
     "@types/bun": "latest",
     "typescript": "catalog:"
   }

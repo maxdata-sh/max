@@ -5,36 +5,63 @@
  * Usage: import { app } from "./app.js"
  */
 
-import * as path from "node:path";
+import * as path from 'node:path'
 import {
+  DefaultSupervisor,
   FsConnectorRegistry,
   FsProjectManager,
-  GlobalConfig,
-  MaxProjectApp,
-  type MaxProjectAppDependencies,
-  ProjectConfig,
-  FsProjectDaemonManager,
-} from "@max/federation";
-import { makeLazy } from "@max/core";
+  InMemoryInstallationRegistry,
+  InProcessInstallationProvider,
+  InProcessWorkspaceProvider,
+} from '@max/federation'
+import { Projection } from '@max/core'
+import { createInstallationInProcess } from '@max/platform-bun'
+import { AcmeUser } from '@max/connector-acme'
 
-const projectRoot = path.resolve(import.meta.dirname, "../../bun-test-project");
+const projectRoot = path.resolve(__dirname, '../../bun-test-project')
 
-const cfg = new GlobalConfig({
-  projectRoot,
-  cwd: projectRoot,
-  mode: "direct",
-});
+try {
+  const projectManager = new FsProjectManager(projectRoot)
+  const connectorRegistry = new FsConnectorRegistry({
+    acme: '@max/connector-acme'
+  })
+  const workspaceProvider = new InProcessWorkspaceProvider()
+  const installationProvider = new InProcessInstallationProvider((input) => {
+    console.log({input})
+    return createInstallationInProcess({
+      scope: input.scope,
+      value: {
+        connectorRegistry,
+        projectManager,
+        connector: input.value.connector,
+        name: input.value.name,
+      },
+    })
+  })
 
-const projectConfig = new ProjectConfig(cfg, { projectRootFolder: projectRoot });
+  const workspace = await workspaceProvider.create({
+    id: 'workspace1',
+    workspace: {
+      registry: new InMemoryInstallationRegistry(),
+      installationSupervisor: new DefaultSupervisor(),
+      installationProvider: installationProvider,
+    },
+  })
 
-const deps = makeLazy<MaxProjectAppDependencies>({
-  projectConfig: () => projectConfig,
-  projectManager: () => new FsProjectManager(projectRoot),
-  connectorRegistry: () =>
-    new FsConnectorRegistry({
-      acme: "@max/connector-acme",
-    }),
-  daemonManager: () => new FsProjectDaemonManager(projectConfig),
-});
+  const acmeId = await workspace.client.createInstallation({
+    name: 'default',
+    connector: 'acme',
+  })
+  const acme = await workspace.client.installation(acmeId)!
 
-export const app = new MaxProjectApp(deps);
+  console.log({
+    installations: await workspace.client.listInstallations(),
+    data: await workspace.client.health(),
+    acme: await acme.engine.load(
+      AcmeUser.ref('usr_14cc9f9adc384561b79f93b738e44649'),
+      Projection.all
+    ),
+  })
+} catch (e) {
+  console.error(e)
+}

@@ -6,7 +6,6 @@ export type { ProjectManager } from "./project-manager.js";
 
 // Implementations
 export { FsProjectManager } from "./fs-project-manager.js";
-export { UninitializedProjectManager } from "./uninitialized-project-manager.js";
 
 // Utilities
 export { findProjectRoot } from "./find-project-root.js";

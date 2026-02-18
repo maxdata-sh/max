@@ -15,19 +15,21 @@ import {
   ErrNotSupported,
   InstallationId,
   ProviderKind,
-  Supervisor,
+  ScopedResource,
   WorkspaceId,
+  WorkspaceScope,
 } from '@max/core'
-import type { ConnectorRegistry } from '@max/connector'
-import type { InstallationClient } from '../protocols/installation-client.js'
+import { ConnectorRegistry } from '@max/connector'
 import type { InstallationHandle, WorkspaceHandle } from '../federation/handle-types.js'
 import type { ProjectManager } from '../project-manager/index.js'
-import { InstallationRuntimeImpl } from '../runtime/installation-runtime.js'
+import { InstallationMaxConstructable } from '../federation/installation-max.js'
 import { WorkspaceMax, WorkspaceMaxConstructable } from '../federation/workspace-max.js'
 import { WorkspaceNodeProvider } from './workspace-node-provider.js'
 import { InstallationNodeProvider } from './installation-node-provider.js'
-import {InstallationSupervisor} from "../federation/supervisors.js";
-import {ServiceProvider} from "./service-provider.js";
+import { ServiceProvider } from './service-provider.js'
+import { ExecutionRegistry, SyncExecutor, TaskRunner } from '@max/execution'
+import { CreateInstallationConfig, InstallationClient } from '../protocols/index.js'
+import { ErrInstallationHandleNotFound, ErrWorkspaceHandleNotFound } from '../errors/errors.js'
 
 const IN_PROCESS_PROVIDER_KIND: ProviderKind = 'in-process'
 
@@ -38,38 +40,43 @@ const IN_PROCESS_PROVIDER_KIND: ProviderKind = 'in-process'
 export interface InProcessInstallationDeps {
   projectManager: ProjectManager
   connectorRegistry: ConnectorRegistry
+  providers: {
+    engine: ServiceProvider<Engine>
+    syncExecutor: ServiceProvider<SyncExecutor>
+    executionRegistry: ServiceProvider<ExecutionRegistry>
+    taskRunner: ServiceProvider<TaskRunner>
+  }
 }
 
-export class InProcessInstallationProvider implements InstallationNodeProvider {
+type InstallationInput = ScopedResource<CreateInstallationConfig, WorkspaceScope>
+type InstantiateInstallation = (input: InstallationInput) => Promise<InstallationClient>
+
+
+export class InProcessInstallationProvider implements InstallationNodeProvider<InstallationInput> {
   readonly kind = IN_PROCESS_PROVIDER_KIND
   private readonly handles = new Map<InstallationId, InstallationHandle>()
 
-  constructor(private readonly deps: InProcessInstallationDeps) {}
+  constructor(private readonly factory: InstantiateInstallation) {}
 
-  async create(config: unknown): Promise<InstallationHandle> {
-    const { connector, name } = config as { connector: string; name?: string }
-
-    // CLAUDE: FIXME: This is creating a _runtime_ - not an installation.
-    // What we need is to create ourselves a client.
-    const runtime = await InstallationRuntimeImpl.deprecated_create_connect({
-      projectManager: this.deps.projectManager,
-      connectorRegistry: this.deps.connectorRegistry,
-      connector,
-      name,
-    })
+  async create(input: InstallationInput): Promise<InstallationHandle> {
+    const client = await this.factory(input)
 
     const handle: InstallationHandle = {
-      id: runtime.info.id,
+      id: input.scope.installationId,
       providerKind: IN_PROCESS_PROVIDER_KIND,
-      client: runtime,
+      client,
     }
 
     this.handles.set(handle.id, handle)
     return handle
   }
 
-  async connect(): Promise<InstallationHandle> {
-    throw ErrNotSupported.create({}, 'InProcess provider does not support connect — use create() instead')
+  async connect(location: InstallationId): Promise<InstallationHandle> {
+    const handle = this.handles.get(location)
+    if (!handle) {
+      throw ErrInstallationHandleNotFound.create({ installation: location })
+    }
+    return handle
   }
 
   async list(): Promise<InstallationHandle[]> {
@@ -86,7 +93,7 @@ export interface InProcessWorkspaceConfig {
   workspace: WorkspaceMaxConstructable
 }
 
-export class InProcessWorkspaceProvider implements WorkspaceNodeProvider {
+export class InProcessWorkspaceProvider implements WorkspaceNodeProvider<InProcessWorkspaceConfig> {
   readonly kind = IN_PROCESS_PROVIDER_KIND
   private readonly handles = new Map<WorkspaceId, WorkspaceHandle>()
 
@@ -105,11 +112,12 @@ export class InProcessWorkspaceProvider implements WorkspaceNodeProvider {
     return handle
   }
 
-  async connect(): Promise<WorkspaceHandle> {
-    throw ErrNotSupported.create(
-      {},
-      'InProcess provider does not support connect — use create() instead'
-    )
+  async connect(location: WorkspaceId): Promise<WorkspaceHandle> {
+    const handle = this.handles.get(location)
+    if (!handle) {
+      throw ErrWorkspaceHandleNotFound.create({ workspace: location })
+    }
+    return handle
   }
 
   async list(): Promise<WorkspaceHandle[]> {

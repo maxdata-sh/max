@@ -1,5 +1,5 @@
 import {CliValuePrinter} from "../cli-printable.js";
-import {ProjectDaemonEntry, ProjectDaemonStatus} from "@max/app";
+import {ProjectDaemonEntry, ProjectDaemonStatus} from "@max/federation";
 
 export const DaemonPrinters = {
 

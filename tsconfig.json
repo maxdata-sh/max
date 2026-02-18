@@ -7,7 +7,7 @@
       { "path": "./packages/execution-local" },
       { "path": "./packages/execution-sqlite" },
       { "path": "./packages/daemon" },
-      { "path": "./packages/app" },
+      { "path": "./packages/federation" },
       { "path": "./packages/cli" },
       { "path": "./connectors/connector-acme" },
       { "path": "./connectors/connector-gdrive" },

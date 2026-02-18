@@ -15,7 +15,7 @@
   },
   "devDependencies": {
     "@max/connector-acme": "workspace:*",
-    "@max/app": "workspace:*",
+    "@max/federation": "workspace:*",
     "@max/core": "workspace:*",
     "@max/execution": "workspace:*",
     "@max/execution-local": "workspace:*",

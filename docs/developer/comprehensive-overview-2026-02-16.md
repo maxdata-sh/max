@@ -24,12 +24,7 @@ Bottom-up dependency order. Each layer only imports from layers below it.
   - TaskStore, TaskRunner, SyncExecutor, SyncHandle, PlanExpander, SyncQueryEngine, SyncMeta
 - **@max/execution-local** — In-memory implementations (InMemoryTaskStore, InMemorySyncMeta, LocalSyncQueryEngine, DefaultTaskRunner)
 - **@max/execution-sqlite** — SQLite implementations (SqliteTaskStore, SqliteSyncMeta, SqliteSyncQueryEngine)
-- **@max/app** — Application orchestration layer
-  - MaxProjectApp (project-scoped coordinator), MaxGlobalApp (init)
-  - ProjectManager interface / FsProjectManager (installation CRUD)
-  - ProjectDaemonManager interface / FsProjectDaemonManager (daemon lifecycle)
-  - InstallationRuntime (per-installation composition root — wires engine + executor + connector)
-  - FsConnectorRegistry, ProjectConfig
+- **@max/federation** — Orchestration layer, types and interfaces
 - **@max/cli** — CLI commands + daemon socket server
   - Rust binary shim → spawns Bun process (direct or daemonized)
 

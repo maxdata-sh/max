@@ -5,12 +5,12 @@
     "": {
       "name": "max",
       "devDependencies": {
-        "@max/app": "workspace:*",
         "@max/connector-acme": "workspace:*",
         "@max/core": "workspace:*",
         "@max/execution": "workspace:*",
         "@max/execution-local": "workspace:*",
         "@max/execution-sqlite": "workspace:*",
+        "@max/federation": "workspace:*",
         "@max/storage-sqlite": "workspace:*",
         "@types/bun": "latest",
         "prettier": "^3.8.1",
@@ -85,29 +85,13 @@
       "version": "0.1.0",
       "devDependencies": {
         "@max/acme": "workspace:*",
-        "@max/app": "workspace:*",
         "@max/connector-acme": "workspace:*",
         "@max/core": "workspace:*",
         "@max/execution": "workspace:*",
         "@max/execution-local": "workspace:*",
         "@max/execution-sqlite": "workspace:*",
+        "@max/federation": "workspace:*",
         "@max/storage-sqlite": "workspace:*",
-        "@types/bun": "latest",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/app": {
-      "name": "@max/app",
-      "version": "0.1.0",
-      "dependencies": {
-        "@max/connector": "workspace:*",
-        "@max/core": "workspace:*",
-        "@max/execution": "workspace:*",
-        "@max/execution-local": "workspace:*",
-        "@max/execution-sqlite": "workspace:*",
-        "@max/storage-sqlite": "workspace:*",
-      },
-      "devDependencies": {
         "@types/bun": "latest",
         "typescript": "catalog:",
       },
@@ -116,11 +100,11 @@
       "name": "@max/cli",
       "version": "0.1.0",
       "dependencies": {
-        "@max/app": "workspace:*",
         "@max/connector": "workspace:*",
         "@max/connector-acme": "workspace:*",
         "@max/connector-linear": "workspace:*",
         "@max/core": "workspace:*",
+        "@max/federation": "workspace:*",
         "@optique/core": "0.10.3",
         "@optique/run": "0.10.3",
         "yargs-parser": "^21.1.1",
@@ -193,6 +177,22 @@
         "typescript": "catalog:",
       },
     },
+    "packages/federation": {
+      "name": "@max/federation",
+      "version": "0.1.0",
+      "dependencies": {
+        "@max/connector": "workspace:*",
+        "@max/core": "workspace:*",
+        "@max/execution": "workspace:*",
+        "@max/execution-local": "workspace:*",
+        "@max/execution-sqlite": "workspace:*",
+        "@max/storage-sqlite": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+        "typescript": "catalog:",
+      },
+    },
     "packages/storage-sqlite": {
       "name": "@max/storage-sqlite",
       "version": "0.1.0",
@@ -213,8 +213,6 @@
     "@faker-js/faker": ["@faker-js/faker@9.9.0", "", {}, "sha512-OEl393iCOoo/z8bMezRlJu+GlRGlsKbUAN7jKB6LhnKoqKve5DXRpalbItIIcwnCjs1k/FOPjFzcA6Qn+H+YbA=="],
 
     "@max/acme": ["@max/acme@workspace:apps/acme"],
-
-    "@max/app": ["@max/app@workspace:packages/app"],
 
     "@max/cli": ["@max/cli@workspace:packages/cli"],
 
@@ -237,6 +235,8 @@
     "@max/execution-local": ["@max/execution-local@workspace:packages/execution-local"],
 
     "@max/execution-sqlite": ["@max/execution-sqlite@workspace:packages/execution-sqlite"],
+
+    "@max/federation": ["@max/federation@workspace:packages/federation"],
 
     "@max/storage-sqlite": ["@max/storage-sqlite@workspace:packages/storage-sqlite"],
 
@@ -370,8 +370,6 @@
 
     "@max/acme/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
 
-    "@max/app/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
-
     "@max/cli/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
 
     "@max/connector/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
@@ -394,11 +392,11 @@
 
     "@max/execution-sqlite/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
 
+    "@max/federation/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
+
     "@max/storage-sqlite/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
 
     "@max/acme/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
-
-    "@max/app/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
 
     "@max/cli/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
 
@@ -421,6 +419,8 @@
     "@max/execution-sqlite/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
 
     "@max/execution/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
+
+    "@max/federation/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
 
     "@max/storage-sqlite/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
   }

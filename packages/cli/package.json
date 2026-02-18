@@ -14,7 +14,7 @@
     "build:rust": "cd rust-proxy && cargo build --release"
   },
   "dependencies": {
-    "@max/app": "workspace:*",
+    "@max/federation": "workspace:*",
     "@max/connector": "workspace:*",
     "@max/connector-acme": "workspace:*",
     "@max/connector-linear": "workspace:*",

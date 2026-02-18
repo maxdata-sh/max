@@ -21,7 +21,7 @@ import {
   InstallationRuntimeImpl,
   InstallationDispatcher,
   createRpcSocketServer,
-} from '@max/app'
+} from '@max/federation'
 
 export const subprocessParsers = object({
   subprocess: flag('--subprocess'),

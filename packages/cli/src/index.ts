@@ -11,7 +11,7 @@ import {
   MaxProjectApp,
   MaxProjectAppDependencies,
   ProjectConfig,
-} from '@max/app'
+} from '@max/federation'
 
 import * as Completion from '@optique/core/completion'
 import { ShellCompletion } from '@optique/core/completion'

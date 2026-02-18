@@ -14,7 +14,7 @@ import {
   type MaxProjectAppDependencies,
   ProjectConfig,
   FsProjectDaemonManager,
-} from "@max/app";
+} from "@max/federation";
 import { makeLazy } from "@max/core";
 
 const projectRoot = path.resolve(import.meta.dirname, "../../bun-test-project");

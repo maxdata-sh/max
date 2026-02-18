@@ -6,8 +6,6 @@
  */
 
 import { app } from "./app.js";
-import {InstallationClient} from "@max/app";
-import { InstallationId, Supervisor } from '@max/core'
 
 const runtime = await app.runtime("acme", "default");
 console.log(`Runtime started for ${runtime.info.connector}:${runtime.info.name}`);

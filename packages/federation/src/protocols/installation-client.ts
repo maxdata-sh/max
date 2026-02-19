@@ -8,11 +8,24 @@
  * parent (the workspace).
  */
 
-import type { Engine, InstallationScope, Schema, Supervised } from "@max/core"
+import type { ConnectorType, Engine, InstallationScope, Schema, Supervised } from "@max/core"
 import type { SyncHandle } from "@max/execution"
 
+/**
+ * Self-reported metadata from a running installation node.
+ * Lightweight — no I/O, just surfaces what the node already knows.
+ */
+export interface InstallationDescription {
+  readonly connector: ConnectorType
+  readonly name: string
+  readonly schema: Schema
+}
+
 export interface InstallationClient extends Supervised {
-  /** The connector's entity schema. Can be cached after first retrieval */
+  /** Self-describe: what connector, what name, what schema. */
+  describe(): Promise<InstallationDescription>
+
+  /** The connector's entity schema. Can be cached after first retrieval. */
   schema(): Promise<Schema>
 
   /** Query engine for this installation's data. */

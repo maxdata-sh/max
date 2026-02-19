@@ -6,8 +6,8 @@
  * abstraction from @max/core.
  */
 
-export type { InstallationClient } from "./installation-client.js"
-export type { WorkspaceClient, CreateInstallationConfig } from "./workspace-client.js"
+export type { InstallationClient, InstallationDescription } from "./installation-client.js"
+export type { WorkspaceClient, CreateInstallationConfig, ConnectInstallationConfig } from "./workspace-client.js"
 export type { GlobalClient } from "./global-client.js"
 
 // Client proxies

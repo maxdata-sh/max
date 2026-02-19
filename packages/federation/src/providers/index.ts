@@ -14,7 +14,6 @@ export {
 
 export {
   SubprocessInstallationProvider,
-  type SubprocessInstallationConfig,
 } from "@max/platform-bun"
 
 export type { InstallationNodeProvider } from './installation-node-provider.js'

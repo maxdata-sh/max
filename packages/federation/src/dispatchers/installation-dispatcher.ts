@@ -65,6 +65,10 @@ export class InstallationDispatcher {
       case "stop":
         return this.supervised.dispatch(method, args)
 
+      // Describe — self-reported metadata
+      case "describe":
+        return this.node.describe()
+
       // Schema (property access)
       case "schema":
         return this.node.schema()

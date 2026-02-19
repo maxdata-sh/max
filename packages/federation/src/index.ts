@@ -1,3 +1,5 @@
+export * from './config/installation-spec.js'
+export * from './config/hosting-config.js'
 export * from "./connector-registry/fs-connector-registry.js";
 
 export * from "./entrypoints/max-global-app.js";

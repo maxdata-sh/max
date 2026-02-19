@@ -5,12 +5,16 @@
  * the client surface). Registry persists installation metadata to max.json;
  * Supervisor manages live handles in memory and assigns identity.
  *
+ * Routing: hosting.type → provider lookup → delegate. The workspace doesn't
+ * interpret the spec — it passes it through to the provider.
+ *
  * Creation flow:
  *   1. Deduplicate on natural key (connector + name)
- *   2. Provider creates a live node → returns UnlabelledHandle
- *   3. Supervisor stamps it with an ID → returns NodeHandle
- *   4. Registry persists the entry
- *   5. Start the installation
+ *   2. Route to provider via hosting.type (or default)
+ *   3. Provider creates a live node → returns UnlabelledHandle
+ *   4. Supervisor stamps it with an ID → returns NodeHandle
+ *   5. Registry persists the entry
+ *   6. Start the installation
  */
 
 import {
@@ -18,32 +22,36 @@ import {
   StartResult,
   StopResult,
   ISODateString,
-  Scope,
 } from '@max/core'
 import type { InstallationId } from '@max/core'
 import type { InstallationClient } from "../protocols/installation-client.js"
-import type { CreateInstallationConfig, WorkspaceClient } from "../protocols/workspace-client.js"
+import type { CreateInstallationConfig, ConnectInstallationConfig, WorkspaceClient } from "../protocols/workspace-client.js"
 import type { InstallationInfo } from "../project-manager/types.js"
+import type { HostingType } from "../config/hosting-config.js"
 import { InstallationSupervisor } from "./supervisors.js"
 import { InstallationRegistry } from "./installation-registry.js"
 import { InstallationNodeProvider } from "../providers/installation-node-provider.js"
 import { ErrInstallationAlreadyExists } from "../project-manager/errors.js"
+import { ErrProviderNotFound } from "../errors/errors.js"
 
 export type WorkspaceMaxConstructable = {
   installationSupervisor: InstallationSupervisor
   registry: InstallationRegistry
-  installationProvider: InstallationNodeProvider
+  providers: Map<HostingType, InstallationNodeProvider>
+  defaultHostingType: HostingType
 }
 
 export class WorkspaceMax implements WorkspaceClient {
   private readonly supervisor: InstallationSupervisor
   private registry: InstallationRegistry
-  private installationProvider: InstallationNodeProvider
+  private readonly providers: Map<HostingType, InstallationNodeProvider>
+  private readonly defaultHostingType: HostingType
 
   constructor(args: WorkspaceMaxConstructable) {
     this.supervisor = args.installationSupervisor
     this.registry = args.registry
-    this.installationProvider = args.installationProvider
+    this.providers = args.providers
+    this.defaultHostingType = args.defaultHostingType
   }
 
   async listInstallations(): Promise<InstallationInfo[]> {
@@ -64,37 +72,64 @@ export class WorkspaceMax implements WorkspaceClient {
   }
 
   async createInstallation(config: CreateInstallationConfig): Promise<InstallationId> {
-    const name = config.name ?? config.connector
+    const { spec } = config
+    const name = spec.name ?? spec.connector
 
     // 1. Deduplicate on natural key (connector + name)
     const existing = this.registry.list().find(
-      (e) => e.connector === config.connector && e.name === name
+      (e) => e.connector === spec.connector && e.name === name
     )
     if (existing) {
-      throw ErrInstallationAlreadyExists.create({ connector: config.connector, name })
+      throw ErrInstallationAlreadyExists.create({ connector: spec.connector, name })
     }
 
-    // 2. Provider creates a live node (stateless, returns UnlabelledHandle)
-    const unlabelled = await this.installationProvider.create({
-      scope: Scope.workspace("pending" as InstallationId),
-      value: config
-    })
+    // 2. Route to provider via hosting.type (or workspace default)
+    const hostingType = config.hosting?.type ?? this.defaultHostingType
+    const provider = this.resolveProvider(hostingType)
 
-    // 3. Supervisor assigns identity, returns NodeHandle
+    // 3. Provider creates a live node (stateless, returns UnlabelledHandle)
+    const unlabelled = await provider.create(spec)
+
+    // 4. Supervisor assigns identity, returns NodeHandle
     const handle = this.supervisor.register(unlabelled)
 
-    // 4. Persist to registry
+    // 5. Persist to registry
     this.registry.add({
       id: handle.id,
-      connector: config.connector,
+      connector: spec.connector,
       name,
       connectedAt: ISODateString.now(),
       providerKind: handle.providerKind,
       location: null,
     })
 
-    // 5. Start
+    // 6. Start
     await handle.client.start()
+
+    return handle.id
+  }
+
+  async connectInstallation(config: ConnectInstallationConfig): Promise<InstallationId> {
+    const provider = this.resolveProvider(config.hosting.type)
+
+    // Connect to the remote node
+    const unlabelled = await provider.connect(config.hosting)
+
+    // Ask the node to describe itself — connector, name, schema
+    const description = await unlabelled.client.describe()
+
+    // Supervisor assigns identity
+    const handle = this.supervisor.register(unlabelled)
+
+    // Persist with real metadata from the node itself
+    this.registry.add({
+      id: handle.id,
+      connector: description.connector,
+      name: config.name ?? description.name,
+      connectedAt: ISODateString.now(),
+      providerKind: handle.providerKind,
+      location: config.hosting.url,
+    })
 
     return handle.id
   }
@@ -134,5 +169,17 @@ export class WorkspaceMax implements WorkspaceClient {
       await handles[i].client.stop()
     }
     return StopResult.stopped()
+  }
+
+  // --------------------------------------------------------------------------
+  // Internal
+  // --------------------------------------------------------------------------
+
+  private resolveProvider(hostingType: HostingType): InstallationNodeProvider {
+    const provider = this.providers.get(hostingType)
+    if (!provider) {
+      throw ErrProviderNotFound.create({ hostingType })
+    }
+    return provider
   }
 }

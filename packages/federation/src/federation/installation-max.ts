@@ -5,6 +5,7 @@
  */
 
 import {
+  type ConnectorType,
   type Engine,
   HealthStatus,
   type InstallationScope,
@@ -16,21 +17,15 @@ import {
 } from "@max/core";
 import {type Installation} from "@max/connector";
 import {SyncExecutor, type SyncHandle} from "@max/execution";
-import type {ManagedInstallation} from "../project-manager/index.js";
-import type {InstallationClient} from "../protocols/installation-client.js";
-
-
-/** Lightweight snapshot of a running runtime, for listing/introspection. */
-export interface InstallationRuntimeInfo {
-  readonly info: ManagedInstallation;
-  readonly startedAt: Date;
-}
+import type {InstallationClient, InstallationDescription} from "../protocols/installation-client.js";
 
 // ============================================================================
 // Implementation
 // ============================================================================
 
 export interface InstallationMaxConstructable {
+  connector: ConnectorType;
+  name: string;
   installation: Installation;
   schema: Schema;
   seeder: SeederAny;
@@ -50,6 +45,14 @@ export class InstallationMax implements InstallationClient {
 
   constructor(config: InstallationMaxConstructable) {
     this.config = config;
+  }
+
+  async describe(): Promise<InstallationDescription> {
+    return {
+      connector: this.config.connector,
+      name: this.config.name,
+      schema: this.config.schema,
+    }
   }
 
   async schema(): Promise<Schema> {

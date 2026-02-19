@@ -11,8 +11,6 @@
 
 import {
   type ProviderKind,
-  type ScopedResource,
-  type WorkspaceScope,
   type UnlabelledHandle,
 } from '@max/core'
 import type { InstallationClient } from '../protocols/index.js'
@@ -20,8 +18,8 @@ import type { WorkspaceClient } from '../protocols/workspace-client.js'
 import { WorkspaceMax, WorkspaceMaxConstructable } from '../federation/workspace-max.js'
 import { InstallationNodeProvider } from './installation-node-provider.js'
 import { WorkspaceNodeProvider } from './workspace-node-provider.js'
-import { CreateInstallationConfig } from '../protocols/index.js'
 import { ErrConnectNotSupported } from '../errors/errors.js'
+import type { InstallationSpec } from '../config/installation-spec.js'
 
 const IN_PROCESS_PROVIDER_KIND: ProviderKind = 'in-process'
 
@@ -29,16 +27,15 @@ const IN_PROCESS_PROVIDER_KIND: ProviderKind = 'in-process'
 // InProcessInstallationProvider
 // ============================================================================
 
-type InstallationInput = ScopedResource<CreateInstallationConfig, WorkspaceScope>
-type InstantiateInstallation = (input: InstallationInput) => Promise<InstallationClient>
+type InstantiateInstallation = (spec: InstallationSpec) => Promise<InstallationClient>
 
-export class InProcessInstallationProvider implements InstallationNodeProvider<InstallationInput> {
+export class InProcessInstallationProvider implements InstallationNodeProvider {
   readonly kind = IN_PROCESS_PROVIDER_KIND
 
   constructor(private readonly factory: InstantiateInstallation) {}
 
-  async create(input: InstallationInput): Promise<UnlabelledHandle<InstallationClient>> {
-    const client = await this.factory(input)
+  async create(spec: InstallationSpec): Promise<UnlabelledHandle<InstallationClient>> {
+    const client = await this.factory(spec)
     return { providerKind: IN_PROCESS_PROVIDER_KIND, client }
   }
 

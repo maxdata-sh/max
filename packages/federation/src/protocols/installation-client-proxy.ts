@@ -22,7 +22,7 @@ import {
   type StopResult,
 } from "@max/core"
 import type { SyncHandle } from "@max/execution"
-import type { InstallationClient } from "./installation-client.js"
+import type { InstallationClient, InstallationDescription } from "./installation-client.js"
 import { RemoteSyncHandle } from "./remote-sync-handle.js"
 
 export class InstallationClientProxy implements InstallationClient {
@@ -32,6 +32,10 @@ export class InstallationClientProxy implements InstallationClient {
   constructor(private readonly transport: Transport) {
     this.supervised = new SupervisedProxy(transport)
     this.engine = new EngineProxy(transport)
+  }
+
+  describe(): Promise<InstallationDescription> {
+    return this.rpc('describe')
   }
 
   schema(): Promise<Schema> {

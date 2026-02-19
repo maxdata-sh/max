@@ -13,7 +13,7 @@ export {
 } from "./in-process-provider.js"
 
 export {
-  BunInProcessProvider,
+  BunInProcessInstallationProvider,
   SubprocessInstallationProvider,
 } from "@max/platform-bun"
 

@@ -1,5 +1,5 @@
 /**
- * BunInProcessProvider — Platform-specific installation provider for Bun.
+ * BunInProcessInstallationProvider — Platform-specific installation provider for Bun.
  *
  * Resolves InstallationSpec → concrete dependencies using Bun-native
  * implementations (bun:sqlite for engine/task store/sync meta, node:fs
@@ -34,7 +34,7 @@ import { FsCredentialStore } from './fs-credential-store.js'
 
 const BUN_IN_PROCESS_KIND: ProviderKind = 'in-process'
 
-export class BunInProcessProvider implements InstallationNodeProvider {
+export class BunInProcessInstallationProvider implements InstallationNodeProvider {
   readonly kind = BUN_IN_PROCESS_KIND
 
   constructor(
@@ -54,6 +54,14 @@ export class BunInProcessProvider implements InstallationNodeProvider {
     const connector = await this.connectorRegistry.resolve(spec.connector)
     const engine = this.resolveEngine(spec.engine ?? { type: "sqlite" }, installDir, connector.def.schema)
     const credentialStore = this.resolveCredentialStore(spec.credentials ?? { type: "fs" }, installDir)
+
+    // Persist pre-collected credentials (from atomic connect flow)
+    if (spec.initialCredentials) {
+      for (const [key, value] of Object.entries(spec.initialCredentials)) {
+        await credentialStore.set(key, value)
+      }
+    }
+
     const taskStore = this.resolveTaskStore(engine)
     const syncMeta = this.resolveSyncMeta(engine)
 

@@ -117,6 +117,18 @@ export function StubbedWorkspaceClient(
     async removeInstallation(id: InstallationId) {
       calls?.push(`removeInstallation(${id})`)
     },
+    async listConnectors() {
+      calls?.push("listConnectors")
+      return [{ name: "hubspot" }, { name: "linear" }] as any
+    },
+    async connectorSchema(connector: string) {
+      calls?.push(`connectorSchema(${connector})`)
+      return { entities: [], root: connector } as any
+    },
+    async connectorOnboarding(connector: string) {
+      calls?.push(`connectorOnboarding(${connector})`)
+      return { steps: [] } as any
+    },
     async health() { calls?.push("health"); return HealthStatus.healthy() },
     async start() { calls?.push("start"); return StartResult.started() },
     async stop() { calls?.push("stop"); return StopResult.stopped() },

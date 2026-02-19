@@ -12,7 +12,8 @@
  * and over RPC.
  */
 
-import type { InstallationId, Supervised } from "@max/core"
+import type { InstallationId, Schema, Supervised } from "@max/core"
+import type { ConnectorRegistryEntry, OnboardingFlowAny } from "@max/connector"
 import type { InstallationClient } from "./installation-client.js"
 import type { InstallationInfo } from "../project-manager/types.js"
 import type { InstallationSpec } from "../config/installation-spec.js"
@@ -33,6 +34,15 @@ export interface WorkspaceClient extends Supervised {
 
   /** Tear down and remove an installation. */
   removeInstallation(id: InstallationId): Promise<void>
+
+  /** List available connectors in this workspace. */
+  listConnectors(): Promise<ConnectorRegistryEntry[]>
+
+  /** Get the schema for a connector (pre-installation). */
+  connectorSchema(connector: string): Promise<Schema>
+
+  /** Get the onboarding flow for a connector (pre-installation). */
+  connectorOnboarding(connector: string): Promise<OnboardingFlowAny>
 }
 
 /**

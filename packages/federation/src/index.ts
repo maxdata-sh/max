@@ -2,8 +2,6 @@ export * from './config/installation-spec.js'
 export * from './config/hosting-config.js'
 export * from "./connector-registry/fs-connector-registry.js";
 
-export * from "./entrypoints/max-global-app.js";
-export * from "./entrypoints/max-project-app.js";
 export * from "./errors/errors.js"
 export * from './project-daemon-manager/fs-project-daemon-manager.js'
 export * from './project-daemon-manager/project-daemon-manager.js'

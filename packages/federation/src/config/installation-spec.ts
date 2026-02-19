@@ -45,4 +45,7 @@ export interface InstallationSpec {
 
   /** Connector-specific config (API keys, workspace IDs — from onboarding). Opaque to federation. */
   readonly connectorConfig?: unknown
+
+  /** Pre-collected credentials to persist during installation creation. Opaque to federation. */
+  readonly initialCredentials?: Record<string, string>
 }

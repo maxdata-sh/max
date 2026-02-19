@@ -1,55 +1,56 @@
 import {
-  DefaultSupervisor,
+  ErrCannotInitialiseProject,
   ErrDaemonDisabled,
   ErrInvariant,
   ErrProjectNotInitialised,
-  FsConnectorRegistry,
+  findProjectRoot,
   FsProjectDaemonManager,
   FsProjectManager,
   GlobalConfig,
-  GlobalMax,
-  InMemoryWorkspaceRegistry,
-  InProcessWorkspaceProvider,
-  MaxGlobalApp,
-  MaxGlobalAppDependencies,
-  MaxProjectApp,
-  MaxProjectAppDependencies,
   ProjectConfig,
-  SubprocessInstallationProvider,
+  type WorkspaceClient,
 } from '@max/federation'
+import { InMemoryCredentialStore } from '@max/connector'
+import { BunInProcessWorkspaceProvider } from '@max/platform-bun'
 
 import * as Completion from '@optique/core/completion'
-import {ShellCompletion} from '@optique/core/completion'
-import {flag, parseSync, passThrough} from '@optique/core'
-import {group, object, or} from '@optique/core/constructs'
-import {option} from '@optique/core/primitives'
-import {withDefault} from '@optique/core/modifiers'
-import {string} from '@optique/core/valueparser'
-import {Mode, Parser, suggestAsync, type Suggestion} from '@optique/core/parser'
-import {ProjectCompleters} from './parsers/project-completers.js'
+import { ShellCompletion } from '@optique/core/completion'
+import { flag, parseSync, passThrough } from '@optique/core'
+import { group, object, or } from '@optique/core/constructs'
+import { option } from '@optique/core/primitives'
+import { withDefault } from '@optique/core/modifiers'
+import { string } from '@optique/core/valueparser'
+import { Mode, Parser, suggestAsync, type Suggestion } from '@optique/core/parser'
+import { ProjectCompleters } from './parsers/project-completers.js'
 import * as fs from 'node:fs'
 
-import {LazyOne, LazyX, makeLazy, MaxError} from '@max/core'
-import {CliPrinter, Fmt} from './cli-printable.js'
-import {SchemaPrinters} from './printers/schema-printers.js'
+import { LazyOne, LazyX, makeLazy, MaxError } from '@max/core'
+import { CliPrinter, Fmt } from './cli-printable.js'
+import { SchemaPrinters } from './printers/schema-printers.js'
 import * as path from 'node:path'
-import {createSocketServer} from './socket-server.js'
-import {CliRequest, CliResponse} from './types.js'
-import {parseAndValidateArgs} from './argv-parser.js'
-import {daemonCommand} from './commands/daemon-command.js'
-import {schemaCommandBuild} from './commands/schema-command.js'
-import {connectCommandBuild} from './commands/connect-command.js'
-import {initCommand} from './commands/init-command.js'
-import {syncCommandBuild} from './commands/sync-command.js'
-import {runOnboarding} from './onboarding-runner.js'
-import {DirectPrompter, type Prompter} from './prompter.js'
-import {DaemonPrinters} from './printers/daemon-printers.js'
-import {runSubprocess, subprocessParsers} from './subprocess-entry.js'
+import { createSocketServer } from './socket-server.js'
+import { CliRequest, CliResponse } from './types.js'
+import { parseAndValidateArgs } from './argv-parser.js'
+import { daemonCommand } from './commands/daemon-command.js'
+import { schemaCommandBuild } from './commands/schema-command.js'
+import { connectCommandBuild } from './commands/connect-command.js'
+import { initCommand } from './commands/init-command.js'
+import { syncCommandBuild } from './commands/sync-command.js'
+import { runOnboarding } from './onboarding-runner.js'
+import { DirectPrompter, type Prompter } from './prompter.js'
+import { DaemonPrinters } from './printers/daemon-printers.js'
+import { runSubprocess, subprocessParsers } from './subprocess-entry.js'
 
 const shells: Record<string, ShellCompletion> = {
   zsh: Completion.zsh,
   bash: Completion.bash,
   fish: Completion.fish,
+}
+
+// FIXME: Connector registry should be configurable, not hardcoded
+const KNOWN_CONNECTORS: Record<string, string> = {
+  acme: '@max/connector-acme',
+  linear: '@max/connector-linear',
 }
 
 class Commands {
@@ -69,71 +70,97 @@ type CmdInput<k extends keyof Commands['all']> = ParserResultType<Commands['all'
 
 class CLI {
   constructor(public cfg: GlobalConfig) {
-    const globalDeps: MaxGlobalAppDependencies = makeLazy<MaxGlobalAppDependencies>({
-      config: () => cfg,
-    })
-
-    // const workspaceProvider = new InProcessWorkspaceProvider()
-    // const installationProvider = new SubprocessInstallationProvider()
-
-    // this.globalMax = new GlobalMax({
-    //   workspaceProvider,
-    //   registry: new InMemoryWorkspaceRegistry(),
-    //   workspaceSupervisor: new DefaultSupervisor(),
-    // })
-    this.global = new MaxGlobalApp(globalDeps)
-    const projectDeps: MaxProjectAppDependencies = makeLazy<MaxProjectAppDependencies>({
-      daemonManager: () => new FsProjectDaemonManager(projectDeps.projectConfig),
-      projectManager: () => new FsProjectManager(projectDeps.projectConfig.paths.projectRootPath),
-      projectConfig: () => {
-        const projectRoot = cfg.projectRoot
-        const projectExists = projectRoot && fs.existsSync(projectRoot)
-        if (!projectRoot || !projectExists) {
-          throw ErrProjectNotInitialised.create({ maxProjectRoot: projectRoot ?? cfg.cwd })
-        }
-        return new ProjectConfig(cfg, { projectRootFolder: projectRoot })
-      },
-      connectorRegistry: () =>
-        new FsConnectorRegistry({
-          acme: '@max/connector-acme',
-          linear: '@max/connector-linear',
-        }),
-    })
-
-    this.project = new MaxProjectApp(projectDeps)
     this.commands = new Commands(
-      LazyX.once(() => new ProjectCompleters(this.project, new Fmt(cfg.useColor ?? true)))
+      LazyX.once(() => new ProjectCompleters(
+        () => this.getWorkspace(),
+        new Fmt(cfg.useColor ?? true),
+      ))
     )
   }
 
-  global: MaxGlobalApp
-  project: MaxProjectApp
   commands: Commands
+
+  // -- Workspace (lazy, created on first use) ---------------------------------
+
+  private _workspace: Promise<WorkspaceClient> | null = null
+
+  private getWorkspace(): Promise<WorkspaceClient> {
+    if (!this._workspace) {
+      const projectRoot = this.cfg.projectRoot
+      if (!projectRoot || !fs.existsSync(path.join(projectRoot, 'max.json'))) {
+        throw ErrProjectNotInitialised.create({ maxProjectRoot: projectRoot ?? this.cfg.cwd })
+      }
+      const provider = new BunInProcessWorkspaceProvider()
+      this._workspace = provider.create({
+        projectRoot,
+        connectors: KNOWN_CONNECTORS,
+      }).then(handle => handle.client)
+    }
+    return this._workspace
+  }
+
+  // -- Daemon management (process-level, not workspace-level) -----------------
+
+  private _projectConfig: ProjectConfig | null = null
+
+  private getProjectConfig(): ProjectConfig {
+    if (!this._projectConfig) {
+      const projectRoot = this.cfg.projectRoot
+      if (!projectRoot || !fs.existsSync(projectRoot)) {
+        throw ErrProjectNotInitialised.create({ maxProjectRoot: projectRoot ?? this.cfg.cwd })
+      }
+      this._projectConfig = new ProjectConfig(this.cfg, { projectRootFolder: projectRoot })
+    }
+    return this._projectConfig
+  }
+
+  private _daemonManager: FsProjectDaemonManager | null = null
+
+  private getDaemonManager(): FsProjectDaemonManager {
+    if (!this._daemonManager) {
+      this._daemonManager = new FsProjectDaemonManager(this.getProjectConfig())
+    }
+    return this._daemonManager
+  }
+
+  // -- Program parser ---------------------------------------------------------
 
   program = LazyX.once(() =>
     or(
       //
-      group("project", or(
-        this.commands.all.init,
-        this.commands.all.connect,
-        this.commands.all.sync,
-        this.commands.all.schema,
-      )),
+      group(
+        'project',
+        or(
+          this.commands.all.init,
+          this.commands.all.connect,
+          this.commands.all.sync,
+          this.commands.all.schema
+        )
+      ),
       group('system', this.commands.all.daemon)
     )
   )
 
+  // -- Command handlers -------------------------------------------------------
+
   runInit(arg: CmdInput<'init'>) {
     const dir = path.resolve(arg.directory)
-    return this.global.initProjectAtPath({
-      force: arg.force,
-      path: dir,
-    })
+    const existingRoot = findProjectRoot(dir)
+
+    if (existingRoot && !arg.force) {
+      throw ErrCannotInitialiseProject.create(
+        { maxProjectRoot: existingRoot },
+        'you are already in a max project! Use `force=true` to create one here anyway.'
+      )
+    }
+
+    FsProjectManager.init(dir)
   }
 
   async runSchema(arg: CmdInput<'schema'>, color: boolean) {
     const printer = this.printerFor(color)
-    const schema = await this.project.getSchema(arg.source)
+    const ws = await this.getWorkspace()
+    const schema = await ws.connectorSchema(arg.source)
     switch (arg.output) {
       default:
       case 'text':
@@ -146,14 +173,32 @@ class CLI {
   }
 
   async runConnect(arg: CmdInput<'connect'>, prompter?: Prompter) {
-    const flow = await this.project.getOnboardingFlow(arg.source)
-    const { pending, credentialStore } = this.project.prepareConnection(arg.source)
+    const ws = await this.getWorkspace()
+    const flow = await ws.connectorOnboarding(arg.source)
+
+    // Collect credentials into an in-memory store during onboarding
+    const memStore = new InMemoryCredentialStore()
     const ownedPrompter = prompter ? null : new DirectPrompter()
     const resolved = prompter ?? ownedPrompter!
     try {
-      const config = await runOnboarding(flow, { credentialStore }, resolved)
-      const installation = await this.project.commitConnection(pending, config)
-      return `Connected ${installation.connector} as "${installation.name}"`
+      const config = await runOnboarding(flow, { credentialStore: memStore }, resolved)
+
+      // Dump collected credentials for atomic installation creation
+      const credentialKeys = await memStore.keys()
+      const initialCredentials: Record<string, string> = {}
+      for (const key of credentialKeys) {
+        initialCredentials[key] = await memStore.get(key)
+      }
+
+      const id = await ws.createInstallation({
+        spec: {
+          connector: arg.source,
+          connectorConfig: config,
+          initialCredentials: credentialKeys.length > 0 ? initialCredentials : undefined,
+        },
+      })
+
+      return `Connected ${arg.source} as installation ${id}`
     } finally {
       ownedPrompter?.close()
     }
@@ -161,13 +206,27 @@ class CLI {
 
   async runSync(arg: CmdInput<'sync'>, color: boolean) {
     const printer = this.printerFor(color)
+    const ws = await this.getWorkspace()
     const [connector, name] = arg.target
-    const runtime = await this.project.runtime(connector, name)
 
-    const handle = await runtime.sync()
+    // Find installation by connector + name
+    const installations = await ws.listInstallations()
+    const match = installations.find(
+      i => i.connector === connector && (name ? i.name === name : true)
+    )
+    if (!match) {
+      throw ErrInvariant.create({ detail: `No installation found for ${connector}${name ? `:${name}` : ''}` })
+    }
+
+    const installation = ws.installation(match.id)
+    if (!installation) {
+      throw ErrInvariant.create({ detail: `Installation ${match.id} registered but not running` })
+    }
+
+    const handle = await installation.sync()
     const result = await handle.completion()
 
-    await runtime.lifecycle.stop()
+    await installation.stop()
 
     const lines = [
       `Sync ${result.status} in ${result.duration}ms`,
@@ -179,7 +238,7 @@ class CLI {
 
   runDaemon(arg: CmdInput<'daemon'>, color: boolean) {
     const printer = this.printerFor(color)
-    const daemon = this.project.daemonManager
+    const daemon = this.getDaemonManager()
     const printStatus = () => printer.print(DaemonPrinters.DaemonStatus, daemon.status())
 
     switch (arg.sub) {
@@ -214,6 +273,8 @@ class CLI {
         throw ErrInvariant.create({ detail: `Unhandled daemon subcommand: ${arg.sub}` })
     }
   }
+
+  // -- Shared utilities -------------------------------------------------------
 
   private colorPrinter = new CliPrinter({ color: true })
   private plainPrinter = new CliPrinter({ color: false })
@@ -291,7 +352,6 @@ const subprocessParsed = parseSync(subprocessParsers, process.argv.slice(2))
 if (subprocessParsed.success && subprocessParsed.value.subprocess) {
   await runSubprocess(subprocessParsed.value)
 } else {
-
 // ============================================================================
 // Normal CLI mode
 // ============================================================================
@@ -321,8 +381,10 @@ if (parsed.success) {
       process.exit(1)
     }
 
-    const daemonPaths = cli.project.config.paths.daemon
-    const daemonStatus = cli.project.daemonManager.status()
+    const projectConfig = new ProjectConfig(cfg, { projectRootFolder: cfg.projectRoot })
+    const daemonPaths = projectConfig.paths.daemon
+    const daemonManager = new FsProjectDaemonManager(projectConfig)
+    const daemonStatus = daemonManager.status()
 
     if (!daemonStatus.enabled) {
       console.error(ErrDaemonDisabled.create({}).prettyPrint({ color: cfg.useColor }))

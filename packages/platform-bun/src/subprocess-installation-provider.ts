@@ -3,7 +3,7 @@
  *
  * Each installation runs in its own subprocess, communicating via RPC over
  * a Unix socket. The provider serializes the InstallationSpec as a base64
- * JSON arg to the child. The child runs BunInProcessProvider internally to
+ * JSON arg to the child. The child runs BunInProcessInstallationProvider internally to
  * resolve and wire the installation.
  *
  * The provider is a stateless factory from the federation's perspective —

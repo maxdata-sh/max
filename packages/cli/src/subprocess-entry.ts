@@ -4,7 +4,7 @@
  * Invoked with: max --subprocess --role=installation --spec=<base64>
  *               --data-root=/path --socket-path=/tmp/max-inst-xxx.sock
  *
- * Uses BunInProcessProvider to resolve spec → concrete deps and bootstrap
+ * Uses BunInProcessInstallationProvider to resolve spec → concrete deps and bootstrap
  * the installation. Wraps it in an InstallationDispatcher, starts an RPC
  * socket server, and writes a ready signal to stdout so the parent can connect.
  */
@@ -20,7 +20,7 @@ import {
   InstallationDispatcher,
 } from '@max/federation'
 import type { InstallationSpec } from '@max/federation'
-import { BunInProcessProvider } from '@max/platform-bun'
+import { BunInProcessInstallationProvider } from '@max/platform-bun'
 
 export const subprocessParsers = object({
   subprocess: flag('--subprocess'),
@@ -56,7 +56,7 @@ export async function runSubprocess(args: SubprocessArgs): Promise<void> {
   // FIXME: Connector registry should be configurable, not hardcoded
   const connectorRegistry = new FsConnectorRegistry({ [spec.connector]: `@max/connector-${spec.connector}` })
 
-  const provider = new BunInProcessProvider(connectorRegistry, args.dataRoot)
+  const provider = new BunInProcessInstallationProvider(connectorRegistry, args.dataRoot)
   const handle = await provider.create(spec)
 
   const dispatcher = new InstallationDispatcher(handle.client)

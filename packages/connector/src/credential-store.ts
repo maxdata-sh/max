@@ -32,7 +32,7 @@ export interface CredentialStore {
 // InMemoryCredentialStore (testing implementation)
 // ============================================================================
 
-class InMemoryCredentialStore implements CredentialStore {
+export class InMemoryCredentialStore implements CredentialStore {
   private store: Map<string, string>;
 
   constructor(initial?: Record<string, string>) {

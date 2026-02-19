@@ -75,6 +75,15 @@ export class WorkspaceDispatcher {
       case "removeInstallation":
         return this.node.removeInstallation(args[0] as InstallationId)
 
+      case "listConnectors":
+        return this.node.listConnectors()
+
+      case "connectorSchema":
+        return this.node.connectorSchema(args[0] as string)
+
+      case "connectorOnboarding":
+        return this.node.connectorOnboarding(args[0] as string)
+
       default:
         throw ErrUnknownMethod.create({ target: "root", method })
     }

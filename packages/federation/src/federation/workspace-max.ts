@@ -23,7 +23,8 @@ import {
   StopResult,
   ISODateString,
 } from '@max/core'
-import type { InstallationId } from '@max/core'
+import type { InstallationId, Schema } from '@max/core'
+import type { ConnectorRegistry, ConnectorRegistryEntry, OnboardingFlowAny } from '@max/connector'
 import type { InstallationClient } from "../protocols/installation-client.js"
 import type { CreateInstallationConfig, ConnectInstallationConfig, WorkspaceClient } from "../protocols/workspace-client.js"
 import type { InstallationInfo } from "../project-manager/types.js"
@@ -39,6 +40,7 @@ export type WorkspaceMaxConstructable = {
   registry: InstallationRegistry
   providers: Map<HostingType, InstallationNodeProvider>
   defaultHostingType: HostingType
+  connectorRegistry: ConnectorRegistry
 }
 
 export class WorkspaceMax implements WorkspaceClient {
@@ -46,12 +48,32 @@ export class WorkspaceMax implements WorkspaceClient {
   private registry: InstallationRegistry
   private readonly providers: Map<HostingType, InstallationNodeProvider>
   private readonly defaultHostingType: HostingType
+  private readonly connectorRegistry: ConnectorRegistry
 
   constructor(args: WorkspaceMaxConstructable) {
     this.supervisor = args.installationSupervisor
     this.registry = args.registry
     this.providers = args.providers
     this.defaultHostingType = args.defaultHostingType
+    this.connectorRegistry = args.connectorRegistry
+  }
+
+  // --------------------------------------------------------------------------
+  // Connector discovery
+  // --------------------------------------------------------------------------
+
+  async listConnectors(): Promise<ConnectorRegistryEntry[]> {
+    return this.connectorRegistry.list()
+  }
+
+  async connectorSchema(connector: string): Promise<Schema> {
+    const mod = await this.connectorRegistry.resolve(connector)
+    return mod.def.schema
+  }
+
+  async connectorOnboarding(connector: string): Promise<OnboardingFlowAny> {
+    const mod = await this.connectorRegistry.resolve(connector)
+    return mod.def.onboarding
   }
 
   async listInstallations(): Promise<InstallationInfo[]> {

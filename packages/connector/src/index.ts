@@ -22,7 +22,7 @@ export type {
 } from "./credential.js";
 
 // CredentialStore (platform storage layer)
-export { StubbedCredentialStore } from "./credential-store.js";
+export { StubbedCredentialStore, InMemoryCredentialStore } from "./credential-store.js";
 export type { CredentialStore } from "./credential-store.js";
 
 // Credential errors (needed by CredentialStore implementations)

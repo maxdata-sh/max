@@ -16,7 +16,7 @@ import {
   type InstallationNodeProvider,
 } from '@max/federation'
 import { Projection, type InstallationId, type WorkspaceId } from '@max/core'
-import { BunInProcessProvider } from '@max/platform-bun'
+import { BunInProcessInstallationProvider } from '@max/platform-bun'
 import { AcmeUser } from '@max/connector-acme'
 
 const projectRoot = path.resolve(__dirname, '../../bun-test-project')
@@ -31,7 +31,7 @@ try {
     () => crypto.randomUUID() as WorkspaceId
   )
 
-  const installationProvider = new BunInProcessProvider(connectorRegistry, dataRoot)
+  const installationProvider = new BunInProcessInstallationProvider(connectorRegistry, dataRoot)
 
   const providers = new Map<HostingType, InstallationNodeProvider>([
     ['in-process', installationProvider],
@@ -46,6 +46,7 @@ try {
       ),
       providers,
       defaultHostingType: 'in-process',
+      connectorRegistry,
     },
   })
   const workspace = workspaceSupervisor.register(unlabelledWorkspace)

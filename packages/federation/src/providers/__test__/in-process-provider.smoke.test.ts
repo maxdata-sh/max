@@ -7,7 +7,7 @@ import { InMemoryInstallationRegistry } from '../../federation/installation-regi
 import { FsConnectorRegistry } from '../../connector-registry/fs-connector-registry.js'
 import { AcmeUser } from '@max/connector-acme'
 import { Projection, type InstallationId, type WorkspaceId } from '@max/core'
-import { BunInProcessProvider } from '@max/platform-bun'
+import { BunInProcessInstallationProvider } from '@max/platform-bun'
 import type { HostingType, InstallationNodeProvider } from '@max/federation'
 import * as path from 'node:path'
 
@@ -22,7 +22,7 @@ describe('in-process-provider', () => {
         () => crypto.randomUUID() as WorkspaceId
       )
 
-      const installationProvider = new BunInProcessProvider(connectorRegistry, dataRoot)
+      const installationProvider = new BunInProcessInstallationProvider(connectorRegistry, dataRoot)
       const providers = new Map<HostingType, InstallationNodeProvider>([
         ['in-process', installationProvider],
       ])
@@ -36,6 +36,7 @@ describe('in-process-provider', () => {
           ),
           providers,
           defaultHostingType: 'in-process',
+          connectorRegistry,
         },
       })
       const workspace = workspaceSupervisor.register(unlabelledWorkspace)

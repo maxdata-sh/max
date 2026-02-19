@@ -13,10 +13,12 @@ import {
   type Transport,
   type RpcRequest,
   type InstallationId,
+  type Schema,
   type HealthStatus,
   type StartResult,
   type StopResult,
 } from "@max/core"
+import type { ConnectorRegistryEntry, OnboardingFlowAny } from "@max/connector"
 import type { InstallationInfo } from "../project-manager/types.js"
 import type { InstallationClient } from "./installation-client.js"
 import type { CreateInstallationConfig, ConnectInstallationConfig, WorkspaceClient } from "./workspace-client.js"
@@ -66,6 +68,18 @@ export class WorkspaceClientProxy implements WorkspaceClient {
 
   async removeInstallation(id: InstallationId): Promise<void> {
     return this.rpc("removeInstallation", id)
+  }
+
+  async listConnectors(): Promise<ConnectorRegistryEntry[]> {
+    return this.rpc("listConnectors")
+  }
+
+  async connectorSchema(connector: string): Promise<Schema> {
+    return this.rpc("connectorSchema", connector)
+  }
+
+  async connectorOnboarding(connector: string): Promise<OnboardingFlowAny> {
+    return this.rpc("connectorOnboarding", connector)
   }
 
   private rpc(method: string, ...args: unknown[]): Promise<any> {

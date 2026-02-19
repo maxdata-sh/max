@@ -81,7 +81,7 @@ class CLI {
     //   registry: new InMemoryWorkspaceRegistry(),
     //   workspaceSupervisor: new DefaultSupervisor(),
     // })
-    // this.global = new MaxGlobalApp(globalDeps)
+    this.global = new MaxGlobalApp(globalDeps)
     const projectDeps: MaxProjectAppDependencies = makeLazy<MaxProjectAppDependencies>({
       daemonManager: () => new FsProjectDaemonManager(projectDeps.projectConfig),
       projectManager: () => new FsProjectManager(projectDeps.projectConfig.paths.projectRootPath),

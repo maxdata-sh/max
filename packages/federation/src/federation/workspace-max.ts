@@ -3,7 +3,14 @@
  *
  * Implements WorkspaceClient. Holds a Supervisor internally (not exposed on
  * the client surface). Registry persists installation metadata to max.json;
- * Supervisor manages live handles in memory.
+ * Supervisor manages live handles in memory and assigns identity.
+ *
+ * Creation flow:
+ *   1. Deduplicate on natural key (connector + name)
+ *   2. Provider creates a live node → returns UnlabelledHandle
+ *   3. Supervisor stamps it with an ID → returns NodeHandle
+ *   4. Registry persists the entry
+ *   5. Start the installation
  */
 
 import {
@@ -11,15 +18,16 @@ import {
   StartResult,
   StopResult,
   ISODateString,
-  type InstallationId,
   Scope,
 } from '@max/core'
+import type { InstallationId } from '@max/core'
 import type { InstallationClient } from "../protocols/installation-client.js"
 import type { CreateInstallationConfig, WorkspaceClient } from "../protocols/workspace-client.js"
 import type { InstallationInfo } from "../project-manager/types.js"
-import {InstallationSupervisor} from "./supervisors.js";
-import {InstallationRegistry} from "./installation-registry.js";
-import {InstallationNodeProvider} from "../providers/installation-node-provider.js";
+import { InstallationSupervisor } from "./supervisors.js"
+import { InstallationRegistry } from "./installation-registry.js"
+import { InstallationNodeProvider } from "../providers/installation-node-provider.js"
+import { ErrInstallationAlreadyExists } from "../project-manager/errors.js"
 
 export type WorkspaceMaxConstructable = {
   installationSupervisor: InstallationSupervisor
@@ -56,21 +64,39 @@ export class WorkspaceMax implements WorkspaceClient {
   }
 
   async createInstallation(config: CreateInstallationConfig): Promise<InstallationId> {
-    const result = await this.installationProvider.create({
-      scope: Scope.workspace("no id available"),
+    const name = config.name ?? config.connector
+
+    // 1. Deduplicate on natural key (connector + name)
+    const existing = this.registry.list().find(
+      (e) => e.connector === config.connector && e.name === name
+    )
+    if (existing) {
+      throw ErrInstallationAlreadyExists.create({ connector: config.connector, name })
+    }
+
+    // 2. Provider creates a live node (stateless, returns UnlabelledHandle)
+    const unlabelled = await this.installationProvider.create({
+      scope: Scope.workspace("pending" as InstallationId),
       value: config
     })
+
+    // 3. Supervisor assigns identity, returns NodeHandle
+    const handle = this.supervisor.register(unlabelled)
+
+    // 4. Persist to registry
     this.registry.add({
-      id: result.id,
+      id: handle.id,
       connector: config.connector,
-      name: config.name ?? config.connector,
+      name,
       connectedAt: ISODateString.now(),
-      providerKind: config.providerKind ?? this.installationProvider.kind,
-      location: null, // provider-supplied location — deferred until boot sequence
+      providerKind: handle.providerKind,
+      location: null,
     })
-    this.supervisor.register(result)
-    await result.client.start()
-    return result.id
+
+    // 5. Start
+    await handle.client.start()
+
+    return handle.id
   }
 
   async removeInstallation(id: InstallationId): Promise<void> {

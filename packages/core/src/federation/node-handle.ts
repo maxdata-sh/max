@@ -17,6 +17,26 @@
 import type { Supervised } from "./supervised.js"
 import type { ProviderKind } from "./node-provider.js"
 
+/**
+ * UnlabelledHandle — What a provider returns. A live node without identity.
+ *
+ * The provider creates or connects to a node and returns this. It has no ID
+ * because identity is assigned by the parent (via the Supervisor), not by
+ * the provider.
+ */
+export interface UnlabelledHandle<R extends Supervised> {
+  /** The typed client surface — real object (in-process) or proxy (remote). */
+  readonly client: R
+
+  /** Informational tag identifying the deployment strategy. */
+  readonly providerKind: ProviderKind
+}
+
+/**
+ * NodeHandle — An unlabelled handle stamped with an ID by the parent.
+ *
+ * Created by the Supervisor when it registers an UnlabelledHandle.
+ */
 export interface NodeHandle<R extends Supervised, TId extends string = string> {
   /** Parent-assigned identity. The node does not know this ID. */
   readonly id: TId
@@ -27,3 +47,11 @@ export interface NodeHandle<R extends Supervised, TId extends string = string> {
   /** The typed client surface — real object (in-process) or proxy (remote). */
   readonly client: R
 }
+
+/**
+ * IdGenerator — Produces parent-assigned identities.
+ *
+ * Injected into the Supervisor. Normal creation generates a new ID;
+ * reconciliation passes a specific persisted ID instead.
+ */
+export type IdGenerator<TId extends string = string> = () => TId

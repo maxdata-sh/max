@@ -7,7 +7,12 @@ export { DefaultSupervisor } from './default-supervisor.js'
 export { GlobalMax } from './global-max.js'
 
 export { Registry, ErrRegistryEntryNotFound, ErrRegistryEntryAlreadyExists } from './errors.js'
-export type { InstallationHandle, WorkspaceHandle } from './handle-types.js'
+export type {
+  InstallationHandle,
+  WorkspaceHandle,
+  UnlabelledInstallationHandle,
+  UnlabelledWorkspaceHandle,
+} from './handle-types.js'
 export type { MaxJsonFile, MaxJsonInstallation } from './max-json.js'
 export type { WorkspaceSupervisor, InstallationSupervisor } from './supervisors.js'
 

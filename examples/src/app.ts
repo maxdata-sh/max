@@ -13,8 +13,9 @@ import {
   InMemoryInstallationRegistry,
   InProcessInstallationProvider,
   InProcessWorkspaceProvider,
+  WorkspaceSupervisor,
 } from '@max/federation'
-import { Projection } from '@max/core'
+import { Projection, type InstallationId, type WorkspaceId } from '@max/core'
 import { createInstallationInProcess } from '@max/platform-bun'
 import { AcmeUser } from '@max/connector-acme'
 
@@ -25,7 +26,9 @@ try {
   const connectorRegistry = new FsConnectorRegistry({
     acme: '@max/connector-acme'
   })
-  const workspaceProvider = new InProcessWorkspaceProvider()
+  const workspaceSupervisor: WorkspaceSupervisor = new DefaultSupervisor(
+    () => crypto.randomUUID() as WorkspaceId
+  )
   const installationProvider = new InProcessInstallationProvider((input) => {
     console.log({input})
     return createInstallationInProcess({
@@ -39,14 +42,17 @@ try {
     })
   })
 
-  const workspace = await workspaceProvider.create({
-    id: 'workspace1',
+  const workspaceProvider = new InProcessWorkspaceProvider()
+  const unlabelledWorkspace = await workspaceProvider.create({
     workspace: {
       registry: new InMemoryInstallationRegistry(),
-      installationSupervisor: new DefaultSupervisor(),
+      installationSupervisor: new DefaultSupervisor(
+        () => crypto.randomUUID() as InstallationId
+      ),
       installationProvider: installationProvider,
     },
   })
+  const workspace = workspaceSupervisor.register(unlabelledWorkspace)
 
   const acmeId = await workspace.client.createInstallation({
     name: 'default',

@@ -95,8 +95,8 @@ export async function runSubprocess(args: SubprocessArgs): Promise<void> {
     dispatch: (req) => dispatcher.dispatch(req),
   })
 
-  // Signal readiness to parent process
-  const ready = JSON.stringify({ socketPath: args.socketPath, installationId: runtime.id })
+  // Signal readiness to parent process (no ID — parent assigns identity via Supervisor)
+  const ready = JSON.stringify({ socketPath: args.socketPath })
   process.stdout.write(ready + '\n')
 
   // Clean shutdown

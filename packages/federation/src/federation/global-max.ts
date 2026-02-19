@@ -2,10 +2,15 @@
  * GlobalMax — Entry point. Manages workspaces.
  *
  * Implements GlobalProtocol. The top of the federation hierarchy.
- * Currently implicit in the CLI — this makes it explicit.
+ *
+ * Creation flow:
+ *   1. Provider creates a live workspace → returns UnlabelledHandle
+ *   2. Supervisor assigns identity → returns NodeHandle
+ *   3. Registry persists the entry
+ *   4. Start the workspace
  */
 
-import { HealthStatus, StartResult, StopResult, type WorkspaceId } from '@max/core'
+import { HealthStatus, StartResult, StopResult, ISODateString, type WorkspaceId } from '@max/core'
 import type { WorkspaceClient } from '../protocols/workspace-client.js'
 import type {
   CreateWorkspaceConfig,
@@ -14,9 +19,7 @@ import type {
 } from '../protocols/global-client.js'
 import { WorkspaceSupervisor } from './supervisors.js'
 import { WorkspaceNodeProvider } from '../providers/index.js'
-import {InstallationRegistry} from "./installation-registry.js";
-import {WorkspaceRegistry} from "./workspace-registry.js";
-import {ISODateString} from "@max/core";
+import { WorkspaceRegistry } from "./workspace-registry.js"
 
 export type GlobaleMaxConstructable = {
   workspaceSupervisor: WorkspaceSupervisor
@@ -40,19 +43,27 @@ export class GlobalMax implements GlobalClient {
   }
 
   async createWorkspace(config: CreateWorkspaceConfig): Promise<WorkspaceId> {
-    const result = await this.workspaceProvider.create(config)
+    // 1. Provider creates a live workspace (stateless, returns UnlabelledHandle)
+    const unlabelled = await this.workspaceProvider.create(config)
+
+    // 2. Supervisor assigns identity, returns NodeHandle
+    const handle = this.workspaceSupervisor.register(unlabelled)
+
+    // 3. Persist to registry
     this.registry.add({
-      id: result.id,
+      id: handle.id,
       // FIXME: We haven't established naming semantics for workspaces. Is a name a requirement?
       name: config.name ?? "unnamed",
-      providerKind: config.providerKind ?? this.workspaceProvider.kind,
+      providerKind: handle.providerKind,
       connectedAt: ISODateString.now(),
       // FIXME: We need to establish what a location actually is. We should be able to determine a URI at this point
       location: null
     })
-    this.workspaceSupervisor.register(result)
-    await result.client.start()
-    return result.id
+
+    // 4. Start
+    await handle.client.start()
+
+    return handle.id
   }
 
   async listWorkspaces(): Promise<WorkspaceInfo[]> {

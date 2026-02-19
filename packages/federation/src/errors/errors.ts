@@ -1,4 +1,4 @@
-import {BadInput, ErrFacet, MaxError, NotFound, InvariantViolated} from "@max/core";
+import {BadInput, ErrFacet, MaxError, NotFound, NotSupported, InvariantViolated} from "@max/core";
 
 const AppBoundary = MaxError.boundary("app");
 
@@ -37,3 +37,10 @@ export const ErrInvariant = AppBoundary.define("invariant", {
   facets: [InvariantViolated],
   message: (d) => `Invariant violation: ${d.detail}`,
 });
+
+export const ErrConnectNotSupported = AppBoundary.define("connect_not_supported", {
+  customProps: ErrFacet.props<{ providerKind: string }>(),
+  facets: [NotSupported],
+  message: (d) => `Provider "${d.providerKind}" does not support connect()`,
+});
+

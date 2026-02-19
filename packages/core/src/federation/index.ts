@@ -17,8 +17,8 @@ export type {
 // Transport
 export type { Transport } from "./transport.js"
 
-// NodeHandle
-export type { NodeHandle } from "./node-handle.js"
+// NodeHandle + UnlabelledHandle + IdGenerator
+export type { NodeHandle, UnlabelledHandle, IdGenerator } from "./node-handle.js"
 
 // ChildProvider + ProviderKind
 export type { ProviderKind, NodeProvider } from "./node-provider.js"

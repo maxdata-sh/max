@@ -8,7 +8,7 @@ import { FsProjectManager } from '../../project-manager/index.js'
 import { InMemoryInstallationRegistry } from '../../federation/installation-registry.js'
 import { FsConnectorRegistry } from '../../connector-registry/fs-connector-registry.js'
 import { AcmeUser } from '@max/connector-acme'
-import { Projection } from '@max/core'
+import { Projection, type InstallationId, type WorkspaceId } from '@max/core'
 import {createInstallationInProcess} from "@max/platform-bun";
 
 describe('in-process-provider', () => {
@@ -18,7 +18,9 @@ describe('in-process-provider', () => {
         '/Users/ben/projects/playground/max/max/bun-test-project'
       )
       const connectorRegistry = new FsConnectorRegistry({ acme: '@max/connector-acme' })
-      const workspaceProvider = new InProcessWorkspaceProvider()
+      const workspaceSupervisor = new DefaultSupervisor<any, WorkspaceId>(
+        () => crypto.randomUUID() as WorkspaceId
+      )
       const installationProvider = new InProcessInstallationProvider((input) => {
         return createInstallationInProcess({
           scope: input.scope,
@@ -31,14 +33,17 @@ describe('in-process-provider', () => {
         })
       })
 
-      const workspace = await workspaceProvider.create({
-        id: 'workspace1',
+      const workspaceProvider = new InProcessWorkspaceProvider()
+      const unlabelledWorkspace = await workspaceProvider.create({
         workspace: {
           registry: new InMemoryInstallationRegistry(),
-          installationSupervisor: new DefaultSupervisor(),
+          installationSupervisor: new DefaultSupervisor(
+            () => crypto.randomUUID() as InstallationId
+          ),
           installationProvider: installationProvider,
         },
       })
+      const workspace = workspaceSupervisor.register(unlabelledWorkspace)
 
       const acmeId = await workspace.client.createInstallation({
         name: 'default',

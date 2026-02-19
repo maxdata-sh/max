@@ -172,6 +172,8 @@ export type {
   Supervised,
   Transport,
   NodeHandle,
+  UnlabelledHandle,
+  IdGenerator,
   ProviderKind,
   NodeProvider,
   AggregateHealthStatus,

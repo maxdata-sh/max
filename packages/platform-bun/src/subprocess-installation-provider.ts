@@ -5,13 +5,19 @@
  * a Unix socket. The provider spawns the current process with --subprocess
  * flags, reads the ready signal (socket path) from stdout, and connects
  * a SubprocessTransport wrapped in InstallationClientProxy.
+ *
+ * The provider is a stateless factory from the federation's perspective —
+ * it returns UnlabelledHandles. It does keep an internal map of managed
+ * subprocesses for lifecycle (terminate), but this is not exposed via the
+ * NodeProvider interface.
  */
 
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { type InstallationId, type ProviderKind } from '@max/core'
-import type { InstallationHandle, InstallationNodeProvider } from '@max/federation'
+import { type ProviderKind, type UnlabelledHandle } from '@max/core'
+import type { InstallationNodeProvider } from '@max/federation'
 import { InstallationClientProxy, SubprocessTransport } from '@max/federation'
+import type { InstallationClient } from '@max/federation'
 
 const SUBPROCESS_PROVIDER_KIND: ProviderKind = 'subprocess'
 
@@ -22,16 +28,18 @@ export interface SubprocessInstallationConfig {
 }
 
 interface ManagedSubprocess {
-  handle: InstallationHandle
   process: ReturnType<typeof Bun.spawn>
   transport: SubprocessTransport
+  socketPath: string
 }
 
 export class SubprocessInstallationProvider implements InstallationNodeProvider {
   readonly kind = SUBPROCESS_PROVIDER_KIND
-  private readonly managed = new Map<InstallationId, ManagedSubprocess>()
 
-  async create(config: unknown): Promise<InstallationHandle> {
+  /** Internal lifecycle tracking — not part of NodeProvider interface. */
+  private readonly managed: ManagedSubprocess[] = []
+
+  async create(config: unknown): Promise<UnlabelledHandle<InstallationClient>> {
     const { connector, name, projectRoot } = config as SubprocessInstallationConfig
 
     const socketPath = path.join(
@@ -60,49 +68,33 @@ export class SubprocessInstallationProvider implements InstallationNodeProvider 
     const readyLine = await this.readReadySignal(reader)
     reader.releaseLock()
 
-    const ready = JSON.parse(readyLine) as { socketPath: string; installationId: string }
+    const ready = JSON.parse(readyLine) as { socketPath: string }
 
     // Connect transport
     const transport = await SubprocessTransport.connect(ready.socketPath)
     const client = new InstallationClientProxy(transport)
 
-    const handle: InstallationHandle = {
-      id: ready.installationId as InstallationId,
-      providerKind: SUBPROCESS_PROVIDER_KIND,
-      client,
-    }
+    this.managed.push({ process: proc, transport, socketPath: ready.socketPath })
 
-    this.managed.set(handle.id, { handle, process: proc, transport })
-    return handle
+    return { providerKind: SUBPROCESS_PROVIDER_KIND, client }
   }
 
-  async connect(location: unknown): Promise<InstallationHandle> {
-    const { socketPath, installationId } = location as { socketPath: string; installationId: string }
+  async connect(location: unknown): Promise<UnlabelledHandle<InstallationClient>> {
+    const { socketPath } = location as { socketPath: string }
 
     const transport = await SubprocessTransport.connect(socketPath)
     const client = new InstallationClientProxy(transport)
 
-    const handle: InstallationHandle = {
-      id: installationId as InstallationId,
-      providerKind: SUBPROCESS_PROVIDER_KIND,
-      client,
+    return { providerKind: SUBPROCESS_PROVIDER_KIND, client }
+  }
+
+  /** Diagnostic / lifecycle — terminate all managed subprocesses. */
+  async terminateAll(): Promise<void> {
+    for (const entry of this.managed) {
+      await entry.transport.close()
+      entry.process?.kill()
     }
-
-    // No process to manage — external
-    this.managed.set(handle.id, { handle, process: null as any, transport })
-    return handle
-  }
-
-  async list(): Promise<InstallationHandle[]> {
-    return [...this.managed.values()].map((m) => m.handle)
-  }
-
-  async terminate(id: InstallationId): Promise<void> {
-    const entry = this.managed.get(id)
-    if (!entry) return
-    await entry.transport.close()
-    entry.process?.kill()
-    this.managed.delete(id)
+    this.managed.length = 0
   }
 
   private async readReadySignal(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<string> {

@@ -1,4 +1,4 @@
-import type { NodeProvider, WorkspaceId } from '@max/core'
+import type { NodeProvider } from '@max/core'
 import type { WorkspaceClient } from '../protocols/index.js'
 
 /** Provides Workspace nodes.
@@ -6,6 +6,5 @@ import type { WorkspaceClient } from '../protocols/index.js'
  * */
 export interface WorkspaceNodeProvider<TConfig = unknown> extends NodeProvider<
   WorkspaceClient,
-  WorkspaceId,
   TConfig
 > {}

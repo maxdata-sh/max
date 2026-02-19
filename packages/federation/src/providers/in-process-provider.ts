@@ -3,33 +3,25 @@
  *
  * The InProcess strategy instantiates children directly in the current
  * runtime. No process boundary, no serialization, no transport overhead.
- * The handle's protocol field IS the real object — no proxy, no indirection.
+ * The handle's client field IS the real object — no proxy, no indirection.
  *
- * Current codebase mapping:
- *   - InProcessInstallationProvider ← InstallationRuntimeImpl.create()
- *   - InProcessWorkspaceProvider ← new (WorkspaceMax is new)
+ * Providers are stateless factories. They create unlabelled handles and
+ * forget about them. The Supervisor assigns identity and tracks handles.
  */
 
 import {
-  Engine,
-  ErrNotSupported,
-  InstallationId,
-  ProviderKind,
-  ScopedResource,
-  WorkspaceId,
-  WorkspaceScope,
+  type ProviderKind,
+  type ScopedResource,
+  type WorkspaceScope,
+  type UnlabelledHandle,
 } from '@max/core'
-import { ConnectorRegistry } from '@max/connector'
-import type { InstallationHandle, WorkspaceHandle } from '../federation/handle-types.js'
-import type { ProjectManager } from '../project-manager/index.js'
-import { InstallationMaxConstructable } from '../federation/installation-max.js'
+import type { InstallationClient } from '../protocols/index.js'
+import type { WorkspaceClient } from '../protocols/workspace-client.js'
 import { WorkspaceMax, WorkspaceMaxConstructable } from '../federation/workspace-max.js'
-import { WorkspaceNodeProvider } from './workspace-node-provider.js'
 import { InstallationNodeProvider } from './installation-node-provider.js'
-import { ServiceProvider } from './service-provider.js'
-import { ExecutionRegistry, SyncExecutor, TaskRunner } from '@max/execution'
-import { CreateInstallationConfig, InstallationClient } from '../protocols/index.js'
-import { ErrInstallationHandleNotFound, ErrWorkspaceHandleNotFound } from '../errors/errors.js'
+import { WorkspaceNodeProvider } from './workspace-node-provider.js'
+import { CreateInstallationConfig } from '../protocols/index.js'
+import { ErrConnectNotSupported } from '../errors/errors.js'
 
 const IN_PROCESS_PROVIDER_KIND: ProviderKind = 'in-process'
 
@@ -37,50 +29,21 @@ const IN_PROCESS_PROVIDER_KIND: ProviderKind = 'in-process'
 // InProcessInstallationProvider
 // ============================================================================
 
-export interface InProcessInstallationDeps {
-  projectManager: ProjectManager
-  connectorRegistry: ConnectorRegistry
-  providers: {
-    engine: ServiceProvider<Engine>
-    syncExecutor: ServiceProvider<SyncExecutor>
-    executionRegistry: ServiceProvider<ExecutionRegistry>
-    taskRunner: ServiceProvider<TaskRunner>
-  }
-}
-
 type InstallationInput = ScopedResource<CreateInstallationConfig, WorkspaceScope>
 type InstantiateInstallation = (input: InstallationInput) => Promise<InstallationClient>
 
-
 export class InProcessInstallationProvider implements InstallationNodeProvider<InstallationInput> {
   readonly kind = IN_PROCESS_PROVIDER_KIND
-  private readonly handles = new Map<InstallationId, InstallationHandle>()
 
   constructor(private readonly factory: InstantiateInstallation) {}
 
-  async create(input: InstallationInput): Promise<InstallationHandle> {
+  async create(input: InstallationInput): Promise<UnlabelledHandle<InstallationClient>> {
     const client = await this.factory(input)
-
-    const handle: InstallationHandle = {
-      id: input.scope.installationId,
-      providerKind: IN_PROCESS_PROVIDER_KIND,
-      client,
-    }
-
-    this.handles.set(handle.id, handle)
-    return handle
+    return { providerKind: IN_PROCESS_PROVIDER_KIND, client }
   }
 
-  async connect(location: InstallationId): Promise<InstallationHandle> {
-    const handle = this.handles.get(location)
-    if (!handle) {
-      throw ErrInstallationHandleNotFound.create({ installation: location })
-    }
-    return handle
-  }
-
-  async list(): Promise<InstallationHandle[]> {
-    return [...this.handles.values()]
+  async connect(_location: unknown): Promise<UnlabelledHandle<InstallationClient>> {
+    throw ErrConnectNotSupported.create({ providerKind: 'in-process' })
   }
 }
 
@@ -89,38 +52,18 @@ export class InProcessInstallationProvider implements InstallationNodeProvider<I
 // ============================================================================
 
 export interface InProcessWorkspaceConfig {
-  id: WorkspaceId
   workspace: WorkspaceMaxConstructable
 }
 
 export class InProcessWorkspaceProvider implements WorkspaceNodeProvider<InProcessWorkspaceConfig> {
   readonly kind = IN_PROCESS_PROVIDER_KIND
-  private readonly handles = new Map<WorkspaceId, WorkspaceHandle>()
 
-  async create(config: InProcessWorkspaceConfig): Promise<WorkspaceHandle> {
-    const id = config.id
-
+  async create(config: InProcessWorkspaceConfig): Promise<UnlabelledHandle<WorkspaceClient>> {
     const workspace = new WorkspaceMax(config.workspace)
-
-    const handle: WorkspaceHandle = {
-      id,
-      providerKind: IN_PROCESS_PROVIDER_KIND,
-      client: workspace,
-    }
-
-    this.handles.set(id, handle)
-    return handle
+    return { providerKind: IN_PROCESS_PROVIDER_KIND, client: workspace }
   }
 
-  async connect(location: WorkspaceId): Promise<WorkspaceHandle> {
-    const handle = this.handles.get(location)
-    if (!handle) {
-      throw ErrWorkspaceHandleNotFound.create({ workspace: location })
-    }
-    return handle
-  }
-
-  async list(): Promise<WorkspaceHandle[]> {
-    return [...this.handles.values()]
+  async connect(_location: unknown): Promise<UnlabelledHandle<WorkspaceClient>> {
+    throw ErrConnectNotSupported.create({ providerKind: 'in-process' })
   }
 }

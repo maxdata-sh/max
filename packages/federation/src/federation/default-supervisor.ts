@@ -4,12 +4,16 @@
  * Holds a map of NodeHandles, delegates health checks to each child,
  * and aggregates the results. This is the standard Supervisor for both
  * WorkspaceMax and GlobalMax.
+ *
+ * Accepts an IdGenerator to assign identity when registering unlabelled handles.
  */
 
 import type {
   Supervised,
   Supervisor,
   NodeHandle,
+  UnlabelledHandle,
+  IdGenerator,
   AggregateHealthStatus,
   HealthStatusKind,
 } from "@max/core"
@@ -19,13 +23,21 @@ export class DefaultSupervisor<R extends Supervised, TId extends string = string
   implements Supervisor<R, TId>
 {
   private readonly handles = new Map<TId, NodeHandle<R, TId>>()
+  private readonly idGenerator: IdGenerator<TId>
 
+  constructor(idGenerator: IdGenerator<TId>) {
+    this.idGenerator = idGenerator
+  }
 
-  // FIXME: I'm wondering whether register ought to be registerAndStart.
-  // it introduces async semantics.. but i'm not sure in what scenario we want to register and _not_ start...
-  // Worth a discussion.
-  register(handle: NodeHandle<R, TId>): void {
-    this.handles.set(handle.id, handle)
+  register(handle: UnlabelledHandle<R>, id?: TId): NodeHandle<R, TId> {
+    const assignedId = id ?? this.idGenerator()
+    const labelled: NodeHandle<R, TId> = {
+      id: assignedId,
+      providerKind: handle.providerKind,
+      client: handle.client,
+    }
+    this.handles.set(assignedId, labelled)
+    return labelled
   }
 
   unregister(id: TId): void {

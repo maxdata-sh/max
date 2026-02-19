@@ -7,13 +7,13 @@ import {
   type RpcRequest,
 } from "@max/core"
 import { InstallationDispatcher } from "../dispatchers/installation-dispatcher.js"
-import { StubbedInstallationClient, type CallTracker } from "./stubs.js"
+import { StubbedInstallationClient } from "../testing.js"
 
 // -- Helpers ------------------------------------------------------------------
 
-function setup(): { dispatcher: InstallationDispatcher; calls: CallTracker } {
-  const calls: CallTracker = { calls: [] }
-  const client = StubbedInstallationClient({ tracker: calls })
+function setup() {
+  const calls: string[] = []
+  const client = StubbedInstallationClient({ calls })
   const dispatcher = new InstallationDispatcher(client)
   return { dispatcher, calls }
 }
@@ -30,7 +30,7 @@ describe("InstallationDispatcher", () => {
 
     const response = await dispatcher.dispatch(request("engine", "query", { def: "User" }))
     expect(response.ok).toBe(true)
-    expect(calls.calls).toContain("engine.query")
+    expect(calls).toContain("query")
   })
 
   test("routes engine.load to engine handler", async () => {
@@ -38,7 +38,7 @@ describe("InstallationDispatcher", () => {
 
     const response = await dispatcher.dispatch(request("engine", "load", {}, "*"))
     expect(response.ok).toBe(true)
-    expect(calls.calls).toContain("engine.load")
+    expect(calls).toContain("load")
   })
 
   test("routes root health to supervised handler", async () => {
@@ -47,7 +47,7 @@ describe("InstallationDispatcher", () => {
     const response = await dispatcher.dispatch(request("", "health"))
     expect(response.ok).toBe(true)
     if (response.ok) expect(response.result).toEqual({ status: "healthy" })
-    expect(calls.calls).toContain("health")
+    expect(calls).toContain("health")
   })
 
   test("routes root schema", async () => {
@@ -64,7 +64,7 @@ describe("InstallationDispatcher", () => {
     // Start sync
     const syncResponse = await dispatcher.dispatch(request("", "sync"))
     expect(syncResponse.ok).toBe(true)
-    expect(calls.calls).toContain("sync")
+    expect(calls).toContain("sync")
 
     const handleData = (syncResponse as any).result
     expect(handleData.id).toBe("sync-test")
@@ -73,12 +73,12 @@ describe("InstallationDispatcher", () => {
     const statusResponse = await dispatcher.dispatch(request("", "syncStatus", handleData.id))
     expect(statusResponse.ok).toBe(true)
     if (statusResponse.ok) expect(statusResponse.result).toBe("running")
-    expect(calls.calls).toContain("sync.status")
+    expect(calls).toContain("status")
 
     // Complete sync
     const completionResponse = await dispatcher.dispatch(request("", "syncCompletion", handleData.id))
     expect(completionResponse.ok).toBe(true)
-    expect(calls.calls).toContain("sync.completion")
+    expect(calls).toContain("completion")
   })
 
   test("unknown target returns error response", async () => {

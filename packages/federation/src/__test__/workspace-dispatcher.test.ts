@@ -8,13 +8,13 @@ import {
 } from "@max/core"
 import type { CreateInstallationConfig } from "../protocols/workspace-client.js"
 import { WorkspaceDispatcher } from "../dispatchers/workspace-dispatcher.js"
-import { StubbedWorkspaceClient, type CallTracker } from "./stubs.js"
+import { StubbedWorkspaceClient } from "../testing.js"
 
 // -- Helpers ------------------------------------------------------------------
 
-function setup(): { dispatcher: WorkspaceDispatcher; calls: CallTracker } {
-  const calls: CallTracker = { calls: [] }
-  const client = StubbedWorkspaceClient({ tracker: calls })
+function setup() {
+  const calls: string[] = []
+  const client = StubbedWorkspaceClient({ calls })
   const dispatcher = new WorkspaceDispatcher(client)
   return { dispatcher, calls }
 }
@@ -37,7 +37,7 @@ describe("WorkspaceDispatcher", () => {
     const response = await dispatcher.dispatch(request("", "health"))
     expect(response.ok).toBe(true)
     if (response.ok) expect(response.result).toEqual({ status: "healthy" })
-    expect(calls.calls).toContain("health")
+    expect(calls).toContain("health")
   })
 
   test("routes listInstallations", async () => {
@@ -48,7 +48,7 @@ describe("WorkspaceDispatcher", () => {
     if (response.ok) {
       expect((response.result as any[]).length).toBe(2)
     }
-    expect(calls.calls).toContain("listInstallations")
+    expect(calls).toContain("listInstallations")
   })
 
   test("routes createInstallation with config arg", async () => {
@@ -58,7 +58,7 @@ describe("WorkspaceDispatcher", () => {
     const response = await dispatcher.dispatch(request("", "createInstallation", [config]))
     expect(response.ok).toBe(true)
     if (response.ok) expect(response.result).toBe("inst-new")
-    expect(calls.calls).toContain("createInstallation")
+    expect(calls).toContain("createInstallation")
   })
 
   test("routes removeInstallation", async () => {
@@ -66,7 +66,7 @@ describe("WorkspaceDispatcher", () => {
 
     const response = await dispatcher.dispatch(request("", "removeInstallation", ["inst-1"]))
     expect(response.ok).toBe(true)
-    expect(calls.calls).toContain("removeInstallation(inst-1)")
+    expect(calls).toContain("removeInstallation(inst-1)")
   })
 
   test("routes to installation via scope.installationId", async () => {

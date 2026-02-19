@@ -5,12 +5,13 @@ import { LoopbackTransport } from "../proxies/loopback-transport.js"
 import { RpcResponse } from "../federation/rpc.js"
 import { MaxError } from "../max-error.js"
 import { ErrUnknownMethod } from "../federation/rpc-errors.js"
-import { StubbedSupervised } from "./stubs.js"
+import { StubbedSupervised } from "@max/core/testing"
 
 // -- Helpers ------------------------------------------------------------------
 
 function wireUp() {
-  const { supervised, calls } = StubbedSupervised()
+  const calls: string[] = []
+  const supervised = StubbedSupervised({ calls })
   const handler = new SupervisedHandler(supervised)
 
   const transport = new LoopbackTransport(async (request) => {
@@ -52,7 +53,7 @@ describe("Supervised proxy+handler roundtrip", () => {
   })
 
   test("unknown method throws ErrUnknownMethod", async () => {
-    const { supervised } = StubbedSupervised()
+    const supervised = StubbedSupervised()
     const handler = new SupervisedHandler(supervised)
 
     try {

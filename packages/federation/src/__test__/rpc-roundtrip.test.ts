@@ -14,16 +14,12 @@ import {
   NotFound,
   BadInput,
   type InstallationId,
-  type Transport,
-  RpcRequest,
-  DispatchFn,
-  RpcResponse,
 } from '@max/core'
 import { InstallationDispatcher } from "../dispatchers/installation-dispatcher.js"
 import { WorkspaceDispatcher } from "../dispatchers/workspace-dispatcher.js"
 import { InstallationClientProxy } from "../protocols/installation-client-proxy.js"
 import { WorkspaceClientProxy } from "../protocols/workspace-client-proxy.js"
-import { StubbedInstallationClient, StubbedWorkspaceClient } from "./stubs.js"
+import { StubbedInstallationClient, StubbedWorkspaceClient } from "../testing.js"
 
 // -- Wiring helpers -----------------------------------------------------------
 

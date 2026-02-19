@@ -6,8 +6,8 @@ import {
   findProjectRoot,
   FsProjectDaemonManager,
   FsProjectManager,
-  GlobalConfig,
-  ProjectConfig,
+  GlobalConfig, InstallationClient,
+  ProjectConfig, ProjectDaemonManager,
   type WorkspaceClient,
 } from '@max/federation'
 import { InMemoryCredentialStore } from '@max/connector'
@@ -64,6 +64,7 @@ class Commands {
   })
 }
 
+
 type ParserResultType<X extends Parser<Mode>> =
   X extends Parser<Mode, infer TValue> ? TValue : never
 type CmdInput<k extends keyof Commands['all']> = ParserResultType<Commands['all'][k]>
@@ -71,57 +72,44 @@ type CmdInput<k extends keyof Commands['all']> = ParserResultType<Commands['all'
 class CLI {
   constructor(public cfg: GlobalConfig) {
     this.commands = new Commands(
-      LazyX.once(() => new ProjectCompleters(
-        () => this.getWorkspace(),
-        new Fmt(cfg.useColor ?? true),
-      ))
+      LazyX.once(
+        () => new ProjectCompleters(() => this.lazy.workspace, new Fmt(cfg.useColor ?? true))
+      )
     )
   }
 
   commands: Commands
 
-  // -- Workspace (lazy, created on first use) ---------------------------------
-
-  private _workspace: Promise<WorkspaceClient> | null = null
-
-  private getWorkspace(): Promise<WorkspaceClient> {
-    if (!this._workspace) {
+  lazy = makeLazy({
+    /** Create a WorkspaceClient */
+    workspace: async (): Promise<WorkspaceClient> => {
       const projectRoot = this.cfg.projectRoot
       if (!projectRoot || !fs.existsSync(path.join(projectRoot, 'max.json'))) {
         throw ErrProjectNotInitialised.create({ maxProjectRoot: projectRoot ?? this.cfg.cwd })
       }
       const provider = new BunInProcessWorkspaceProvider()
-      this._workspace = provider.create({
-        projectRoot,
-        connectors: KNOWN_CONNECTORS,
-      }).then(handle => handle.client)
-    }
-    return this._workspace
-  }
-
-  // -- Daemon management (process-level, not workspace-level) -----------------
-
-  private _projectConfig: ProjectConfig | null = null
-
-  private getProjectConfig(): ProjectConfig {
-    if (!this._projectConfig) {
+      return provider
+        .create({
+          projectRoot,
+          connectors: KNOWN_CONNECTORS,
+        })
+        .then((handle) => handle.client)
+    },
+    /** Create a ProjectConfig */
+    projectConfig: (): ProjectConfig => {
       const projectRoot = this.cfg.projectRoot
       if (!projectRoot || !fs.existsSync(projectRoot)) {
         throw ErrProjectNotInitialised.create({ maxProjectRoot: projectRoot ?? this.cfg.cwd })
       }
-      this._projectConfig = new ProjectConfig(this.cfg, { projectRootFolder: projectRoot })
-    }
-    return this._projectConfig
-  }
+      return new ProjectConfig(this.cfg, { projectRootFolder: projectRoot })
+    },
 
-  private _daemonManager: FsProjectDaemonManager | null = null
-
-  private getDaemonManager(): FsProjectDaemonManager {
-    if (!this._daemonManager) {
-      this._daemonManager = new FsProjectDaemonManager(this.getProjectConfig())
+    /** Create daemon manager */
+    daemonManager: (): FsProjectDaemonManager => {
+      return new FsProjectDaemonManager(this.lazy.projectConfig)
     }
-    return this._daemonManager
-  }
+  })
+
 
   // -- Program parser ---------------------------------------------------------
 
@@ -159,7 +147,7 @@ class CLI {
 
   async runSchema(arg: CmdInput<'schema'>, color: boolean) {
     const printer = this.printerFor(color)
-    const ws = await this.getWorkspace()
+    const ws = await this.lazy.workspace
     const schema = await ws.connectorSchema(arg.source)
     switch (arg.output) {
       default:
@@ -173,7 +161,7 @@ class CLI {
   }
 
   async runConnect(arg: CmdInput<'connect'>, prompter?: Prompter) {
-    const ws = await this.getWorkspace()
+    const ws = await this.lazy.workspace
     const flow = await ws.connectorOnboarding(arg.source)
 
     // Collect credentials into an in-memory store during onboarding
@@ -206,16 +194,18 @@ class CLI {
 
   async runSync(arg: CmdInput<'sync'>, color: boolean) {
     const printer = this.printerFor(color)
-    const ws = await this.getWorkspace()
+    const ws = await this.lazy.workspace
     const [connector, name] = arg.target
 
     // Find installation by connector + name
     const installations = await ws.listInstallations()
     const match = installations.find(
-      i => i.connector === connector && (name ? i.name === name : true)
+      (i) => i.connector === connector && (name ? i.name === name : true)
     )
     if (!match) {
-      throw ErrInvariant.create({ detail: `No installation found for ${connector}${name ? `:${name}` : ''}` })
+      throw ErrInvariant.create({
+        detail: `No installation found for ${connector}${name ? `:${name}` : ''}`,
+      })
     }
 
     const installation = ws.installation(match.id)
@@ -238,7 +228,7 @@ class CLI {
 
   runDaemon(arg: CmdInput<'daemon'>, color: boolean) {
     const printer = this.printerFor(color)
-    const daemon = this.getDaemonManager()
+    const daemon = this.lazy.daemonManager
     const printStatus = () => printer.print(DaemonPrinters.DaemonStatus, daemon.status())
 
     switch (arg.sub) {

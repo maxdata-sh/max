@@ -130,7 +130,7 @@ export function makeLazy<T extends object>(fields: FieldBuilders<T>): T {
 const lazily: unique symbol = Symbol('_lazily')
 export type Lazily<T extends object> = T //& {[lazily]:true}
 
-export function makeLazyF<T extends object>(fields: (self:T) => FieldBuilders<T>){
+export function makeLazyF<T extends object, Self>(self: Self, fields: (self:Self) => FieldBuilders<T>){
   return makeLazy(fields(null as any))
 }
 

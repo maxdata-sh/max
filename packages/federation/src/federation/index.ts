@@ -24,6 +24,7 @@ export {
 } from './workspace-registry.js'
 
 export { InstallationMax } from './installation-max.js'
+export { bootstrapInstallation, type ResolvedInstallationDeps } from './bootstrap.js'
 export {
   type InstallationRegistry,
   type InstallationRegistryEntry,

@@ -3,7 +3,7 @@ import { ManagedInstallation, PendingInstallation, ProjectManager } from '../pro
 import type { ConnectorRegistry, CredentialStore, OnboardingFlowAny } from '@max/connector'
 import type { InstallationId, Schema } from '@max/core'
 import {ProjectDaemonManager} from "../project-daemon-manager/project-daemon-manager.js";
-import { InstallationMax, InstallationRuntimeInfo } from '../federation/installation-max.js'
+import { InstallationMax } from '../federation/installation-max.js'
 
 export interface PreparedConnection {
   readonly pending: PendingInstallation
@@ -64,7 +64,7 @@ export class MaxProjectApp {
   }
 
   /** List all currently active runtimes. */
-  listRuntimes(): InstallationRuntimeInfo[] {
+  listRuntimes(): unknown[] {
     throw 'mid-deprecation'
   }
 

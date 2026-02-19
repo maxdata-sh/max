@@ -27,8 +27,8 @@ import {
   RpcResponse,
 } from '@max/core'
 import type { SyncHandle, SyncId, SyncPlan, SyncResult, SyncStatus } from "@max/execution"
-import type { InstallationClient } from "../protocols/installation-client.js"
-import type { WorkspaceClient, CreateInstallationConfig } from "../protocols/workspace-client.js"
+import type { InstallationClient, InstallationDescription } from "../protocols/installation-client.js"
+import type { WorkspaceClient, CreateInstallationConfig, ConnectInstallationConfig } from "../protocols/workspace-client.js"
 import type { InstallationInfo } from "../project-manager/types.js"
 import { InstallationDispatcher } from "../dispatchers/installation-dispatcher.js"
 import { WorkspaceDispatcher } from "../dispatchers/workspace-dispatcher.js"
@@ -57,6 +57,9 @@ function createFakeInstallation(id: string): InstallationClient {
   let syncHandle: SyncHandle | undefined
 
   return {
+    async describe(): Promise<InstallationDescription> {
+      return { connector: "test" as any, name: id, schema: fakeSchema }
+    },
     async schema() { return fakeSchema },
     engine: fakeEngine,
     async sync() {
@@ -98,6 +101,9 @@ function createFakeWorkspace(): WorkspaceClient {
     },
     async createInstallation(config: CreateInstallationConfig) {
       return 'inst-new'
+    },
+    async connectInstallation(config: ConnectInstallationConfig) {
+      return 'inst-remote'
     },
     async removeInstallation(id: InstallationId) {},
     async health() { return HealthStatus.healthy() },
@@ -228,7 +234,7 @@ describe("Workspace full roundtrip", () => {
     const real = createFakeWorkspace()
     const { proxy } = wireWorkspace(real)
 
-    const id = await proxy.createInstallation({ connector: "hubspot" as any })
+    const id = await proxy.createInstallation({ spec: { connector: "hubspot" as any } })
     expect(id).toBe("inst-new")
   })
 

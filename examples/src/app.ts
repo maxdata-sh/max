@@ -9,38 +9,33 @@ import * as path from 'node:path'
 import {
   DefaultSupervisor,
   FsConnectorRegistry,
-  FsProjectManager,
   InMemoryInstallationRegistry,
-  InProcessInstallationProvider,
   InProcessWorkspaceProvider,
   WorkspaceSupervisor,
+  type HostingType,
+  type InstallationNodeProvider,
 } from '@max/federation'
 import { Projection, type InstallationId, type WorkspaceId } from '@max/core'
-import { createInstallationInProcess } from '@max/platform-bun'
+import { BunInProcessProvider } from '@max/platform-bun'
 import { AcmeUser } from '@max/connector-acme'
 
 const projectRoot = path.resolve(__dirname, '../../bun-test-project')
+const dataRoot = path.join(projectRoot, '.max', 'installations')
 
 try {
-  const projectManager = new FsProjectManager(projectRoot)
   const connectorRegistry = new FsConnectorRegistry({
     acme: '@max/connector-acme'
   })
+
   const workspaceSupervisor: WorkspaceSupervisor = new DefaultSupervisor(
     () => crypto.randomUUID() as WorkspaceId
   )
-  const installationProvider = new InProcessInstallationProvider((input) => {
-    console.log({input})
-    return createInstallationInProcess({
-      scope: input.scope,
-      value: {
-        connectorRegistry,
-        projectManager,
-        connector: input.value.connector,
-        name: input.value.name,
-      },
-    })
-  })
+
+  const installationProvider = new BunInProcessProvider(connectorRegistry, dataRoot)
+
+  const providers = new Map<HostingType, InstallationNodeProvider>([
+    ['in-process', installationProvider],
+  ])
 
   const workspaceProvider = new InProcessWorkspaceProvider()
   const unlabelledWorkspace = await workspaceProvider.create({
@@ -49,14 +44,14 @@ try {
       installationSupervisor: new DefaultSupervisor(
         () => crypto.randomUUID() as InstallationId
       ),
-      installationProvider: installationProvider,
+      providers,
+      defaultHostingType: 'in-process',
     },
   })
   const workspace = workspaceSupervisor.register(unlabelledWorkspace)
 
   const acmeId = await workspace.client.createInstallation({
-    name: 'default',
-    connector: 'acme',
+    spec: { connector: 'acme', name: 'default' },
   })
   const acme = await workspace.client.installation(acmeId)!
 

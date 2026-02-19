@@ -2,9 +2,9 @@
  * SubprocessInstallationProvider — Spawns installations as child Bun processes.
  *
  * Each installation runs in its own subprocess, communicating via RPC over
- * a Unix socket. The provider spawns the current process with --subprocess
- * flags, reads the ready signal (socket path) from stdout, and connects
- * a SubprocessTransport wrapped in InstallationClientProxy.
+ * a Unix socket. The provider serializes the InstallationSpec as a base64
+ * JSON arg to the child. The child runs BunInProcessProvider internally to
+ * resolve and wire the installation.
  *
  * The provider is a stateless factory from the federation's perspective —
  * it returns UnlabelledHandles. It does keep an internal map of managed
@@ -16,16 +16,11 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { type ProviderKind, type UnlabelledHandle } from '@max/core'
 import type { InstallationNodeProvider } from '@max/federation'
+import type { InstallationSpec } from '@max/federation'
 import { InstallationClientProxy, SubprocessTransport } from '@max/federation'
 import type { InstallationClient } from '@max/federation'
 
 const SUBPROCESS_PROVIDER_KIND: ProviderKind = 'subprocess'
-
-export interface SubprocessInstallationConfig {
-  connector: string
-  name?: string
-  projectRoot: string
-}
 
 interface ManagedSubprocess {
   process: ReturnType<typeof Bun.spawn>
@@ -36,27 +31,34 @@ interface ManagedSubprocess {
 export class SubprocessInstallationProvider implements InstallationNodeProvider {
   readonly kind = SUBPROCESS_PROVIDER_KIND
 
+  /** The data root passed to child processes for resolution. */
+  private readonly dataRoot: string
+
   /** Internal lifecycle tracking — not part of NodeProvider interface. */
   private readonly managed: ManagedSubprocess[] = []
 
-  async create(config: unknown): Promise<UnlabelledHandle<InstallationClient>> {
-    const { connector, name, projectRoot } = config as SubprocessInstallationConfig
+  constructor(opts: { dataRoot: string }) {
+    this.dataRoot = opts.dataRoot
+  }
+
+  async create(spec: InstallationSpec): Promise<UnlabelledHandle<InstallationClient>> {
+    const name = spec.name ?? spec.connector
 
     const socketPath = path.join(
       os.tmpdir(),
-      `max-inst-${connector}-${name ?? 'default'}-${crypto.randomUUID().slice(0, 8)}.sock`
+      `max-inst-${spec.connector}-${name}-${crypto.randomUUID().slice(0, 8)}.sock`
     )
+
+    // Serialize spec as base64 JSON for the child process
+    const specJson = Buffer.from(JSON.stringify(spec)).toString('base64')
 
     const args = [
       '--subprocess',
       '--role', 'installation',
-      '--connector', connector,
-      '--project-root', projectRoot,
+      '--spec', specJson,
+      '--data-root', this.dataRoot,
       '--socket-path', socketPath,
     ]
-    if (name) {
-      args.push('--name', name)
-    }
 
     const proc = Bun.spawn([process.execPath, ...args], {
       stdout: 'pipe',

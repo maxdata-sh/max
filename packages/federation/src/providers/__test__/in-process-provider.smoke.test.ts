@@ -1,37 +1,31 @@
 import { describe, test } from 'bun:test'
 import {
-  InProcessInstallationProvider,
   InProcessWorkspaceProvider,
 } from '../in-process-provider.js'
-import { DefaultSupervisor } from '../../federation/index.js'
-import { FsProjectManager } from '../../project-manager/index.js'
+import { DefaultSupervisor, WorkspaceSupervisor } from '../../federation/index.js'
 import { InMemoryInstallationRegistry } from '../../federation/installation-registry.js'
 import { FsConnectorRegistry } from '../../connector-registry/fs-connector-registry.js'
 import { AcmeUser } from '@max/connector-acme'
 import { Projection, type InstallationId, type WorkspaceId } from '@max/core'
-import {createInstallationInProcess} from "@max/platform-bun";
+import { BunInProcessProvider } from '@max/platform-bun'
+import type { HostingType, InstallationNodeProvider } from '@max/federation'
+import * as path from 'node:path'
 
 describe('in-process-provider', () => {
   test('smoke test', async () => {
     try {
-      const projectManager = new FsProjectManager(
-        '/Users/ben/projects/playground/max/max/bun-test-project'
-      )
+      const projectRoot = '/Users/ben/projects/playground/max/max/bun-test-project'
+      const dataRoot = path.join(projectRoot, '.max', 'installations')
       const connectorRegistry = new FsConnectorRegistry({ acme: '@max/connector-acme' })
-      const workspaceSupervisor = new DefaultSupervisor<any, WorkspaceId>(
+
+      const workspaceSupervisor: WorkspaceSupervisor = new DefaultSupervisor(
         () => crypto.randomUUID() as WorkspaceId
       )
-      const installationProvider = new InProcessInstallationProvider((input) => {
-        return createInstallationInProcess({
-          scope: input.scope,
-          value: {
-            connectorRegistry,
-            projectManager,
-            connector: input.value.connector,
-            name: input.value.name,
-          },
-        })
-      })
+
+      const installationProvider = new BunInProcessProvider(connectorRegistry, dataRoot)
+      const providers = new Map<HostingType, InstallationNodeProvider>([
+        ['in-process', installationProvider],
+      ])
 
       const workspaceProvider = new InProcessWorkspaceProvider()
       const unlabelledWorkspace = await workspaceProvider.create({
@@ -40,14 +34,14 @@ describe('in-process-provider', () => {
           installationSupervisor: new DefaultSupervisor(
             () => crypto.randomUUID() as InstallationId
           ),
-          installationProvider: installationProvider,
+          providers,
+          defaultHostingType: 'in-process',
         },
       })
       const workspace = workspaceSupervisor.register(unlabelledWorkspace)
 
       const acmeId = await workspace.client.createInstallation({
-        name: 'default',
-        connector: 'acme',
+        spec: { connector: 'acme', name: 'default', connectorConfig:{workspaceId: "123"} },
       })
       const acme = await workspace.client.installation(acmeId)!
 

@@ -14,14 +14,15 @@ import {
   type Schema,
 } from "@max/core"
 import type { SyncHandle, SyncId, SyncPlan, SyncResult, SyncStatus } from "@max/execution"
-import type { InstallationClient } from "../protocols/installation-client.js"
-import type { WorkspaceClient, CreateInstallationConfig } from "../protocols/workspace-client.js"
+import type { InstallationClient, InstallationDescription } from "../protocols/installation-client.js"
+import type { WorkspaceClient, CreateInstallationConfig, ConnectInstallationConfig } from "../protocols/workspace-client.js"
 import type { InstallationInfo } from "../project-manager/types.js"
 import { WorkspaceDispatcher } from "../dispatchers/workspace-dispatcher.js"
 
 // -- Fake InstallationClient --------------------------------------------------
 
 function createFakeInstallation(id: InstallationId): InstallationClient {
+  const fakeSchema = { entities: [], root: "Test" } as any as Schema
   const fakeEngine: Engine<InstallationScope> = {
     lifecycle: LifecycleManager.on({}),
     async load() { return { ref: {}, fields: { name: "from-" + id } } as any },
@@ -33,7 +34,10 @@ function createFakeInstallation(id: InstallationId): InstallationClient {
   }
 
   return {
-    async schema(){ return { entities: [], root: "Test" } as any as Schema },
+    async describe(): Promise<InstallationDescription> {
+      return { connector: "test" as any, name: id, schema: fakeSchema }
+    },
+    async schema(){ return fakeSchema },
     engine: fakeEngine,
     async sync() {
       return {
@@ -75,6 +79,10 @@ function createFakeWorkspace(): { client: WorkspaceClient; calls: string[] } {
     async createInstallation(config: CreateInstallationConfig) {
       calls.push("createInstallation")
       return "inst-new" as InstallationId
+    },
+    async connectInstallation(config: ConnectInstallationConfig) {
+      calls.push("connectInstallation")
+      return "inst-remote" as InstallationId
     },
     async removeInstallation(id: InstallationId) {
       calls.push(`removeInstallation(${id})`)
@@ -127,7 +135,7 @@ describe("WorkspaceDispatcher", () => {
     const { client, calls } = createFakeWorkspace()
     const dispatcher = new WorkspaceDispatcher(client)
 
-    const config: CreateInstallationConfig = { connector: "hubspot" as any }
+    const config: CreateInstallationConfig = { spec: { connector: "hubspot" as any } }
     const response = await dispatcher.dispatch(request("", "createInstallation", [config]))
     expect(response.ok).toBe(true)
     if (response.ok) expect(response.result).toBe("inst-new")

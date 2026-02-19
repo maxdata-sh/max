@@ -69,6 +69,9 @@ export class WorkspaceDispatcher {
       case "createInstallation":
         return this.node.createInstallation(args[0] as any)
 
+      case "connectInstallation":
+        return this.node.connectInstallation(args[0] as any)
+
       case "removeInstallation":
         return this.node.removeInstallation(args[0] as InstallationId)
 

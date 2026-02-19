@@ -1,12 +1,12 @@
 /**
  * Subprocess entry point — runs an installation node in a child process.
  *
- * Invoked with: max --subprocess --role=installation --connector=acme
- *               --project-root=/path --socket-path=/tmp/max-inst-xxx.sock
+ * Invoked with: max --subprocess --role=installation --spec=<base64>
+ *               --data-root=/path --socket-path=/tmp/max-inst-xxx.sock
  *
- * Creates an InstallationRuntimeImpl, wraps it in an InstallationDispatcher,
- * starts an RPC socket server, and writes a ready signal to stdout so the
- * parent process can connect.
+ * Uses BunInProcessProvider to resolve spec → concrete deps and bootstrap
+ * the installation. Wraps it in an InstallationDispatcher, starts an RPC
+ * socket server, and writes a ready signal to stdout so the parent can connect.
  */
 
 import { flag } from '@optique/core'
@@ -17,78 +17,49 @@ import { string } from '@optique/core/valueparser'
 import {
   createRpcSocketServer,
   FsConnectorRegistry,
-  FsProjectManager,
-  InProcessInstallationProvider,
   InstallationDispatcher,
 } from '@max/federation'
-import { createInstallationInProcess } from '@max/platform-bun'
-import { InstallationId, Scope } from '@max/core'
+import type { InstallationSpec } from '@max/federation'
+import { BunInProcessProvider } from '@max/platform-bun'
 
 export const subprocessParsers = object({
   subprocess: flag('--subprocess'),
   role: withDefault(option('--role', string()), 'installation'),
-  connector: withDefault(option('--connector', string()), ''),
-  name: withDefault(option('--name', string()), ''),
-  projectRoot: withDefault(option('--project-root', string()), () => process.cwd()),
+  spec: withDefault(option('--spec', string()), ''),
+  dataRoot: withDefault(option('--data-root', string()), ''),
   socketPath: withDefault(option('--socket-path', string()), ''),
 })
 
 export interface SubprocessArgs {
   role: string
-  connector: string
-  name: string
-  projectRoot: string
+  spec: string
+  dataRoot: string
   socketPath: string
 }
 
-const SUBPROCESS_PROVIDER_KIND = 'subprocess'
-
 export async function runSubprocess(args: SubprocessArgs): Promise<void> {
-
-
-
   if (args.role !== 'installation') {
     console.error(`Unknown subprocess role: ${args.role}`)
     process.exit(1)
   }
 
-  if (!args.connector || !args.socketPath) {
-    console.error('--connector and --socket-path are required for subprocess mode')
+  if (!args.spec || !args.socketPath || !args.dataRoot) {
+    console.error('--spec, --data-root, and --socket-path are required for subprocess mode')
     process.exit(1)
   }
 
-  // I think, theoretically, if we're in "installation" mode, we don't have workspace scope -
-  // If we were, instead, to be in workspace mode, we'd be supervising installations and maintaining their ids.
-  const installationId: InstallationId = '<no id available>'
-  const scope = Scope.workspace(installationId)
+  // Deserialize the spec from base64
+  const spec: InstallationSpec = JSON.parse(
+    Buffer.from(args.spec, 'base64').toString('utf-8')
+  )
 
-  const projectManager = new FsProjectManager(args.projectRoot)
-  const connectorRegistry = new FsConnectorRegistry({ [args.connector]: `@max/connector-${args.connector}` })
+  // FIXME: Connector registry should be configurable, not hardcoded
+  const connectorRegistry = new FsConnectorRegistry({ [spec.connector]: `@max/connector-${spec.connector}` })
 
-  const installationProvider = new InProcessInstallationProvider((input) => {
-    return createInstallationInProcess({
-      scope: input.scope,
-      value: {
-        connectorRegistry,
-        projectManager,
-        connector: input.value.connector,
-        name: input.value.name,
-      },
-    })
-  })
+  const provider = new BunInProcessProvider(connectorRegistry, args.dataRoot)
+  const handle = await provider.create(spec)
 
-  const runtime = await installationProvider.create({
-    scope: scope,
-    value: {
-      providerKind: SUBPROCESS_PROVIDER_KIND,
-      connector: args.connector,
-      config: undefined,
-      name: args.name
-    },
-  })
-
-
-  const dispatcher = new InstallationDispatcher(runtime.client)
+  const dispatcher = new InstallationDispatcher(handle.client)
 
   createRpcSocketServer({
     socketPath: args.socketPath,
@@ -101,7 +72,7 @@ export async function runSubprocess(args: SubprocessArgs): Promise<void> {
 
   // Clean shutdown
   process.on('SIGTERM', async () => {
-    await runtime.client.stop()
+    await handle.client.stop()
     process.exit(0)
   })
 }

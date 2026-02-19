@@ -19,7 +19,7 @@ import {
 } from "@max/core"
 import type { InstallationInfo } from "../project-manager/types.js"
 import type { InstallationClient } from "./installation-client.js"
-import type { CreateInstallationConfig, WorkspaceClient } from "./workspace-client.js"
+import type { CreateInstallationConfig, ConnectInstallationConfig, WorkspaceClient } from "./workspace-client.js"
 import { InstallationClientProxy } from "./installation-client-proxy.js"
 import { ScopedTransport } from "./scoped-transport.js"
 
@@ -58,6 +58,10 @@ export class WorkspaceClientProxy implements WorkspaceClient {
   // Actually, on further reflection - this is simply a case of Scope-aware clients. We need an InstallationClient<WorkspaceScope> (or some variant on that concept)
   async createInstallation(config: CreateInstallationConfig): Promise<InstallationId> {
     return this.rpc('createInstallation', config)
+  }
+
+  async connectInstallation(config: ConnectInstallationConfig): Promise<InstallationId> {
+    return this.rpc('connectInstallation', config)
   }
 
   async removeInstallation(id: InstallationId): Promise<void> {

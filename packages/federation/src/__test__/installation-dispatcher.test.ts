@@ -45,8 +45,10 @@ function createFakeInstallation(): {
     async completion() { calls.push("sync.completion"); return { status: "completed", tasksCompleted: 1, tasksFailed: 0, duration: 100 } as SyncResult },
   }
 
+  const fakeSchema = { entities: [], root: "Test" } as any as Schema
   const client: InstallationClient = {
-    async schema(){ return { entities: [], root: "Test" } as any as Schema },
+    async describe() { return { connector: "test" as any, name: "test", schema: fakeSchema } },
+    async schema(){ return fakeSchema },
     engine: fakeEngine,
     async sync() { calls.push("sync"); return fakeSyncHandle },
     async health() { calls.push("health"); return HealthStatus.healthy() },

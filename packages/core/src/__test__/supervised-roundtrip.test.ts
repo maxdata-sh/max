@@ -4,37 +4,13 @@ import { SupervisedHandler } from "../proxies/supervised-handler.js"
 import { LoopbackTransport } from "../proxies/loopback-transport.js"
 import { RpcResponse } from "../federation/rpc.js"
 import { MaxError } from "../max-error.js"
-import { HealthStatus, StartResult, StopResult } from "../federation/supervised.js"
 import { ErrUnknownMethod } from "../federation/rpc-errors.js"
-import type { Supervised } from "../federation/supervised.js"
-
-// -- Fake Supervised ----------------------------------------------------------
-
-function createFakeSupervised(): { supervised: Supervised; calls: string[] } {
-  const calls: string[] = []
-
-  const supervised: Supervised = {
-    async health() {
-      calls.push("health")
-      return HealthStatus.healthy()
-    },
-    async start() {
-      calls.push("start")
-      return StartResult.started()
-    },
-    async stop() {
-      calls.push("stop")
-      return StopResult.stopped()
-    },
-  }
-
-  return { supervised, calls }
-}
+import { StubbedSupervised } from "./stubs.js"
 
 // -- Helpers ------------------------------------------------------------------
 
 function wireUp() {
-  const { supervised, calls } = createFakeSupervised()
+  const { supervised, calls } = StubbedSupervised()
   const handler = new SupervisedHandler(supervised)
 
   const transport = new LoopbackTransport(async (request) => {
@@ -76,7 +52,7 @@ describe("Supervised proxy+handler roundtrip", () => {
   })
 
   test("unknown method throws ErrUnknownMethod", async () => {
-    const { supervised } = createFakeSupervised()
+    const { supervised } = StubbedSupervised()
     const handler = new SupervisedHandler(supervised)
 
     try {

@@ -4,69 +4,23 @@ import { EngineHandler } from "../proxies/engine-handler.js"
 import { LoopbackTransport } from "../proxies/loopback-transport.js"
 import { RpcResponse } from "../federation/rpc.js"
 import { MaxError } from "../max-error.js"
-import { LifecycleManager } from "../lifecycle.js"
-import { Page } from "../pagination.js"
 import { ErrUnknownMethod } from "../federation/rpc-errors.js"
 import { BadInput } from "../errors/errors.js"
-import type { Engine } from "../engine.js"
-import type { InstallationScope } from "../scope.js"
+import { EntityResult } from "../entity-result.js"
+import { EntityInput } from "../entity-input.js"
+import { Fields } from "../fields-selector.js"
 import { AcmeProject, AcmeUser } from '@max/connector-acme'
-import {EntityInput} from "../entity-input.js";
-import {Fields} from "../fields-selector.js";
-import {EntityResult} from "../entity-result.js";
-import { Ref } from '../ref.js'
+import { StubbedEngine } from "./stubs.js"
+import type { InstallationScope } from "../scope.js"
 
-// -- Fake Engine --------------------------------------------------------------
+// -- Test data ----------------------------------------------------------------
 
 const acmeUser1 = EntityResult.from(AcmeUser.ref("u1"), { displayName: "test" })
-
-
-// FIXME: Whilst this test doesn't care at all about the data / fake engine, it's a little uncouth that we aren't just using a reasonable working test stub.
-// Let's make one to have to hand.
-function createFakeEngine() {
-  const calls: { method: string; args: unknown[] }[] = []
-
-  const engine: Engine<InstallationScope> = {
-    lifecycle: LifecycleManager.on({}),
-
-    async load(ref: any, fields: any) {
-      calls.push({ method: "load", args: [ref, fields] })
-      return acmeUser1
-    },
-
-    async loadField(ref: any, field: any) {
-      calls.push({ method: "loadField", args: [ref, field] })
-      return "field-value" as any
-    },
-
-    async loadCollection(ref: any, field: any, options: any) {
-      calls.push({ method: "loadCollection", args: [ref, field, options] })
-      return Page.empty()
-    },
-
-    async store(input: any) {
-      calls.push({ method: "store", args: [input] })
-      return acmeUser1.ref as Ref<any>
-    },
-
-    async loadPage(def: any, projection: any, page: any) {
-      calls.push({ method: "loadPage", args: [def, projection, page] })
-      return Page.empty() as Page<any>
-    },
-
-    async query(query: any) {
-      calls.push({ method: "query", args: [query] })
-      return Page.from([acmeUser1], false) as Page<any>
-    },
-  }
-
-  return { engine, calls }
-}
 
 // -- Helpers ------------------------------------------------------------------
 
 function wireUp() {
-  const { engine, calls } = createFakeEngine()
+  const { engine, calls } = StubbedEngine({ defaultResult: acmeUser1 })
   const handler = new EngineHandler(engine)
 
   const transport = new LoopbackTransport(async (request) => {
@@ -136,7 +90,7 @@ describe("Engine proxy+handler roundtrip", () => {
   })
 
   test("unknown method throws ErrUnknownMethod", async () => {
-    const { engine } = createFakeEngine()
+    const { engine } = StubbedEngine()
     const handler = new EngineHandler(engine)
 
     try {

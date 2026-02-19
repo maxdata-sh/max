@@ -1,101 +1,23 @@
 import { describe, test, expect } from "bun:test"
 import {
-  HealthStatus,
-  StartResult,
-  StopResult,
-  LifecycleManager,
   MaxError,
   ErrNodeNotFound,
   NotFound,
   type RpcRequest,
-  type Engine,
-  type InstallationScope,
   type InstallationId,
-  type Schema,
 } from "@max/core"
-import type { SyncHandle, SyncId, SyncPlan, SyncResult, SyncStatus } from "@max/execution"
-import type { InstallationClient, InstallationDescription } from "../protocols/installation-client.js"
-import type { WorkspaceClient, CreateInstallationConfig, ConnectInstallationConfig } from "../protocols/workspace-client.js"
-import type { InstallationInfo } from "../project-manager/types.js"
+import type { CreateInstallationConfig } from "../protocols/workspace-client.js"
 import { WorkspaceDispatcher } from "../dispatchers/workspace-dispatcher.js"
-
-// -- Fake InstallationClient --------------------------------------------------
-
-function createFakeInstallation(id: InstallationId): InstallationClient {
-  const fakeSchema = { entities: [], root: "Test" } as any as Schema
-  const fakeEngine: Engine<InstallationScope> = {
-    lifecycle: LifecycleManager.on({}),
-    async load() { return { ref: {}, fields: { name: "from-" + id } } as any },
-    async loadField() { return "val" as any },
-    async loadCollection() { return { items: [], hasMore: false } as any },
-    async store() { return {} as any },
-    async loadPage() { return { items: [], hasMore: false } as any },
-    async query() { return { items: [{ source: id }], hasMore: false } as any },
-  }
-
-  return {
-    async describe(): Promise<InstallationDescription> {
-      return { connector: "test" as any, name: id, schema: fakeSchema }
-    },
-    async schema(){ return fakeSchema },
-    engine: fakeEngine,
-    async sync() {
-      return {
-        id: `sync-${id}` as SyncId,
-        plan: { steps: [] } as SyncPlan,
-        startedAt: new Date("2026-01-01T00:00:00Z"),
-        async status() { return "running" as SyncStatus },
-        async pause() {},
-        async cancel() {},
-        async completion() { return { status: "completed", tasksCompleted: 1, tasksFailed: 0, duration: 100 } as SyncResult },
-      } satisfies SyncHandle
-    },
-    async health() { return HealthStatus.healthy() },
-    async start() { return StartResult.started() },
-    async stop() { return StopResult.stopped() },
-  }
-}
-
-// -- Fake WorkspaceClient -----------------------------------------------------
-
-function createFakeWorkspace(): { client: WorkspaceClient; calls: string[] } {
-  const calls: string[] = []
-  const installations = new Map<InstallationId, InstallationClient>()
-  installations.set("inst-1" as InstallationId, createFakeInstallation("inst-1" as InstallationId))
-  installations.set("inst-2" as InstallationId, createFakeInstallation("inst-2" as InstallationId))
-
-  const client: WorkspaceClient = {
-    async listInstallations() {
-      calls.push("listInstallations")
-      return [
-        { id: "inst-1" as InstallationId, connector: "hubspot" as any, name: "hs", connectedAt: "2026-01-01", location: '1' },
-        { id: "inst-2" as InstallationId, connector: "linear" as any, name: "lin", connectedAt: "2026-01-01", location: '2' },
-      ] satisfies InstallationInfo[]
-    },
-    installation(id: InstallationId) {
-      calls.push(`installation(${id})`)
-      return installations.get(id)
-    },
-    async createInstallation(config: CreateInstallationConfig) {
-      calls.push("createInstallation")
-      return "inst-new" as InstallationId
-    },
-    async connectInstallation(config: ConnectInstallationConfig) {
-      calls.push("connectInstallation")
-      return "inst-remote" as InstallationId
-    },
-    async removeInstallation(id: InstallationId) {
-      calls.push(`removeInstallation(${id})`)
-    },
-    async health() { calls.push("health"); return HealthStatus.healthy() },
-    async start() { calls.push("start"); return StartResult.started() },
-    async stop() { calls.push("stop"); return StopResult.stopped() },
-  }
-
-  return { client, calls }
-}
+import { StubbedWorkspaceClient, type CallTracker } from "./stubs.js"
 
 // -- Helpers ------------------------------------------------------------------
+
+function setup(): { dispatcher: WorkspaceDispatcher; calls: CallTracker } {
+  const calls: CallTracker = { calls: [] }
+  const client = StubbedWorkspaceClient({ tracker: calls })
+  const dispatcher = new WorkspaceDispatcher(client)
+  return { dispatcher, calls }
+}
 
 function request(
   target: string,
@@ -110,50 +32,45 @@ function request(
 
 describe("WorkspaceDispatcher", () => {
   test("routes health to supervised handler", async () => {
-    const { client, calls } = createFakeWorkspace()
-    const dispatcher = new WorkspaceDispatcher(client)
+    const { dispatcher, calls } = setup()
 
     const response = await dispatcher.dispatch(request("", "health"))
     expect(response.ok).toBe(true)
     if (response.ok) expect(response.result).toEqual({ status: "healthy" })
-    expect(calls).toContain("health")
+    expect(calls.calls).toContain("health")
   })
 
   test("routes listInstallations", async () => {
-    const { client, calls } = createFakeWorkspace()
-    const dispatcher = new WorkspaceDispatcher(client)
+    const { dispatcher, calls } = setup()
 
     const response = await dispatcher.dispatch(request("", "listInstallations"))
     expect(response.ok).toBe(true)
     if (response.ok) {
       expect((response.result as any[]).length).toBe(2)
     }
-    expect(calls).toContain("listInstallations")
+    expect(calls.calls).toContain("listInstallations")
   })
 
   test("routes createInstallation with config arg", async () => {
-    const { client, calls } = createFakeWorkspace()
-    const dispatcher = new WorkspaceDispatcher(client)
+    const { dispatcher, calls } = setup()
 
     const config: CreateInstallationConfig = { spec: { connector: "hubspot" as any } }
     const response = await dispatcher.dispatch(request("", "createInstallation", [config]))
     expect(response.ok).toBe(true)
     if (response.ok) expect(response.result).toBe("inst-new")
-    expect(calls).toContain("createInstallation")
+    expect(calls.calls).toContain("createInstallation")
   })
 
   test("routes removeInstallation", async () => {
-    const { client, calls } = createFakeWorkspace()
-    const dispatcher = new WorkspaceDispatcher(client)
+    const { dispatcher, calls } = setup()
 
     const response = await dispatcher.dispatch(request("", "removeInstallation", ["inst-1"]))
     expect(response.ok).toBe(true)
-    expect(calls).toContain("removeInstallation(inst-1)")
+    expect(calls.calls).toContain("removeInstallation(inst-1)")
   })
 
   test("routes to installation via scope.installationId", async () => {
-    const { client } = createFakeWorkspace()
-    const dispatcher = new WorkspaceDispatcher(client)
+    const { dispatcher } = setup()
 
     const response = await dispatcher.dispatch(
       request("engine", "query", [{ def: "User" }], { installationId: "inst-1" as InstallationId }),
@@ -165,8 +82,7 @@ describe("WorkspaceDispatcher", () => {
   })
 
   test("scope routing strips installationId before forwarding", async () => {
-    const { client } = createFakeWorkspace()
-    const dispatcher = new WorkspaceDispatcher(client)
+    const { dispatcher } = setup()
 
     // Route to installation's root health
     const response = await dispatcher.dispatch(
@@ -177,8 +93,7 @@ describe("WorkspaceDispatcher", () => {
   })
 
   test("scope routing with workspaceId preserves it", async () => {
-    const { client } = createFakeWorkspace()
-    const dispatcher = new WorkspaceDispatcher(client)
+    const { dispatcher } = setup()
 
     // workspaceId should be preserved when forwarding to installation
     const response = await dispatcher.dispatch(
@@ -191,8 +106,7 @@ describe("WorkspaceDispatcher", () => {
   })
 
   test("scope routing to nonexistent installation returns NotFound error", async () => {
-    const { client } = createFakeWorkspace()
-    const dispatcher = new WorkspaceDispatcher(client)
+    const { dispatcher } = setup()
 
     const response = await dispatcher.dispatch(
       request("engine", "query", [], { installationId: "nonexistent" as InstallationId }),
@@ -206,8 +120,7 @@ describe("WorkspaceDispatcher", () => {
   })
 
   test("sync through scoped installation", async () => {
-    const { client } = createFakeWorkspace()
-    const dispatcher = new WorkspaceDispatcher(client)
+    const { dispatcher } = setup()
 
     // Start sync on inst-1
     const syncResponse = await dispatcher.dispatch(

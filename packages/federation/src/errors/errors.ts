@@ -1,4 +1,4 @@
-import {BadInput, ErrFacet, MaxError, NotFound, NotSupported, InvariantViolated} from "@max/core";
+import {BadInput, ErrFacet, MaxError, NotFound, NotSupported, NotImplemented, InvariantViolated} from "@max/core";
 
 const AppBoundary = MaxError.boundary("app");
 
@@ -48,5 +48,11 @@ export const ErrProviderNotFound = AppBoundary.define("provider_not_found", {
   customProps: ErrFacet.props<{ hostingType: string }>(),
   facets: [NotFound],
   message: (d) => `No provider registered for hosting type: ${d.hostingType}`,
+});
+
+export const ErrUnsupportedConfig = AppBoundary.define("unsupported_config", {
+  customProps: ErrFacet.props<{ kind: string; configType: string }>(),
+  facets: [NotImplemented],
+  message: (d) => `${d.kind} type "${d.configType}" is not yet supported`,
 });
 

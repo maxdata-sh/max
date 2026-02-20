@@ -17,6 +17,7 @@ export { SubprocessInstallationProvider } from './subprocess-installation-provid
 
 // Registries
 export { FsInstallationRegistry } from './fs-installation-registry.js'
+export { FsWorkspaceManifest, type WorkspaceManifestEntry } from './fs-workspace-manifest.js'
 export { BunConnectorRegistry } from './bun-connector-registry.js'
 
 // Credential store

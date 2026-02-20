@@ -12,13 +12,13 @@ export class InMemoryBasicRegistry<TEntry, TKey extends string> implements Basic
   TKey
 > {
   private map = new Map<TKey, TEntry>()
-  constructor(private keyGetter: (e: TEntry) => TKey) {}
+  constructor(private registryName: string, private keyGetter: (e: TEntry) => TKey) {}
   add = (entry: TEntry) => this.map.set(this.keyGetter(entry), entry)
   get = (id: TKey) => this.map.get(id)
   list = () => [...this.map.values()]
   remove = (id: TKey) => {
     if (!this.map.delete(id)) {
-      throw ErrRegistryEntryNotFound.create({ id })
+      throw ErrRegistryEntryNotFound.create({ registry: this.registryName, id })
     }
   }
 }

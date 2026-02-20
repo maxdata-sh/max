@@ -33,7 +33,7 @@ export class FsInstallationRegistry implements InstallationRegistry {
 
     const name = findNameById(installations, id)
     if (name === undefined) {
-      throw ErrRegistryEntryNotFound.create({ id })
+      throw ErrRegistryEntryNotFound.create({ registry: 'installation', id })
     }
 
     delete installations[name]

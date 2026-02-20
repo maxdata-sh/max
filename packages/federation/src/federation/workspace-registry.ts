@@ -1,6 +1,5 @@
 import { ISODateString, WorkspaceId } from '@max/core'
 import type { SerialisedWorkspaceHosting } from '../config/hosting-config.js'
-import { ErrRegistryEntryNotFound } from './errors.js'
 import {BasicRegistry, InMemoryBasicRegistry} from "./basic-registry.js";
 
 export interface WorkspaceRegistryEntry {
@@ -18,6 +17,6 @@ export class InMemoryWorkspaceRegistry
   implements WorkspaceRegistry
 {
   constructor() {
-    super((value) => value.id)
+    super('workspace', (value) => value.id)
   }
 }

@@ -50,6 +50,7 @@ const shells: Record<string, ShellCompletion> = {
 }
 
 // FIXME: Connector registry should be configurable, not hardcoded
+//  In practice, this now just means loading a BunConnectorRegistry that is max.json aware :)
 const KNOWN_CONNECTORS: Record<string, string> = {
   acme: '@max/connector-acme',
   linear: '@max/connector-linear',

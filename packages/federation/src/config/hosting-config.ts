@@ -12,6 +12,8 @@
 // Hosting variants
 // ============================================================================
 
+// FIXME: These are platform specifics. We can't really know them at federation layer
+
 export interface InProcessHostingConfig {
   readonly type: "in-process"
 }

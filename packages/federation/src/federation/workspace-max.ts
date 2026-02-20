@@ -17,22 +17,21 @@
  *   6. Start the installation
  */
 
-import {
-  HealthStatus,
-  StartResult,
-  StopResult,
-  ISODateString,
-} from '@max/core'
 import type { InstallationId, Schema } from '@max/core'
+import { HealthStatus, ISODateString, StartResult, StopResult } from '@max/core'
 import type { ConnectorRegistry, ConnectorRegistryEntry, OnboardingFlowAny } from '@max/connector'
-import type { InstallationClient } from "../protocols/installation-client.js"
-import type { CreateInstallationConfig, ConnectInstallationConfig, WorkspaceClient } from "../protocols/workspace-client.js"
-import type { InstallationInfo } from "./installation-registry.js"
-import type { HostingType } from "../config/hosting-config.js"
-import { InstallationSupervisor } from "./supervisors.js"
-import { InstallationRegistry } from "./installation-registry.js"
-import { InstallationNodeProvider } from "../providers/installation-node-provider.js"
-import { ErrInstallationAlreadyExists, ErrProviderNotFound } from "../errors/errors.js"
+import type {
+  ConnectInstallationConfig,
+  CreateInstallationConfig,
+  InstallationClient,
+  WorkspaceClient,
+} from '../protocols'
+import type { InstallationInfo } from './installation-registry.js'
+import { InstallationRegistry } from './installation-registry.js'
+import type { HostingType } from '../config/hosting-config.js'
+import { InstallationSupervisor } from './supervisors.js'
+import { InstallationNodeProvider } from '../providers'
+import { ErrInstallationAlreadyExists, ErrProviderNotFound } from '../errors/errors.js'
 
 export type WorkspaceMaxConstructable = {
   installationSupervisor: InstallationSupervisor

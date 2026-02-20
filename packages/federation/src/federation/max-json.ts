@@ -5,7 +5,8 @@
  * See specs/SPEC-max-json.md for the full design rationale.
  */
 
-import type { ConnectorType, InstallationId, ISODateString, ProviderKind } from '@max/core'
+import type { ConnectorType, InstallationId, ISODateString } from '@max/core'
+import type { SerialisedInstallationHosting } from '../config/hosting-config.js'
 
 /**
  * Root structure of a max.json file.
@@ -32,12 +33,15 @@ export interface MaxJsonInstallation {
   /** When this installation was first connected (ISO 8601). */
   readonly connectedAt: ISODateString
 
-  /** Deployment strategy. Defaults to "in-process" if omitted. */
-  readonly provider?: ProviderKind
-
-  /** Provider-specific locator. Required for remote, absent for local. */
-  readonly location?: unknown
+  /** Hosting metadata — platform + strategy. Omitted means legacy entry. */
+  readonly hosting?: SerialisedInstallationHosting
 
   /** Non-secret connector configuration. */
   readonly config?: unknown
+
+  // Legacy fields (pre-federation). Read for backward compat, never written.
+  /** @deprecated Use hosting.installation.strategy */
+  readonly provider?: string
+  /** @deprecated Use hosting */
+  readonly location?: unknown
 }

@@ -1,4 +1,5 @@
-import { ConnectorType, InstallationId, ISODateString, ProviderKind } from '@max/core'
+import { ConnectorType, InstallationId, ISODateString } from '@max/core'
+import type { SerialisedInstallationHosting } from '../config/hosting-config.js'
 import { ErrRegistryEntryNotFound } from './errors.js'
 import {BasicRegistry, InMemoryBasicRegistry} from "./basic-registry.js";
 
@@ -7,8 +8,7 @@ export interface InstallationRegistryEntry {
   readonly connector: ConnectorType
   readonly name: string
   readonly connectedAt: ISODateString
-  readonly providerKind: ProviderKind
-  readonly location: unknown // provider-specific, stored opaquely
+  readonly hosting: SerialisedInstallationHosting
 }
 
 export interface InstallationRegistry extends BasicRegistry<InstallationRegistryEntry, InstallationId> {}
@@ -31,5 +31,5 @@ export interface InstallationInfo {
   readonly name: string
   readonly id: InstallationId
   readonly connectedAt: string
-  readonly location: unknown
+  readonly hosting: SerialisedInstallationHosting
 }

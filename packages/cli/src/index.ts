@@ -9,7 +9,7 @@ import {
   findProjectRoot,
   GlobalConfig,
   ProjectConfig,
-  BunInProcessWorkspaceProvider,
+  BunPlatform,
   initProject,
 } from '@max/platform-bun'
 import { InMemoryCredentialStore } from '@max/connector'
@@ -90,7 +90,7 @@ class CLI {
       if (!projectRoot || !fs.existsSync(path.join(projectRoot, 'max.json'))) {
         throw ErrProjectNotInitialised.create({ maxProjectRoot: projectRoot ?? this.cfg.cwd })
       }
-      const provider = new BunInProcessWorkspaceProvider()
+      const provider = BunPlatform.workspace.inProcess()
       return provider
         .create({
           projectRoot,

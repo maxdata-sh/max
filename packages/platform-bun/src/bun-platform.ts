@@ -109,14 +109,14 @@ export const BunPlatform = {
 
   workspace: {
     /** Create an in-process workspace provider backed by filesystem (max.json). */
-    inProcess(config: BunInProcessWorkspaceConfig): WorkspaceNodeProvider<BunWorkspaceConfig> {
+    inProcess(): WorkspaceNodeProvider<BunWorkspaceConfig> {
       return new BunInProcessWorkspaceProvider()
     },
 
     /** Hydrate from serialised config. */
     fromConfig(config: BunWorkspaceHosting): WorkspaceNodeProvider<BunWorkspaceConfig> {
       switch (config.strategy) {
-        case "in-process": return BunPlatform.workspace.inProcess(config)
+        case "in-process": return BunPlatform.workspace.inProcess()
       }
     },
   },

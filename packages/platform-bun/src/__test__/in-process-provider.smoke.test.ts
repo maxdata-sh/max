@@ -4,7 +4,7 @@ import {
   DefaultSupervisor,
   type WorkspaceSupervisor,
   InMemoryInstallationRegistry,
-  type HostingType,
+  type HostingStrategy,
   type InstallationNodeProvider,
 } from '@max/federation'
 import { BunConnectorRegistry, BunInProcessInstallationProvider } from '@max/platform-bun'
@@ -24,7 +24,7 @@ describe('in-process-provider', () => {
       )
 
       const installationProvider = new BunInProcessInstallationProvider(connectorRegistry, dataRoot)
-      const providers = new Map<HostingType, InstallationNodeProvider>([
+      const providers = new Map<HostingStrategy, InstallationNodeProvider>([
         ['in-process', installationProvider],
       ])
 
@@ -36,7 +36,8 @@ describe('in-process-provider', () => {
             () => crypto.randomUUID() as InstallationId
           ),
           providers,
-          defaultHostingType: 'in-process',
+          defaultHostingStrategy: 'in-process',
+          platformName: 'bun',
           connectorRegistry,
         },
       })

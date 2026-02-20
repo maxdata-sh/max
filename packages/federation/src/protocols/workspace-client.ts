@@ -17,7 +17,7 @@ import type { ConnectorRegistryEntry, OnboardingFlowAny } from "@max/connector"
 import type { InstallationClient } from "./installation-client.js"
 import type { InstallationInfo } from "../federation/installation-registry.js"
 import type { InstallationSpec } from "../config/installation-spec.js"
-import type { HostingConfig, RemoteHostingConfig } from "../config/hosting-config.js"
+import type { HostingConfig } from "../config/hosting-config.js"
 
 export interface WorkspaceClient extends Supervised {
   /** List all installations in this workspace. */
@@ -65,7 +65,7 @@ export interface CreateInstallationConfig {
  * describe() on the node to learn what connector it is.
  */
 export interface ConnectInstallationConfig {
-  readonly hosting: RemoteHostingConfig
+  readonly hosting: HostingConfig
   /** Optional name override. Falls back to the node's self-reported name. */
   readonly name?: string
 }

@@ -8,7 +8,7 @@
 import * as path from 'node:path'
 import {
   DefaultSupervisor,
-  type HostingType,
+  type HostingStrategy,
   InMemoryInstallationRegistry,
   InProcessWorkspaceProvider,
   type InstallationNodeProvider,
@@ -32,7 +32,7 @@ try {
 
   const installationProvider = new BunInProcessInstallationProvider(connectorRegistry, dataRoot)
 
-  const providers = new Map<HostingType, InstallationNodeProvider>([
+  const providers = new Map<HostingStrategy, InstallationNodeProvider>([
     ['in-process', installationProvider],
   ])
 
@@ -44,7 +44,8 @@ try {
         () => crypto.randomUUID() as InstallationId
       ),
       providers,
-      defaultHostingType: 'in-process',
+      defaultHostingStrategy: 'in-process',
+      platformName: 'bun',
       connectorRegistry,
     },
   })

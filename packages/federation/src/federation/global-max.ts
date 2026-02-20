@@ -52,12 +52,12 @@ export class GlobalMax implements GlobalClient {
     // 3. Persist to registry
     this.registry.add({
       id: handle.id,
-      // FIXME: We haven't established naming semantics for workspaces. Is a name a requirement?
       name: config.name ?? "unnamed",
-      providerKind: handle.providerKind,
       connectedAt: ISODateString.now(),
-      // FIXME: We need to establish what a location actually is. We should be able to determine a URI at this point
-      location: null
+      hosting: config.hosting ?? {
+        platform: "bun", // FIXME: GlobalMax should receive platformName, not hardcode
+        workspace: { strategy: "in-process" },
+      },
     })
 
     // 4. Start
@@ -73,8 +73,7 @@ export class GlobalMax implements GlobalClient {
         id: item.id,
         name: item.name,
         connectedAt: item.connectedAt,
-        location: item.location,
-        providerKind: item.providerKind
+        hosting: item.hosting,
       })
     )
   }

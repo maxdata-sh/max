@@ -1,4 +1,5 @@
-import { ConnectorType, InstallationId, ISODateString, ProviderKind, WorkspaceId } from '@max/core'
+import { ISODateString, WorkspaceId } from '@max/core'
+import type { SerialisedWorkspaceHosting } from '../config/hosting-config.js'
 import { ErrRegistryEntryNotFound } from './errors.js'
 import {BasicRegistry, InMemoryBasicRegistry} from "./basic-registry.js";
 
@@ -6,8 +7,7 @@ export interface WorkspaceRegistryEntry {
   readonly id: WorkspaceId
   readonly name: string
   readonly connectedAt: ISODateString
-  readonly providerKind: ProviderKind
-  readonly location: unknown // provider-specific, stored opaquely
+  readonly hosting: SerialisedWorkspaceHosting
 }
 
 export interface WorkspaceRegistry extends BasicRegistry<WorkspaceRegistryEntry, WorkspaceId> {}

@@ -4,7 +4,7 @@
  * Invoked with: max --subprocess --role=installation --spec=<base64>
  *               --data-root=/path --socket-path=/tmp/max-inst-xxx.sock
  *
- * Uses BunInProcessInstallationProvider to resolve spec → concrete deps and bootstrap
+ * Uses BunPlatform.installation.inProcess() to resolve spec → concrete deps and bootstrap
  * the installation. Wraps it in an InstallationDispatcher, starts an RPC
  * socket server, and writes a ready signal to stdout so the parent can connect.
  */
@@ -17,7 +17,7 @@ import { string } from '@optique/core/valueparser'
 import { InstallationDispatcher } from '@max/federation'
 import type { InstallationSpec } from '@max/federation'
 import {
-  BunInProcessInstallationProvider,
+  BunPlatform,
   BunConnectorRegistry,
   createRpcSocketServer,
 } from '@max/platform-bun'
@@ -56,7 +56,7 @@ export async function runSubprocess(args: SubprocessArgs): Promise<void> {
   // FIXME: Connector registry should be configurable, not hardcoded
   const connectorRegistry = new BunConnectorRegistry({ [spec.connector]: `@max/connector-${spec.connector}` })
 
-  const provider = new BunInProcessInstallationProvider(connectorRegistry, args.dataRoot)
+  const provider = BunPlatform.installation.inProcess({ dataDir: args.dataRoot, connectorRegistry })
   const handle = await provider.create(spec)
 
   const dispatcher = new InstallationDispatcher(handle.client)

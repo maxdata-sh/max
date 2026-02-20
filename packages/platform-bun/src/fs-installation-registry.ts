@@ -7,8 +7,8 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type { InstallationId, ProviderKind } from '@max/core'
-import type { InstallationRegistry, InstallationRegistryEntry } from '@max/federation'
+import type { InstallationId } from '@max/core'
+import type { InstallationRegistry, InstallationRegistryEntry, SerialisedInstallationHosting, PlatformName } from '@max/federation'
 import type { MaxJsonFile, MaxJsonInstallation } from '@max/federation'
 import { ErrRegistryEntryAlreadyExists, ErrRegistryEntryNotFound } from '@max/federation'
 
@@ -88,25 +88,27 @@ export class FsInstallationRegistry implements InstallationRegistry {
 // --------------------------------------------------------------------------
 
 function toJsonInstallation(entry: InstallationRegistryEntry): MaxJsonInstallation {
-  const result: MaxJsonInstallation = {
+  return {
     id: entry.id,
     connector: entry.connector,
     connectedAt: entry.connectedAt,
-    provider: entry.providerKind,
-    location: entry.location
+    hosting: entry.hosting,
   }
-
-  return result
 }
 
 function toRegistryEntry(name: string, json: MaxJsonInstallation): InstallationRegistryEntry {
+  // Backward compat: old max.json files have `provider` + `location` instead of `hosting`
+  const hosting: SerialisedInstallationHosting = json.hosting ?? {
+    platform: "bun" as PlatformName,
+    installation: { strategy: json.provider ?? "in-process" },
+  }
+
   return {
     id: json.id,
     connector: json.connector,
     name,
     connectedAt: json.connectedAt,
-    providerKind: (json.provider ?? 'in-process') as ProviderKind,
-    location: json.location ?? null,
+    hosting,
   }
 }
 

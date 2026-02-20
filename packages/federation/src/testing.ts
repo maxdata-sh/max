@@ -98,8 +98,8 @@ export function StubbedWorkspaceClient(
     async listInstallations() {
       calls?.push("listInstallations")
       return [
-        { id: "inst-1" as InstallationId, connector: "hubspot" as any, name: "hs", connectedAt: "2026-01-01", location: "1" },
-        { id: "inst-2" as InstallationId, connector: "linear" as any, name: "lin", connectedAt: "2026-01-01", location: "2" },
+        { id: "inst-1" as InstallationId, connector: "hubspot" as any, name: "hs", connectedAt: "2026-01-01", hosting: { platform: "bun", installation: { strategy: "in-process" } } },
+        { id: "inst-2" as InstallationId, connector: "linear" as any, name: "lin", connectedAt: "2026-01-01", hosting: { platform: "bun", installation: { strategy: "in-process" } } },
       ] satisfies InstallationInfo[]
     },
     installation(id: InstallationId) {

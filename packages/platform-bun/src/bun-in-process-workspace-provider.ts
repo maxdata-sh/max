@@ -22,7 +22,7 @@ import {
   WorkspaceMax,
   type WorkspaceClient,
   type WorkspaceNodeProvider,
-  type HostingType,
+  type HostingStrategy,
   type InstallationNodeProvider,
   type InstallationClient,
 } from '@max/federation'
@@ -55,7 +55,7 @@ export class BunInProcessWorkspaceProvider implements WorkspaceNodeProvider<BunW
 
     // -- Installation providers --
     const installationProvider = new BunInProcessInstallationProvider(connectorRegistry, dataRoot)
-    const providers = new Map<HostingType, InstallationNodeProvider>([
+    const providers = new Map<HostingStrategy, InstallationNodeProvider>([
       ['in-process', installationProvider],
     ])
 
@@ -69,7 +69,8 @@ export class BunInProcessWorkspaceProvider implements WorkspaceNodeProvider<BunW
       installationSupervisor,
       registry: installationRegistry,
       providers,
-      defaultHostingType: 'in-process',
+      defaultHostingStrategy: 'in-process',
+      platformName: 'bun',
       connectorRegistry,
     })
 

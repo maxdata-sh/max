@@ -8,15 +8,15 @@
  * practice, the CLI or cloud control plane manages it directly).
  */
 
-import { ISODateString, ProviderKind, Supervised, WorkspaceId } from '@max/core'
+import { ISODateString, Supervised, WorkspaceId } from '@max/core'
+import type { SerialisedWorkspaceHosting } from '../config/hosting-config.js'
 import {  WorkspaceClient } from './workspace-client.js'
 
 export interface WorkspaceInfo {
   readonly id: WorkspaceId
   readonly name: string
   readonly connectedAt: ISODateString
-  readonly providerKind: ProviderKind
-  readonly location: unknown // provider-specific, stored opaquely
+  readonly hosting: SerialisedWorkspaceHosting
 }
 
 export interface GlobalClient extends Supervised {
@@ -38,6 +38,6 @@ export interface GlobalClient extends Supervised {
  */
 export interface CreateWorkspaceConfig {
   readonly name?: string
-  readonly providerKind?: ProviderKind
+  readonly hosting?: SerialisedWorkspaceHosting
   readonly config?: unknown
 }

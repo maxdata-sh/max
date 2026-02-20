@@ -40,9 +40,9 @@ export const ErrConnectNotSupported = AppBoundary.define("connect_not_supported"
 });
 
 export const ErrProviderNotFound = AppBoundary.define("provider_not_found", {
-  customProps: ErrFacet.props<{ hostingType: string }>(),
+  customProps: ErrFacet.props<{ hostingStrategy: string }>(),
   facets: [NotFound],
-  message: (d) => `No provider registered for hosting type: ${d.hostingType}`,
+  message: (d) => `No provider registered for hosting strategy: ${d.hostingStrategy}`,
 });
 
 export const ErrUnsupportedConfig = AppBoundary.define("unsupported_config", {

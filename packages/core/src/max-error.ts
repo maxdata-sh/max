@@ -228,6 +228,8 @@ class MaxErrorImpl extends Error implements MaxError {
     return json;
   }
 
+
+
   prettyPrint(opts?: { color?: boolean; includeStackTrace?: boolean }): string {
     const fmt = Fmt.usingColor(opts?.color ?? false);
     const includeStack = opts?.includeStackTrace ?? false;
@@ -239,12 +241,12 @@ class MaxErrorImpl extends Error implements MaxError {
 
     // Cause chain
     let current: MaxErrorImpl | undefined = this.cause;
-    let indent = "  ";
+    let indent = indented('')
     while (current) {
       const last = !current.cause
       lines.push(`${indent}${fmt.dim("└ caused by:")} ${formatErrorLine(current, indent, fmt, last)}`);
       current = current.cause;
-      indent += "  ";
+      indent = indented(indent)
     }
 
     // Stack trace at the end
@@ -262,6 +264,11 @@ class MaxErrorImpl extends Error implements MaxError {
   }
 }
 
+function indented(s:string, n=1){
+  const indent = '  '
+  return indent.repeat(n)+s
+}
+
 function formatErrorLine(
   err: MaxErrorImpl,
   indent: string,
@@ -272,7 +279,8 @@ function formatErrorLine(
   let line = `[${fmt.red(err.code)}]: ${err.message}`;
   if (hasData) {
     const connectorChar = isLast ? '└' : '├'
-    line += `\n${indent}  ${fmt.dim(`${connectorChar} data: ${util.format('%O', err.data)}`)}`;
+    const errlines = util.inspect(err.data).replace(/\n/g, '\n'+indented(indent,2))
+    line += `\n${indent}  ${fmt.dim(`${connectorChar} data: ${errlines}`)}`
   }
   return line;
 }

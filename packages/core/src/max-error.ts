@@ -12,6 +12,7 @@
 import {StaticTypeCompanion} from "./companion.js";
 import {UnionToIntersection} from "./type-system-utils.js";
 import {Inspect} from "./inspect.js";
+import {Fmt} from "./fmt.js";
 import util from "node-inspect-extracted";
 
 // ============================================================================
@@ -228,24 +229,20 @@ class MaxErrorImpl extends Error implements MaxError {
   }
 
   prettyPrint(opts?: { color?: boolean; includeStackTrace?: boolean }): string {
-    const color = opts?.color ?? false;
+    const fmt = Fmt.from(opts?.color ?? false);
     const includeStack = opts?.includeStackTrace ?? false;
-
-    const red = color ? "\x1b[31m" : "";
-    const dim = color ? "\x1b[2m" : "";
-    const reset = color ? "\x1b[0m" : "";
 
     const lines: string[] = [];
 
     // Top-level error
-    lines.push(`MaxError` + formatErrorLine(this, "", { red, dim, reset }, !this.cause));
+    lines.push(`MaxError` + formatErrorLine(this, "", fmt, !this.cause));
 
     // Cause chain
     let current: MaxErrorImpl | undefined = this.cause;
     let indent = "  ";
     while (current) {
       const last = !current.cause
-      lines.push(`${indent}${dim}└ caused by:${reset} ${formatErrorLine(current, indent, { red, dim, reset }, last)}`);
+      lines.push(`${indent}${fmt.dim("└ caused by:")} ${formatErrorLine(current, indent, fmt, last)}`);
       current = current.cause;
       indent += "  ";
     }
@@ -254,10 +251,9 @@ class MaxErrorImpl extends Error implements MaxError {
     if (includeStack) {
       const frames = stackFrames(this.stack);
       if (frames) {
-        // lines.push("");
-        lines.push(`  ${dim}➝ Stack trace:${reset}`);
+        lines.push(`  ${fmt.dim("➝ Stack trace:")}`);
         for (const frame of frames.split("\n")) {
-          if (frame.trim()) lines.push(`${dim}${frame}${reset}`);
+          if (frame.trim()) lines.push(fmt.dim(frame));
         }
       }
     }
@@ -269,14 +265,14 @@ class MaxErrorImpl extends Error implements MaxError {
 function formatErrorLine(
   err: MaxErrorImpl,
   indent: string,
-  c: { red: string; dim: string; reset: string },
+  fmt: Fmt,
   isLast: boolean
 ): string {
   const hasData = Object.keys(err.data).length > 0;
-  let line = `[${c.red}${err.code}${c.reset}]: ${err.message}`;
+  let line = `[${fmt.red(err.code)}]: ${err.message}`;
   if (hasData) {
     const connectorChar = isLast ? '└' : '├'
-    line += `\n${indent}  ${c.dim}${connectorChar} data: ${util.format('%O',err.data)}${c.reset}`;
+    line += `\n${indent}  ${fmt.dim(`${connectorChar} data: ${util.format('%O', err.data)}`)}`;
   }
   return line;
 }

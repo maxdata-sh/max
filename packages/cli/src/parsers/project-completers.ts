@@ -4,7 +4,7 @@ import type { Suggestion } from '@optique/core/parser'
 import { message, text } from '@optique/core/message'
 import { ErrConnectorNotFound } from '@max/federation'
 import type { WorkspaceClient } from '@max/federation'
-import { Fmt } from '../cli-printable.js'
+import { Fmt } from '@max/core'
 
 export class ProjectCompleters {
   lazy = makeLazy({

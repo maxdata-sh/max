@@ -26,7 +26,8 @@ import { ProjectCompleters } from './parsers/project-completers.js'
 import * as fs from 'node:fs'
 
 import { LazyOne, LazyX, makeLazy, MaxError } from '@max/core'
-import { CliPrinter, Fmt } from './cli-printable.js'
+import { CliPrinter } from './cli-printable.js'
+import { Fmt } from '@max/core'
 import { SchemaPrinters } from './printers/schema-printers.js'
 import * as path from 'node:path'
 import { createSocketServer } from './socket-server.js'
@@ -74,7 +75,7 @@ class CLI {
   constructor(public cfg: GlobalConfig) {
     this.commands = new Commands(
       LazyX.once(
-        () => new ProjectCompleters(() => this.lazy.workspace, new Fmt(cfg.useColor ?? true))
+        () => new ProjectCompleters(() => this.lazy.workspace, Fmt.from(cfg.useColor ?? true))
       )
     )
   }

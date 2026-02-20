@@ -187,6 +187,9 @@ export type {
 export * from "./proxies/index.js";
 export type { DispatchFn } from "./proxies/index.js";
 
+// Formatting
+export { Fmt } from "./fmt.js";
+
 // Utilities
 export { StaticTypeCompanion } from "./companion.js";
 export * from "./lazy.js";

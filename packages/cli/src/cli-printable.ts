@@ -1,26 +1,12 @@
-import {StaticTypeCompanion} from "@max/core";
+import {Fmt, StaticTypeCompanion} from "@max/core";
 
-export class Fmt {
-  constructor(readonly color: boolean) {}
-
-  dim(text: string): string { return this.wrap("\x1b[2m", text); }
-  bold(text: string): string { return this.wrap("\x1b[1m", text); }
-  underline(text: string): string { return this.wrap("\x1b[4m", text); }
-  green(text: string): string { return this.wrap("\x1b[32m", text); }
-  red(text: string): string { return this.wrap("\x1b[31m", text); }
-  yellow(text: string): string { return this.wrap("\x1b[33m", text); }
-  normal(text: string): string { return this.wrap("\x1b[37m", text); }
-
-  private wrap(code: string, text: string): string {
-    return this.color ? `${code}${text}\x1b[0m` : text;
-  }
-}
+export {Fmt};
 
 export class CliPrinter {
   readonly fmt: Fmt;
 
   constructor(args:{color: boolean}) {
-    this.fmt = new Fmt(args.color);
+    this.fmt = Fmt.from(args.color);
   }
 
   print<T>(printer: CliValuePrinter<T>, item: T): string {

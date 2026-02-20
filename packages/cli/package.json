@@ -14,15 +14,15 @@
     "build:rust": "cd rust-proxy && cargo build --release"
   },
   "dependencies": {
-    "@max/federation": "workspace:*",
     "@max/connector": "workspace:*",
     "@max/connector-acme": "workspace:*",
     "@max/connector-linear": "workspace:*",
     "@max/core": "workspace:*",
+    "@max/federation": "workspace:*",
+    "@max/platform-bun": "workspace:*",
     "@optique/core": "0.10.3",
     "@optique/run": "0.10.3",
-    "yargs-parser": "^21.1.1",
-    "@max/platform-bun": "workspace:*"
+    "yargs-parser": "^21.1.1"
   },
   "devDependencies": {
     "@types/bun": "latest",

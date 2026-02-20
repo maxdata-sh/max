@@ -37,12 +37,14 @@ export async function parseAndValidateArgs<T>(
         mode: 'both',
         group: 'meta',
         helpVisibility: 'singular',
+        onShow: () => {
+          throw COMPLETIONS_SHOWN
+        },
       },
       help: {
         group: 'meta',
         mode: 'both',
         onShow: () => {
-
           throw HELP_SHOWN
         },
       },

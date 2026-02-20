@@ -44,7 +44,7 @@ const noopFmt: Fmt = {
 export const Fmt = StaticTypeCompanion({
   ansi: ansiFmt as Fmt,
   noop: noopFmt as Fmt,
-  from(color: boolean): Fmt {
+  usingColor(color: boolean): Fmt {
     return color ? ansiFmt : noopFmt
   },
 })

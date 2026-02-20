@@ -6,7 +6,7 @@ export class CliPrinter {
   readonly fmt: Fmt;
 
   constructor(args:{color: boolean}) {
-    this.fmt = Fmt.from(args.color);
+    this.fmt = Fmt.usingColor(args.color);
   }
 
   print<T>(printer: CliValuePrinter<T>, item: T): string {

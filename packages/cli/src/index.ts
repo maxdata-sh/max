@@ -76,7 +76,7 @@ class CLI {
   constructor(public cfg: GlobalConfig) {
     this.commands = new Commands(
       LazyX.once(
-        () => new ProjectCompleters(() => this.lazy.workspace, Fmt.from(cfg.useColor ?? true))
+        () => new ProjectCompleters(() => this.lazy.workspace, Fmt.usingColor(cfg.useColor ?? true))
       )
     )
   }

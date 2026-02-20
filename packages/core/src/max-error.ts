@@ -229,7 +229,7 @@ class MaxErrorImpl extends Error implements MaxError {
   }
 
   prettyPrint(opts?: { color?: boolean; includeStackTrace?: boolean }): string {
-    const fmt = Fmt.from(opts?.color ?? false);
+    const fmt = Fmt.usingColor(opts?.color ?? false);
     const includeStack = opts?.includeStackTrace ?? false;
 
     const lines: string[] = [];

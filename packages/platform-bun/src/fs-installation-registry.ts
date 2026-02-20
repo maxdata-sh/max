@@ -97,6 +97,7 @@ function toJsonInstallation(entry: InstallationRegistryEntry): MaxJsonInstallati
 }
 
 function toRegistryEntry(name: string, json: MaxJsonInstallation): InstallationRegistryEntry {
+  // FIXME: We only have one customer (me!). Let's just fix our max.json files so we can sunset this.
   // Backward compat: old max.json files have `provider` + `location` instead of `hosting`
   const hosting: SerialisedInstallationHosting = json.hosting ?? {
     platform: "bun" as PlatformName,

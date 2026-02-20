@@ -1,6 +1,6 @@
 import * as path from 'node:path'
 import * as os from 'node:os'
-import {useColor} from "../settings/use-color.js";
+import {useColor} from "./use-color.js";
 
 type ExecutionMode = 'daemon' | 'direct'
 

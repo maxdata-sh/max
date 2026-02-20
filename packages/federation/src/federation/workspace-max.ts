@@ -27,13 +27,12 @@ import type { InstallationId, Schema } from '@max/core'
 import type { ConnectorRegistry, ConnectorRegistryEntry, OnboardingFlowAny } from '@max/connector'
 import type { InstallationClient } from "../protocols/installation-client.js"
 import type { CreateInstallationConfig, ConnectInstallationConfig, WorkspaceClient } from "../protocols/workspace-client.js"
-import type { InstallationInfo } from "../project-manager/types.js"
+import type { InstallationInfo } from "./installation-registry.js"
 import type { HostingType } from "../config/hosting-config.js"
 import { InstallationSupervisor } from "./supervisors.js"
 import { InstallationRegistry } from "./installation-registry.js"
 import { InstallationNodeProvider } from "../providers/installation-node-provider.js"
-import { ErrInstallationAlreadyExists } from "../project-manager/errors.js"
-import { ErrProviderNotFound } from "../errors/errors.js"
+import { ErrInstallationAlreadyExists, ErrProviderNotFound } from "../errors/errors.js"
 
 export type WorkspaceMaxConstructable = {
   installationSupervisor: InstallationSupervisor

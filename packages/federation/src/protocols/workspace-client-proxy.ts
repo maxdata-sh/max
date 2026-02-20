@@ -19,7 +19,7 @@ import {
   type StopResult,
 } from "@max/core"
 import type { ConnectorRegistryEntry, OnboardingFlowAny } from "@max/connector"
-import type { InstallationInfo } from "../project-manager/types.js"
+import type { InstallationInfo } from "../federation/installation-registry.js"
 import type { InstallationClient } from "./installation-client.js"
 import type { CreateInstallationConfig, ConnectInstallationConfig, WorkspaceClient } from "./workspace-client.js"
 import { InstallationClientProxy } from "./installation-client-proxy.js"

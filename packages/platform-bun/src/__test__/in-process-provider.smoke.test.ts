@@ -1,14 +1,15 @@
 import { describe, test } from 'bun:test'
 import {
   InProcessWorkspaceProvider,
-} from '../in-process-provider.js'
-import { DefaultSupervisor, WorkspaceSupervisor } from '../../federation/index.js'
-import { InMemoryInstallationRegistry } from '../../federation/installation-registry.js'
-import { FsConnectorRegistry } from '../../connector-registry/fs-connector-registry.js'
+  DefaultSupervisor,
+  type WorkspaceSupervisor,
+  InMemoryInstallationRegistry,
+  type HostingType,
+  type InstallationNodeProvider,
+} from '@max/federation'
+import { BunConnectorRegistry, BunInProcessInstallationProvider } from '@max/platform-bun'
 import { AcmeUser } from '@max/connector-acme'
 import { Projection, type InstallationId, type WorkspaceId } from '@max/core'
-import { BunInProcessInstallationProvider } from '@max/platform-bun'
-import type { HostingType, InstallationNodeProvider } from '@max/federation'
 import * as path from 'node:path'
 
 describe('in-process-provider', () => {
@@ -16,7 +17,7 @@ describe('in-process-provider', () => {
     try {
       const projectRoot = '/Users/ben/projects/playground/max/max/bun-test-project'
       const dataRoot = path.join(projectRoot, '.max', 'installations')
-      const connectorRegistry = new FsConnectorRegistry({ acme: '@max/connector-acme' })
+      const connectorRegistry = new BunConnectorRegistry({ acme: '@max/connector-acme' })
 
       const workspaceSupervisor: WorkspaceSupervisor = new DefaultSupervisor(
         () => crypto.randomUUID() as WorkspaceId

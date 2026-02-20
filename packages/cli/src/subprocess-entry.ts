@@ -14,13 +14,13 @@ import { object } from '@optique/core/constructs'
 import { option } from '@optique/core/primitives'
 import { withDefault } from '@optique/core/modifiers'
 import { string } from '@optique/core/valueparser'
-import {
-  createRpcSocketServer,
-  FsConnectorRegistry,
-  InstallationDispatcher,
-} from '@max/federation'
+import { InstallationDispatcher } from '@max/federation'
 import type { InstallationSpec } from '@max/federation'
-import { BunInProcessInstallationProvider } from '@max/platform-bun'
+import {
+  BunInProcessInstallationProvider,
+  BunConnectorRegistry,
+  createRpcSocketServer,
+} from '@max/platform-bun'
 
 export const subprocessParsers = object({
   subprocess: flag('--subprocess'),
@@ -54,7 +54,7 @@ export async function runSubprocess(args: SubprocessArgs): Promise<void> {
   )
 
   // FIXME: Connector registry should be configurable, not hardcoded
-  const connectorRegistry = new FsConnectorRegistry({ [spec.connector]: `@max/connector-${spec.connector}` })
+  const connectorRegistry = new BunConnectorRegistry({ [spec.connector]: `@max/connector-${spec.connector}` })
 
   const provider = new BunInProcessInstallationProvider(connectorRegistry, args.dataRoot)
   const handle = await provider.create(spec)

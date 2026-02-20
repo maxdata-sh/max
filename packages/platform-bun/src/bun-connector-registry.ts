@@ -2,7 +2,7 @@
 import {ConnectorModuleAny, ConnectorRegistry, ConnectorRegistryEntry, InMemoryConnectorRegistry} from "@max/connector";
 
 /** This registry is not as smart as it should be. It just looks at the FS once, and loads those connectors into an in-mem store */
-export class FsConnectorRegistry implements ConnectorRegistry {
+export class BunConnectorRegistry implements ConnectorRegistry {
 
   #registry = new InMemoryConnectorRegistry()
 

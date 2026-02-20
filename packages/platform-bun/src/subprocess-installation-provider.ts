@@ -15,10 +15,9 @@
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { type ProviderKind, type UnlabelledHandle } from '@max/core'
-import type { InstallationNodeProvider } from '@max/federation'
-import type { InstallationSpec } from '@max/federation'
-import { InstallationClientProxy, SubprocessTransport } from '@max/federation'
-import type { InstallationClient } from '@max/federation'
+import type { InstallationNodeProvider, InstallationSpec, InstallationClient } from '@max/federation'
+import { InstallationClientProxy } from '@max/federation'
+import { SubprocessTransport } from './subprocess-transport.js'
 
 const SUBPROCESS_PROVIDER_KIND: ProviderKind = 'subprocess'
 

@@ -1,17 +1,18 @@
 import {
-  ErrCannotInitialiseProject,
-  ErrDaemonDisabled,
   ErrInvariant,
-  ErrProjectNotInitialised,
-  findProjectRoot,
-  FsProjectDaemonManager,
-  FsProjectManager,
-  GlobalConfig, InstallationClient,
-  ProjectConfig, ProjectDaemonManager,
   type WorkspaceClient,
 } from '@max/federation'
+import {
+  ErrCannotInitialiseProject,
+  ErrDaemonDisabled,
+  ErrProjectNotInitialised,
+  findProjectRoot,
+  GlobalConfig,
+  ProjectConfig,
+  BunInProcessWorkspaceProvider,
+  initProject,
+} from '@max/platform-bun'
 import { InMemoryCredentialStore } from '@max/connector'
-import { BunInProcessWorkspaceProvider } from '@max/platform-bun'
 
 import * as Completion from '@optique/core/completion'
 import { ShellCompletion } from '@optique/core/completion'
@@ -38,7 +39,7 @@ import { initCommand } from './commands/init-command.js'
 import { syncCommandBuild } from './commands/sync-command.js'
 import { runOnboarding } from './onboarding-runner.js'
 import { DirectPrompter, type Prompter } from './prompter.js'
-import { DaemonPrinters } from './printers/daemon-printers.js'
+// import { DaemonPrinters } from './printers/daemon-printers.js' // Temporarily disabled during federation migration
 import { runSubprocess, subprocessParsers } from './subprocess-entry.js'
 
 const shells: Record<string, ShellCompletion> = {
@@ -104,10 +105,6 @@ class CLI {
       return new ProjectConfig(this.cfg, { projectRootFolder: projectRoot })
     },
 
-    /** Create daemon manager */
-    daemonManager: (): FsProjectDaemonManager => {
-      return new FsProjectDaemonManager(this.lazy.projectConfig)
-    }
   })
 
 
@@ -142,7 +139,7 @@ class CLI {
       )
     }
 
-    FsProjectManager.init(dir)
+    initProject(dir)
   }
 
   async runSchema(arg: CmdInput<'schema'>, color: boolean) {
@@ -226,42 +223,14 @@ class CLI {
     return lines.join('\n')
   }
 
-  runDaemon(arg: CmdInput<'daemon'>, color: boolean) {
-    const printer = this.printerFor(color)
-    const daemon = this.lazy.daemonManager
-    const printStatus = () => printer.print(DaemonPrinters.DaemonStatus, daemon.status())
-
-    switch (arg.sub) {
-      case 'status':
-        return printStatus()
-      case 'start': {
-        daemon.start()
-        return printStatus()
-      }
-      case 'stop': {
-        daemon.stop()
-        return printStatus()
-      }
-      case 'enable': {
-        daemon.enable()
-        return printStatus()
-      }
-      case 'disable': {
-        daemon.disable()
-        return printStatus()
-      }
-      case 'list': {
-        const results = daemon.list()
-        return printer.printAll(DaemonPrinters.DaemonEntry, results)
-      }
-      case 'restart': {
-        daemon.stop()
-        daemon.start()
-        return printStatus()
-      }
-      default:
-        throw ErrInvariant.create({ detail: `Unhandled daemon subcommand: ${arg.sub}` })
-    }
+  runDaemon(_arg: CmdInput<'daemon'>, _color: boolean) {
+    // Daemon subcommands (start/stop/enable/disable/list) are temporarily
+    // unavailable. The FsProjectDaemonManager has been retired as part of
+    // the federation migration. These commands will be re-implemented via
+    // GlobalMax + workspace supervisor + workspace registry.
+    throw ErrInvariant.create({
+      detail: `Daemon commands are temporarily unavailable during federation migration`,
+    })
   }
 
   // -- Shared utilities -------------------------------------------------------
@@ -373,24 +342,33 @@ if (parsed.success) {
 
     const projectConfig = new ProjectConfig(cfg, { projectRootFolder: cfg.projectRoot })
     const daemonPaths = projectConfig.paths.daemon
-    const daemonManager = new FsProjectDaemonManager(projectConfig)
-    const daemonStatus = daemonManager.status()
 
-    if (!daemonStatus.enabled) {
+    // Guard: check if daemon is disabled
+    if (fs.existsSync(daemonPaths.disabled)) {
       console.error(ErrDaemonDisabled.create({}).prettyPrint({ color: cfg.useColor }))
       process.exit(1)
     }
 
-    if (daemonStatus.alive) {
-      // TODO: This should be logged via a daemon file logger, not console.error.
-      // stderr is inherited from the spawning process and may write to a terminal
-      // that has already moved on. See roadmap: daemon logger.
-      console.error(`Daemon already running (pid ${daemonStatus.pid})`)
-      process.exit(0)
+    // Guard: check if daemon is already running (read PID, check liveness)
+    try {
+      const pidRaw = fs.readFileSync(daemonPaths.pid, 'utf-8').trim()
+      const existingPid = parseInt(pidRaw, 10)
+      if (!isNaN(existingPid)) {
+        try {
+          process.kill(existingPid, 0) // signal 0 = liveness check
+          console.error(`Daemon already running (pid ${existingPid})`)
+          process.exit(0)
+        } catch {
+          // Process not alive — stale PID file, continue startup
+        }
+      }
+    } catch {
+      // No PID file — continue startup
     }
 
     // Write our own PID — works regardless of who spawned us (Rust shim or `max daemon start`)
     // and survives `bun --watch` restarts which change the child PID.
+    fs.mkdirSync(daemonPaths.root, { recursive: true })
     fs.writeFileSync(daemonPaths.pid, String(process.pid))
 
     createSocketServer({

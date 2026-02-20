@@ -12,10 +12,5 @@ export {
   type InProcessWorkspaceConfig,
 } from "./in-process-provider.js"
 
-export {
-  BunInProcessInstallationProvider,
-  SubprocessInstallationProvider,
-} from "@max/platform-bun"
-
 export type { InstallationNodeProvider } from './installation-node-provider.js'
 export type { WorkspaceNodeProvider } from './workspace-node-provider.js'

@@ -28,8 +28,7 @@ export { bootstrapInstallation, type ResolvedInstallationDeps } from './bootstra
 export {
   type InstallationRegistry,
   type InstallationRegistryEntry,
+  type InstallationInfo,
   InMemoryInstallationRegistry,
 } from './installation-registry.js'
 
-// FIXME: This should go to platform-bun
-export { FsInstallationRegistry } from './fs-installation-registry.js'

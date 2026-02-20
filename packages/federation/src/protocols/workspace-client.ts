@@ -15,7 +15,7 @@
 import type { InstallationId, Schema, Supervised } from "@max/core"
 import type { ConnectorRegistryEntry, OnboardingFlowAny } from "@max/connector"
 import type { InstallationClient } from "./installation-client.js"
-import type { InstallationInfo } from "../project-manager/types.js"
+import type { InstallationInfo } from "../federation/installation-registry.js"
 import type { InstallationSpec } from "../config/installation-spec.js"
 import type { HostingConfig, RemoteHostingConfig } from "../config/hosting-config.js"
 

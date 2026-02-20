@@ -20,14 +20,14 @@ import type { ConnectorRegistry } from '@max/connector'
 import {
   DefaultSupervisor,
   WorkspaceMax,
-  FsInstallationRegistry,
-  FsConnectorRegistry,
   type WorkspaceClient,
   type WorkspaceNodeProvider,
   type HostingType,
   type InstallationNodeProvider,
   type InstallationClient,
 } from '@max/federation'
+import { FsInstallationRegistry } from './fs-installation-registry.js'
+import { BunConnectorRegistry } from './bun-connector-registry.js'
 import { BunInProcessInstallationProvider } from './bun-in-process-installation-provider.js'
 
 const BUN_WORKSPACE_KIND: ProviderKind = 'in-process'
@@ -48,7 +48,7 @@ export class BunInProcessWorkspaceProvider implements WorkspaceNodeProvider<BunW
     const dataRoot = path.join(projectRoot, '.max', 'installations')
 
     // -- Connector registry --
-    const connectorRegistry: ConnectorRegistry = new FsConnectorRegistry(connectors)
+    const connectorRegistry: ConnectorRegistry = new BunConnectorRegistry(connectors)
 
     // -- Installation registry (backed by max.json) --
     const installationRegistry = new FsInstallationRegistry(maxJsonPath)

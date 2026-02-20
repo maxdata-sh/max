@@ -8,9 +8,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type { InstallationId, ProviderKind } from '@max/core'
-import type { InstallationRegistry, InstallationRegistryEntry } from './installation-registry.js'
-import type { MaxJsonFile, MaxJsonInstallation } from './max-json.js'
-import { ErrRegistryEntryAlreadyExists, ErrRegistryEntryNotFound } from './errors.js'
+import type { InstallationRegistry, InstallationRegistryEntry } from '@max/federation'
+import type { MaxJsonFile, MaxJsonInstallation } from '@max/federation'
+import { ErrRegistryEntryAlreadyExists, ErrRegistryEntryNotFound } from '@max/federation'
 
 export class FsInstallationRegistry implements InstallationRegistry {
   constructor(private readonly maxJsonPath: string) {}

@@ -22,3 +22,14 @@ export class InMemoryInstallationRegistry
     super((value) => value.id)
   }
 }
+
+/**
+ * Lightweight summary for listing installations.
+ */
+export interface InstallationInfo {
+  readonly connector: ConnectorType
+  readonly name: string
+  readonly id: InstallationId
+  readonly connectedAt: string
+  readonly location: unknown
+}

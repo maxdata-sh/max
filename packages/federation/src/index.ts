@@ -1,16 +1,18 @@
+// Config types
 export * from './config/installation-spec.js'
 export * from './config/hosting-config.js'
-export * from "./connector-registry/fs-connector-registry.js";
 
+// Errors
 export * from "./errors/errors.js"
-export * from './project-daemon-manager/fs-project-daemon-manager.js'
-export * from './project-daemon-manager/project-daemon-manager.js'
-export * from "./config/global-config.js";
-export * from './config/project-config.js'
-export * from './project-manager'
+
+// Protocols
 export * from './protocols/index.js'
+
+// Federation layer (orchestration, registries, bootstrap)
 export * from './federation/index.js'
-export * from './federation/installation-registry.js'
+
+// Providers (interfaces + generic in-process)
 export * from './providers/index.js'
+
+// Dispatchers
 export * from './dispatchers/index.js'
-export * from './transport/index.js'

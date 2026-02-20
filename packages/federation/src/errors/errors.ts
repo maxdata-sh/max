@@ -1,4 +1,5 @@
-import {BadInput, ErrFacet, MaxError, NotFound, NotSupported, NotImplemented, InvariantViolated} from "@max/core";
+import {BadInput, ErrFacet, HasConnector, MaxError, NotFound, NotSupported, NotImplemented, InvariantViolated} from "@max/core";
+import type { ConnectorType } from "@max/core";
 
 const AppBoundary = MaxError.boundary("app");
 
@@ -26,12 +27,6 @@ export const ErrNoOnboarding = AppBoundary.define("no_onboarding", {
   message: (d) => `Connector "${d.connector}" does not define an onboarding flow`,
 });
 
-export const ErrDaemonDisabled = AppBoundary.define("daemon_disabled", {
-  customProps: ErrFacet.props<{}>(),
-  facets: [BadInput],
-  message: () => `Daemon is disabled — run 'max daemon enable' first`,
-});
-
 export const ErrInvariant = AppBoundary.define("invariant", {
   customProps: ErrFacet.props<{ detail: string }>(),
   facets: [InvariantViolated],
@@ -55,4 +50,11 @@ export const ErrUnsupportedConfig = AppBoundary.define("unsupported_config", {
   facets: [NotImplemented],
   message: (d) => `${d.kind} type "${d.configType}" is not yet supported`,
 });
+
+/** An installation with this connector:slug already exists */
+export const ErrInstallationAlreadyExists = AppBoundary.define('installation_already_exists', {
+  customProps: ErrFacet.props<{ connector: ConnectorType; name: string }>(),
+  facets: [BadInput, HasConnector],
+  message: (d) => `Installation "${d.connector}:${d.name}" already exists`,
+})
 

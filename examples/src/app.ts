@@ -8,22 +8,21 @@
 import * as path from 'node:path'
 import {
   DefaultSupervisor,
-  FsConnectorRegistry,
+  type HostingType,
   InMemoryInstallationRegistry,
   InProcessWorkspaceProvider,
-  WorkspaceSupervisor,
-  type HostingType,
   type InstallationNodeProvider,
+  WorkspaceSupervisor,
 } from '@max/federation'
-import { Projection, type InstallationId, type WorkspaceId } from '@max/core'
-import { BunInProcessInstallationProvider } from '@max/platform-bun'
+import { type InstallationId, Projection, type WorkspaceId } from '@max/core'
+import { BunConnectorRegistry, BunInProcessInstallationProvider } from '@max/platform-bun'
 import { AcmeUser } from '@max/connector-acme'
 
 const projectRoot = path.resolve(__dirname, '../../bun-test-project')
 const dataRoot = path.join(projectRoot, '.max', 'installations')
 
 try {
-  const connectorRegistry = new FsConnectorRegistry({
+  const connectorRegistry = new BunConnectorRegistry({
     acme: '@max/connector-acme'
   })
 

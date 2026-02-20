@@ -13,7 +13,7 @@ import { StubbedEngine } from "@max/core/testing"
 import type { SyncHandle, SyncId, SyncPlan, SyncResult, SyncStatus } from "@max/execution"
 import type { InstallationClient, InstallationDescription } from "./protocols/installation-client.js"
 import type { WorkspaceClient, CreateInstallationConfig, ConnectInstallationConfig } from "./protocols/workspace-client.js"
-import type { InstallationInfo } from "./project-manager/types.js"
+import type { InstallationInfo } from "./federation/installation-registry.js"
 
 export { StubbedEngine, StubbedSupervised } from "@max/core/testing"
 

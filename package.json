@@ -9,9 +9,9 @@
     "examples"
   ],
   "scripts": {
-    "build": "bun run --filter '*' build",
-    "typecheck": "bun run --filter '*' typecheck",
-    "test": "bun run --filter '*' test --pass-with-no-tests"
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test --continue"
   },
   "devDependencies": {
     "@max/connector-acme": "workspace:*",

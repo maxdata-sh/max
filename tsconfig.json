@@ -2,17 +2,19 @@
     "files": [],
     "references": [
       { "path": "./packages/core" },
+      { "path": "./packages/connector" },
       { "path": "./packages/storage-sqlite" },
       { "path": "./packages/execution" },
       { "path": "./packages/execution-local" },
       { "path": "./packages/execution-sqlite" },
-      { "path": "./packages/daemon" },
       { "path": "./packages/federation" },
+      { "path": "./packages/platform-bun" },
       { "path": "./packages/cli" },
       { "path": "./connectors/connector-acme" },
       { "path": "./connectors/connector-gdrive" },
       { "path": "./connectors/connector-linear" },
       { "path": "./connectors/connector-hubspot" },
-      { "path": "./apps/acme" }
+      { "path": "./apps/acme" },
+      { "path": "./examples" }
     ]
   }

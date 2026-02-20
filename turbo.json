@@ -1,14 +1,21 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["tsconfig.base.json"],
   "tasks": {
     "typecheck": {
-      "dependsOn": ["^typecheck"],
+      "dependsOn": [],
       "inputs": ["src/**/*.ts", "!src/**/__test__/**", "tsconfig.json", "package.json"],
       "outputs": []
     },
     "test": {
-      "dependsOn": ["^test"],
+      "dependsOn": [],
+      "inputs": ["src/**/*.ts", "tsconfig.json", "package.json"],
       "outputs": []
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**/*.ts", "!src/**/__test__/**", "tsconfig.json", "package.json"],
+      "outputs": ["dist/**"]
     }
   }
 }

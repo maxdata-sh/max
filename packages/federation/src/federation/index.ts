@@ -17,6 +17,8 @@ export type { MaxJsonFile, MaxJsonInstallation } from './max-json.js'
 export type { WorkspaceSupervisor, InstallationSupervisor } from './supervisors.js'
 
 export { WorkspaceMax } from './workspace-max.js'
+export type { MaxUrlResolver, ResolvedTarget } from './max-url-resolver.js'
+export { hasInstallationNameLookup } from './max-url-resolver.js'
 export {
   type WorkspaceRegistry,
   type WorkspaceRegistryEntry,

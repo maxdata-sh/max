@@ -6,6 +6,7 @@ import {
   CredentialStoreConfig,
   DeploymentConfig,
   EngineConfig,
+  InstallationRegistryConfig,
   SyncMetaConfig,
   TaskStoreConfig,
 } from '@max/federation'
@@ -32,6 +33,7 @@ export interface InProcessDeploymentConfig extends DeploymentConfig {
   engine?: EngineConfig // { type: "sqlite" } | { type: "indexeddb" } | ...
   credentials?: CredentialStoreConfig // { type: "fs", path?: string } | { type: "in-memory" }
   connectorRegistry?: ConnectorRegistryConfig
+  installationRegistry?: InstallationRegistryConfig
   taskStore?: TaskStoreConfig
   syncMeta?: SyncMetaConfig
 }

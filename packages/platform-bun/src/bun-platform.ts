@@ -121,7 +121,7 @@ function createWorkspaceBootstrap(resolvers: BunResolvers) {
   ): Promise<WorkspaceClient> => {
     const configure = resolvers.configure.resolve(config)
     const installationRegistryConfig = configure.installationRegistry.resolve(
-      spec.installationRegistry ?? { type: 'fs' }
+      config.installationRegistry ?? { type: 'fs' }
     )
     const connectorRegistryConfig = configure.connectorRegistry.resolve(
       config.connectorRegistry ?? { type: 'hardcoded' }

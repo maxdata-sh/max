@@ -7,10 +7,10 @@
  */
 
 import {type HardBrand} from "./brand.js";
-import {InstallationScope, Scope, WorkspaceScope} from './scope.js'
+import {GlobalScope, InstallationScope, Scope, WorkspaceScope} from './scope.js'
 import {StaticTypeCompanion} from "./companion.js";
 import {ErrInvalidRefKey} from "./errors/errors.js";
-import { EntityId, EntityType, InstallationId } from './core-id-types.js'
+import { EntityId, EntityType, InstallationId, WorkspaceId } from './core-id-types.js'
 
 // ============================================================================
 // Types
@@ -27,7 +27,8 @@ export type RefKey = HardBrand<string, "ref-key">;
 
 export type ParsedRefKey =
   | { scope: InstallationScope; entityType: EntityType; entityId: EntityId }
-  | { scope: WorkspaceScope; entityType: EntityType; entityId: EntityId };
+  | { scope: WorkspaceScope; entityType: EntityType; entityId: EntityId }
+  | { scope: GlobalScope; entityType: EntityType; entityId: EntityId };
 
 // ============================================================================
 // RefKey Utilities
@@ -37,7 +38,8 @@ const DELIMITER = ":";
 
 const ScopePrefix = {
   installation: 'ein',
-  workspace: 'ews'
+  workspace: 'ews',
+  global: 'egl',
 } satisfies Record<Scope['kind'], string>
 
 const keyed = (...args:string[]): RefKey => args.join(DELIMITER) as RefKey;
@@ -49,8 +51,10 @@ export const RefKey = StaticTypeCompanion({
   from(entityType: EntityType, entityId: EntityId, scope: Scope): RefKey {
     if (Scope.isInstallation(scope)) {
       return keyed(ScopePrefix.installation, entityType, entityId)
-    } else {
+    } else if (Scope.isWorkspace(scope)) {
       return keyed(ScopePrefix.workspace, scope.installationId, entityType, entityId)
+    } else {
+      return keyed(ScopePrefix.global, scope.workspaceId, scope.installationId, entityType, entityId)
     }
   },
 
@@ -66,6 +70,13 @@ export const RefKey = StaticTypeCompanion({
    */
   workspace(installationId: InstallationId, entityType: EntityType, entityId: EntityId): RefKey {
     return keyed(ScopePrefix.workspace, installationId, entityType, entityId)
+  },
+
+  /**
+   * Create a global RefKey.
+   */
+  global(workspaceId: WorkspaceId, installationId: InstallationId, entityType: EntityType, entityId: EntityId): RefKey {
+    return keyed(ScopePrefix.global, workspaceId, installationId, entityType, entityId)
   },
 
   /**
@@ -97,6 +108,19 @@ export const RefKey = StaticTypeCompanion({
         scope: Scope.workspace(installationId),
         entityType: str.substring(d2 + 1, d3) as EntityType,
         entityId: str.substring(d3 + 1) as EntityId,
+      };
+    }
+
+    if (scope === ScopePrefix.global) {
+      // egl:workspaceId:installationId:entityType:entityId
+      const d3 = str.indexOf(DELIMITER, d2 + 1);
+      if (d3 === -1) throw ErrInvalidRefKey.create({ key: key as string });
+      const d4 = str.indexOf(DELIMITER, d3 + 1);
+      if (d4 === -1) throw ErrInvalidRefKey.create({ key: key as string });
+      return {
+        scope: Scope.global(str.substring(d1 + 1, d2), str.substring(d2 + 1, d3)),
+        entityType: str.substring(d3 + 1, d4) as EntityType,
+        entityId: str.substring(d4 + 1) as EntityId,
       };
     }
 

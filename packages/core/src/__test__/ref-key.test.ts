@@ -1,7 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import { RefKey } from "../ref-key.js";
 import {Scope} from "../scope.js";
-import { EntityId, EntityType, InstallationId } from '../core-id-types.js'
+import { EntityId, EntityType, InstallationId, WorkspaceId } from '../core-id-types.js'
 
 describe('RefKey', () => {
   describe('installation', () => {
@@ -62,6 +62,31 @@ describe('RefKey', () => {
     })
   })
 
+  describe('global', () => {
+    test('round-trips through create and parse', () => {
+      const key = RefKey.global('ws-1', 'inst-1', 'User', 'u1')
+      const parsed = RefKey.parse(key)
+
+      expect(parsed.scope).toEqual(Scope.global('ws-1', 'inst-1'))
+      expect(parsed.entityType).toBe('User')
+      expect(parsed.entityId).toBe('u1')
+    })
+
+    test('handles entityId containing colons', () => {
+      const key = RefKey.global('ws-1', 'inst-1', 'User', 'user:123')
+      const parsed = RefKey.parse(key)
+
+      expect(parsed.scope).toEqual(Scope.global('ws-1', 'inst-1'))
+      expect(parsed.entityType).toBe('User')
+      expect(parsed.entityId).toBe('user:123')
+    })
+
+    test('produces egl prefix', () => {
+      const key = RefKey.global('ws-1', 'inst-1', 'User', 'u1')
+      expect((key as string).startsWith('egl:')).toBe(true)
+    })
+  })
+
   describe('from() with scope', () => {
     test('creates installation key when scope is installation', () => {
       const key = RefKey.from('User', 'u:1', Scope.installation())
@@ -77,6 +102,15 @@ describe('RefKey', () => {
 
       expect(parsed.scope).toEqual(Scope.workspace('inst-1'))
       expect(parsed.entityId).toBe('u:1')
+    })
+
+    test('creates global key when scope is global', () => {
+      const key = RefKey.from('Team', 't:1', Scope.global('ws-1', 'inst-1'))
+      const parsed = RefKey.parse(key)
+
+      expect(parsed.scope).toEqual(Scope.global('ws-1', 'inst-1'))
+      expect(parsed.entityType).toBe('Team')
+      expect(parsed.entityId).toBe('t:1')
     })
   })
 
@@ -124,6 +158,10 @@ describe('RefKey', () => {
 
     test('returns true for valid workspace key', () => {
       expect(RefKey.isValid('ews:inst:User:u1')).toBe(true)
+    })
+
+    test('returns true for valid global key', () => {
+      expect(RefKey.isValid('egl:ws:inst:User:u1')).toBe(true)
     })
 
     test('returns false for garbage', () => {

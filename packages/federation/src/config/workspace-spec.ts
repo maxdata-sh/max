@@ -19,7 +19,4 @@ export type WorkspaceEngineConfig =
 export interface WorkspaceSpec {
   readonly name: string
 
-  // FIXME: This shouldn't live here, it should live in the deployment config
-  readonly installationRegistry?: InstallationRegistryConfig
-
 }

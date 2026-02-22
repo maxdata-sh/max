@@ -3,7 +3,7 @@
  */
 
 import type { EntityDefAny } from "./entity-def.js";
-import { Scope, InstallationScope, WorkspaceScope } from './scope.js'
+import { Scope, InstallationScope, WorkspaceScope, GlobalScope } from './scope.js'
 import { type RefKey, RefKey as RefKeyUtil } from "./ref-key.js";
 import {StaticTypeCompanion} from "./companion.js";
 import { EntityId, EntityType } from './core-id-types.js'
@@ -68,6 +68,7 @@ export type RefAny = Ref<EntityDefAny, Scope>;
 /** Convenience aliases */
 export type LocalRef<E extends EntityDefAny = EntityDefAny> = Ref<E, InstallationScope>;
 export type SystemRef<E extends EntityDefAny = EntityDefAny> = Ref<E, WorkspaceScope>;
+export type GlobalRef<E extends EntityDefAny = EntityDefAny> = Ref<E, GlobalScope>;
 
 // ============================================================================
 // Ref Implementation (internal)
@@ -99,8 +100,10 @@ class RefImpl<E extends EntityDefAny, S extends Scope = Scope> implements Ref<E,
   [Symbol.for("nodejs.util.inspect.custom")](): string {
     if (Scope.isInstallation(this.scope)) {
       return `Ref<${this.entityType}>(${this.id})`;
-    } else {
+    } else if (Scope.isWorkspace(this.scope)) {
       return `Ref<${this.entityType}>(${this.id}, inst:${this.scope.installationId})`;
+    } else {
+      return `Ref<${this.entityType}>(${this.id}, ws:${this.scope.workspaceId}, inst:${this.scope.installationId})`;
     }
   }
 
@@ -126,6 +129,15 @@ export const Ref = StaticTypeCompanion({
     id: EntityId,
     scope: WorkspaceScope
   ): Ref<E, WorkspaceScope> {
+    return new RefImpl(def, id, scope);
+  },
+
+  /** Create a global-scoped ref */
+  global<E extends EntityDefAny>(
+    def: E,
+    id: EntityId,
+    scope: GlobalScope
+  ): Ref<E, GlobalScope> {
     return new RefImpl(def, id, scope);
   },
 

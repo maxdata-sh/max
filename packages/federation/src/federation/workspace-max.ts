@@ -97,6 +97,21 @@ export class WorkspaceMax implements WorkspaceClient {
     return handle.client
   }
 
+  installationByNameOrId(nameOrId: string): { id: InstallationId; client: InstallationClient } | undefined {
+    // Try name first: scan registry
+    const byName = this.installationRegistry.list().find(e => e.name === nameOrId)
+    if (byName) {
+      const handle = this.supervisor.get(byName.id)
+      if (handle) return { id: byName.id, client: handle.client }
+    }
+
+    // Fall back to ID
+    const handle = this.supervisor.get(nameOrId as InstallationId)
+    if (handle) return { id: nameOrId as InstallationId, client: handle.client }
+
+    return undefined
+  }
+
   async createInstallation<K extends DeployerKind>(config: CreateInstallationConfig<K>): Promise<InstallationId> {
     const { spec } = config
     const name = spec.name ?? spec.connector

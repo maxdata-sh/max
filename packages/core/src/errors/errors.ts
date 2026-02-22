@@ -51,6 +51,13 @@ export const HasConnector = ErrFacet.data<{ connector: string }>("HasConnector")
 // Standard Error Definitions
 // ============================================================================
 
+/** Max URL string could not be parsed */
+export const ErrInvalidMaxUrl = Core.define("invalid_max_url", {
+  customProps: ErrFacet.props<{ url: string; reason: string }>(),
+  facets: [BadInput],
+  message: (d) => `Invalid Max URL "${d.url}" — ${d.reason}`,
+});
+
 /** RefKey string could not be parsed */
 export const ErrInvalidRefKey = Core.define("invalid_ref_key", {
   customProps: ErrFacet.props<{ key: string }>(),

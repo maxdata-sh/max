@@ -25,6 +25,7 @@ try {
         strategy: 'in-process',
         dataDir: workspaceRoot,
         engine:{type: 'sqlite'},
+        connectorRegistry: {type:'hardcoded', moduleMap: {  }}
       },
       spec:{
         name: "test-workspace",

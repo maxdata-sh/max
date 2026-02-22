@@ -308,7 +308,7 @@ describe('ResolverGraph', () => {
 
     test('unknown keys return undefined', () => {
       const deps = DeploymentResolver.resolve({ dataDir: '/tmp' })
-      expect((deps as Record<string, unknown>)['nonexistent']).toBeUndefined()
+      expect((deps as any)['nonexistent']).toBeUndefined()
     })
   })
 

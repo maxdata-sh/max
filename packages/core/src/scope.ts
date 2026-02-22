@@ -10,7 +10,7 @@
  */
 
 import { StaticTypeCompanion } from './companion.js'
-import {InstallationId} from "./core-id-types.js";
+import {InstallationId, WorkspaceId} from "./core-id-types.js";
 
 export interface InstallationScope {
   readonly kind: 'installation'
@@ -21,7 +21,13 @@ export interface WorkspaceScope {
   readonly installationId: InstallationId
 }
 
-export type Scope = InstallationScope | WorkspaceScope;
+export interface GlobalScope {
+  readonly kind: 'global'
+  readonly workspaceId: WorkspaceId
+  readonly installationId: InstallationId
+}
+
+export type Scope = InstallationScope | WorkspaceScope | GlobalScope;
 
 export type ScopedResource<T, TScope extends Scope> = {
   scope: TScope
@@ -43,6 +49,14 @@ export const Scope = StaticTypeCompanion({
 
   isWorkspace(scope: Scope): scope is WorkspaceScope {
     return scope.kind === 'workspace'
+  },
+
+  global(workspaceId: WorkspaceId, installationId: InstallationId): GlobalScope {
+    return { kind: 'global', workspaceId, installationId }
+  },
+
+  isGlobal(scope: Scope): scope is GlobalScope {
+    return scope.kind === 'global'
   },
 
   wrap<T, S extends Scope>(scope: S, value: T): ScopedResource<T, S> {

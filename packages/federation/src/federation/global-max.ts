@@ -10,7 +10,7 @@
  *   4. Start the workspace
  */
 
-import { type DeployerKind, HealthStatus, ISODateString, StartResult, StopResult, type WorkspaceId } from '@max/core'
+import { MaxUrl, type DeployerKind, HealthStatus, ISODateString, StartResult, StopResult, type WorkspaceId } from '@max/core'
 import type { WorkspaceClient } from '../protocols/index.js'
 import type { GlobalClient, WorkspaceInfo, WorkspaceListEntry } from '../protocols/global-client.js'
 import { CreateWorkspaceArgs } from '../protocols/global-client.js'
@@ -18,8 +18,9 @@ import { WorkspaceSupervisor } from './supervisors.js'
 
 import { WorkspaceRegistry } from './workspace-registry.js'
 
-import { ErrWorkspaceHandleNotFound } from '../errors/errors.js'
+import { ErrWorkspaceHandleNotFound, ErrRemoteUrlNotSupported, ErrWorkspaceNotResolved, ErrInstallationNotResolved } from '../errors/errors.js'
 import { DeployerRegistry, DeploymentConfig, WorkspaceDeployer } from '../deployers/index.js'
+import { type MaxUrlResolver, type ResolvedTarget, hasInstallationNameLookup } from './max-url-resolver.js'
 
 export type GlobalMaxConstructable = {
   workspaceSupervisor: WorkspaceSupervisor
@@ -44,6 +45,62 @@ export class GlobalMax implements GlobalClient {
       throw ErrWorkspaceHandleNotFound.create({ workspace: id })
     }
     return ws.client
+  }
+
+  workspaceByNameOrId(nameOrId: string): { id: WorkspaceId; client: WorkspaceClient } | undefined {
+    // Try name first: scan registry
+    const byName = this.workspaceRegistry.list().find(e => e.name === nameOrId)
+    if (byName) {
+      const handle = this.workspaceSupervisor.get(byName.id)
+      if (handle) return { id: byName.id, client: handle.client }
+    }
+
+    // Fall back to ID
+    const handle = this.workspaceSupervisor.get(nameOrId as WorkspaceId)
+    if (handle) return { id: nameOrId as WorkspaceId, client: handle.client }
+
+    return undefined
+  }
+
+  maxUrlResolver(): MaxUrlResolver {
+    return {
+      resolve: (url: MaxUrl): ResolvedTarget => {
+        if (!url.isLocal) {
+          throw ErrRemoteUrlNotSupported.create({ url: url.toString() })
+        }
+
+        // Level 0: Global
+        if (url.level === 'global') {
+          return { level: 'global', client: this }
+        }
+
+        // Level 1: Workspace
+        const ws = this.workspaceByNameOrId(url.workspace!)
+        if (!ws) {
+          throw ErrWorkspaceNotResolved.create({ segment: url.workspace!, url: url.toString() })
+        }
+
+        if (url.level === 'workspace') {
+          return { level: 'workspace', client: ws.client, id: ws.id }
+        }
+
+        // Level 2: Installation (delegate to workspace's name lookup)
+        if (!hasInstallationNameLookup(ws.client)) {
+          throw ErrRemoteUrlNotSupported.create({ url: url.toString() })
+        }
+
+        const inst = ws.client.installationByNameOrId(url.installation!)
+        if (!inst) {
+          throw ErrInstallationNotResolved.create({
+            segment: url.installation!,
+            workspace: url.workspace!,
+            url: url.toString(),
+          })
+        }
+
+        return { level: 'installation', client: inst.client, id: inst.id, workspaceId: ws.id }
+      },
+    }
   }
 
   async createWorkspace<K extends DeployerKind>(

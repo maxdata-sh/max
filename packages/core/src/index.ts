@@ -10,7 +10,7 @@ export * from "./date-util.js"
 
 // Scope
 export { Scope } from "./scope.js";
-export type { ScopedResource, InstallationScope, WorkspaceScope } from "./scope.js";
+export type { ScopedResource, InstallationScope, WorkspaceScope, GlobalScope } from "./scope.js";
 
 // RefKey
 export { RefKey } from "./ref-key.js";
@@ -43,7 +43,11 @@ export { SchemaPrettyPrinter } from "./schema-pretty-printer.js";
 
 // References (Ref is both type and value)
 export { Ref } from "./ref.js";
-export type { RefAny, LocalRef, SystemRef, ScopeUpgradeable } from "./ref.js";
+export type { RefAny, LocalRef, SystemRef, GlobalRef, ScopeUpgradeable } from "./ref.js";
+
+// Max URL (MaxUrl is a class)
+export { MaxUrl } from "./max-url.js";
+export type { MaxUrlLevel } from "./max-url.js";
 
 // Entity input (EntityInput is both type and value)
 export { EntityInput } from "./entity-input.js";

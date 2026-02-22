@@ -98,3 +98,25 @@ export const ErrDeployerNotAvailable = AppBoundary.define('deployer_not_availabl
   facets: [HasPlatform, NotAvailable],
   message: (d) => `Platform "${d.platform} does not support deployer "${d.deployerKind}".`,
 })
+
+// ============================================================================
+// URL Resolution Errors
+// ============================================================================
+
+export const ErrRemoteUrlNotSupported = AppBoundary.define('remote_url_not_supported', {
+  customProps: ErrFacet.props<{ url: string }>(),
+  facets: [NotSupported],
+  message: (d) => `Remote Max URLs are not yet supported: ${d.url}`,
+})
+
+export const ErrWorkspaceNotResolved = AppBoundary.define('workspace_not_resolved', {
+  customProps: ErrFacet.props<{ segment: string; url: string }>(),
+  facets: [NotFound],
+  message: (d) => `Workspace "${d.segment}" not found — ${d.url}`,
+})
+
+export const ErrInstallationNotResolved = AppBoundary.define('installation_not_resolved', {
+  customProps: ErrFacet.props<{ segment: string; workspace: string; url: string }>(),
+  facets: [NotFound],
+  message: (d) => `Installation "${d.segment}" not found in workspace "${d.workspace}" — ${d.url}`,
+})

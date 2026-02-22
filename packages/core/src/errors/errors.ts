@@ -124,3 +124,21 @@ export const ErrPrinterNotRegistered = Core.define("printer_not_registered", {
   facets: [NotFound],
   message: (d) => `No printer registered for "${d.key}"`,
 });
+
+// ============================================================================
+// ResolverGraph Errors
+// ============================================================================
+
+/** Resolver graph detected a circular dependency */
+export const ErrCircularDependency = Core.define("circular_dependency", {
+  customProps: ErrFacet.props<{ chain: string[] }>(),
+  facets: [InvariantViolated],
+  message: (d) => `Circular dependency: ${d.chain.join(' \u2192 ')}`,
+});
+
+/** A resolver factory threw during resolution */
+export const ErrResolutionFailed = Core.define("resolution_failed", {
+  customProps: ErrFacet.props<{ key: string }>(),
+  facets: [InvariantViolated],
+  message: (d) => `Failed to resolve '${d.key}'`,
+});

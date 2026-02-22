@@ -181,4 +181,8 @@ export {Duration} from "./duration.js";
 // Printables
 export {Printer, PrintFormatter} from './printable.js'
 
+// ResolverGraph — declarative dependency resolution with cascading
+export { ResolverGraph } from './resolver-graph.js'
+export type { ResolverFactories } from './resolver-graph.js'
+
 export * from "./core-id-types.js";

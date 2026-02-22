@@ -1,6 +1,19 @@
 // Platform entry point
 export { BunPlatform } from './bun-platform.js'
 
+// Resolver graphs (for .with() overrides and dependency injection)
+export {
+  installationGraph,
+  workspaceGraph,
+  globalGraph,
+  type InstallationGraphConfig,
+  type InstallationGraphDeps,
+  type WorkspaceGraphConfig,
+  type WorkspaceGraphDeps,
+  type GlobalGraphConfig,
+  type GlobalGraphDeps,
+} from './bun-platform.js'
+
 
 // Registries
 export { FsInstallationRegistry } from './services/fs-installation-registry.js'

@@ -127,7 +127,7 @@ describe('resolver graph injection', () => {
     })
 
     const max = BunPlatform.createGlobalMax({
-      workspaceRegistry: () => injected,
+      global: { workspaceRegistry: () => injected },
     })
 
     // listWorkspaces reads from the workspace registry —

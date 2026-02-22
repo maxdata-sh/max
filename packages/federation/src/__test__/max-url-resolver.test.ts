@@ -1,63 +1,52 @@
 import { describe, test, expect } from "bun:test"
-import {
-  MaxUrl,
-  MaxError,
-  type WorkspaceId,
-  type InstallationId,
-  ISODateString,
-} from '@max/core'
-import { GlobalMax } from '../federation/global-max.js'
-import { WorkspaceMax } from '../federation/workspace-max.js'
-import { DefaultSupervisor } from '../federation/default-supervisor.js'
+import { MaxUrl } from '@max/core'
 import { InMemoryWorkspaceRegistry } from '../federation/workspace-registry.js'
 import { InMemoryInstallationRegistry } from '../federation/installation-registry.js'
-import { DeployerRegistry } from '../deployers/deployer-registry.js'
-import { StubbedInstallationClient } from '../testing.js'
-import {InMemoryConnectorRegistry} from "@max/connector";
-import {BunPlatform} from "@max/platform-bun";
-import {AcmeConfig} from "@max/connector-acme";
+import { BunPlatform } from "@max/platform-bun"
+import { InMemoryCredentialStore } from '@max/connector'
+import { SqliteEngine } from '@max/storage-sqlite'
+import { SqliteExecutionSchema } from '@max/execution-sqlite'
+import { AcmeConfig } from "@max/connector-acme"
 
 // -- Helpers ------------------------------------------------------------------
 
-let wsCounter = 0
-let instCounter = 0
-
 async function setup() {
-
-  // FIXME: Wiring dependencies in to a Global/Workspace Max is too cumbersome. We need to address resolver injection
-  const workspaceRegistry = new InMemoryWorkspaceRegistry()
-  const workspaceSupervisor = new DefaultSupervisor<any, WorkspaceId>(() => `ws-team-${++wsCounter}` as WorkspaceId)
-
-  const global = new GlobalMax({
-    workspaceSupervisor,
-    workspaceRegistry,
-    workspaceDeployer: BunPlatform.workspace.registry
+  // All-level injection: no filesystem needed
+  const global = BunPlatform.createGlobalMax({
+    global: { workspaceRegistry: () => new InMemoryWorkspaceRegistry() },
+    workspace: { installationRegistry: () => new InMemoryInstallationRegistry() },
+    installation: {
+      engine: (c) => {
+        const engine = SqliteEngine.open(':memory:', c.connector.def.schema)
+        SqliteExecutionSchema.ensureTables(engine.db)
+        return engine
+      },
+      credentialStore: () => new InMemoryCredentialStore({}),
+    },
   })
 
   const wid = await global.createWorkspace('my-team', {
     via: BunPlatform.workspace.deploy.inProcess,
-    config:{
+    config: {
       strategy: 'in-process',
       dataDir: '/not-used',
-      installationRegistry: {type: 'in-memory'}
     },
-    spec: { name: 'my-team' }
+    spec: { name: 'my-team' },
   })
+
   const workspace = global.workspace(wid)
   const instId = await workspace.createInstallation({
     via: BunPlatform.installation.deploy.inProcess,
     config: {
       strategy: 'in-process',
       dataDir: '/not-used',
-      engine: {type: 'in-memory'},
-      credentials: {type: 'in-memory'},
       connectorRegistry: { type: 'hardcoded', moduleMap: { hp: '@max/connector-acme' } },
     },
     spec: {
       name: 'hubspot-prod',
       connector: 'hp',
       connectorConfig: { workspaceId: 'team', baseUrl: '' } satisfies AcmeConfig,
-      initialCredentials: { api_token: "123" }
+      initialCredentials: { api_token: "123" },
     },
   })
 
@@ -65,7 +54,7 @@ async function setup() {
     global,
     workspaceId: wid,
     installationId: instId,
-    resolver: global.maxUrlResolver()
+    resolver: global.maxUrlResolver(),
   }
 }
 
@@ -73,6 +62,7 @@ async function setup() {
 
 describe('MaxUrlResolver', async () => {
   const { resolver, workspaceId, installationId } = await setup()
+
   test('max://~ → global level, returns GlobalClient', () => {
     const result = resolver.resolve(MaxUrl.parse('max://~'))
 
@@ -90,8 +80,8 @@ describe('MaxUrlResolver', async () => {
     }
   })
 
-  test('max://~/ws-team-1 → workspace by ID fallback', () => {
-    const result = resolver.resolve(MaxUrl.parse('max://~/ws-team-1'))
+  test('max://~/{workspaceId} → workspace by ID fallback', () => {
+    const result = resolver.resolve(MaxUrl.parse(`max://~/${workspaceId}`))
 
     expect(result.level).toBe('workspace')
     if (result.level === 'workspace') {
@@ -105,7 +95,7 @@ describe('MaxUrlResolver', async () => {
     expect(result.level).toBe('installation')
     if (result.level === 'installation') {
       expect(result.id).toBe(installationId)
-      expect(result.workspaceId).toBe('ws-team-1')
+      expect(result.workspaceId).toBe(workspaceId)
       expect(result.client).toBeDefined()
     }
   })

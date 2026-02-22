@@ -19,11 +19,16 @@
  *   const withCreds = installationGraph.with({
  *     credentialStore: () => myExistingCredentialStore,
  *   })
+ *
+ *   // Inject at any level via createGlobalMax
+ *   BunPlatform.createGlobalMax({
+ *     installation: { engine: () => myEngine },
+ *     workspace: { connectorRegistry: () => myRegistry },
+ *     global: { workspaceRegistry: () => new InMemoryWorkspaceRegistry() },
+ *   })
  */
 
 import {
-  bootstrapInstallation,
-  bootstrapWorkspace,
   type ConnectorRegistryConfig,
   type CredentialStoreConfig,
   DefaultSupervisor,
@@ -33,6 +38,8 @@ import {
   InMemoryInstallationRegistry,
   type InstallationClient,
   InstallationClientProxy,
+  InstallationDeployer,
+  InstallationMax,
   InstallationRegistry,
   type InstallationRegistryConfig,
   type InstallationSpec,
@@ -42,6 +49,7 @@ import {
   type TaskStoreConfig,
   type WorkspaceClient,
   WorkspaceClientProxy,
+  WorkspaceMax,
   WorkspaceRegistry,
   type WorkspaceSpec,
   type WorkspaceInfo,
@@ -53,6 +61,7 @@ import {
   type Engine,
   ErrConfigNotSupported,
   InstallationId,
+  NoOpFlowController,
   Printer,
   ResolverGraph,
   type ResolverFactories,
@@ -66,7 +75,8 @@ import {
   InMemoryCredentialProvider,
   InMemoryCredentialStore,
 } from '@max/connector'
-import { type TaskStore } from '@max/execution'
+import { SyncExecutor, type TaskStore } from '@max/execution'
+import { DefaultTaskRunner, ExecutionRegistryImpl } from '@max/execution-local'
 import path from 'node:path'
 import { InProcessDeploymentConfig } from './deployers/types.js'
 import { SqliteEngine } from '@max/storage-sqlite'
@@ -208,6 +218,16 @@ export const globalGraph = ResolverGraph.define<GlobalGraphConfig, GlobalGraphDe
 })
 
 // ============================================================================
+// Platform Overrides
+// ============================================================================
+
+export interface PlatformOverrides {
+  global?: Partial<ResolverFactories<GlobalGraphConfig, GlobalGraphDeps>>
+  workspace?: Partial<ResolverFactories<WorkspaceGraphConfig, WorkspaceGraphDeps>>
+  installation?: Partial<ResolverFactories<InstallationGraphConfig, InstallationGraphDeps>>
+}
+
+// ============================================================================
 // Bootstrap Callbacks
 // ============================================================================
 
@@ -238,21 +258,35 @@ function createInstallationBootstrap(graph: ResolverGraph<InstallationGraphConfi
       }
     }
 
-    // Wire together (platform-invariant)
-    return bootstrapInstallation({
-      connector,
-      connectorConfig: spec.connectorConfig,
-      connectorVersionIdentifier: spec.connector,
-      name: spec.name ?? 'default',
+    // Assemble the installation node
+    // FIXME: We need to introduce a way to validate connectorConfig
+    const installation = connector.initialise(spec.connectorConfig, deps.credentialProvider)
+    const registry = new ExecutionRegistryImpl(connector.def.resolvers)
+    const taskRunner = new DefaultTaskRunner({
       engine: deps.engine,
-      credentialProvider: deps.credentialProvider,
-      taskStore: deps.taskStore,
       syncMeta: deps.syncMeta,
+      registry,
+      flowController: new NoOpFlowController(),
+      contextProvider: async () => installation.context,
+    })
+    const syncExecutor = new SyncExecutor({ taskRunner, taskStore: deps.taskStore })
+
+    return new InstallationMax({
+      connector: spec.connector,
+      name: spec.name ?? 'default',
+      schema: connector.def.schema,
+      installation,
+      seeder: connector.def.seeder,
+      engine: deps.engine,
+      syncExecutor,
     })
   }
 }
 
-function createWorkspaceBootstrap(graph: ResolverGraph<WorkspaceGraphConfig, WorkspaceGraphDeps>) {
+function createWorkspaceBootstrap(
+  graph: ResolverGraph<WorkspaceGraphConfig, WorkspaceGraphDeps>,
+  installationDeployer: DeployerRegistry<InstallationDeployer>,
+) {
   return async (
     config: InProcessDeploymentConfig,
     _spec: WorkspaceSpec,
@@ -263,11 +297,11 @@ function createWorkspaceBootstrap(graph: ResolverGraph<WorkspaceGraphConfig, Wor
       connectorRegistry: config.connectorRegistry,
     })
 
-    return bootstrapWorkspace({
-      platform: BunPlatform,
-      installationRegistry: deps.installationRegistry,
-      connectorRegistry: deps.connectorRegistry,
+    return new WorkspaceMax({
+      installationDeployer,
       installationSupervisor: deps.supervisor,
+      connectorRegistry: deps.connectorRegistry,
+      installationRegistry: deps.installationRegistry,
     })
   }
 }
@@ -276,14 +310,26 @@ function createWorkspaceBootstrap(graph: ResolverGraph<WorkspaceGraphConfig, Wor
 // Deployers
 // ============================================================================
 
-const inProcessInstallationDeployer = new InProcessDeployer(createInstallationBootstrap(installationGraph))
 const daemonInstallationDeployer = new DaemonDeployer(
   (t) => new InstallationClientProxy(t),
   'installation'
 )
-
-const inProcessWorkspaceDeployer = new InProcessDeployer(createWorkspaceBootstrap(workspaceGraph))
 const daemonWorkspaceDeployer = new DaemonDeployer((t) => new WorkspaceClientProxy(t), 'workspace')
+
+function buildDeployerPipeline(overrides?: PlatformOverrides) {
+  const iGraph = overrides?.installation ? installationGraph.with(overrides.installation) : installationGraph
+  const instDeployer = new InProcessDeployer(createInstallationBootstrap(iGraph))
+  const instRegistry = new DeployerRegistry('bun', [instDeployer, daemonInstallationDeployer])
+
+  const wGraph = overrides?.workspace ? workspaceGraph.with(overrides.workspace) : workspaceGraph
+  const wsDeployer = new InProcessDeployer(createWorkspaceBootstrap(wGraph, instRegistry))
+  const wsRegistry = new DeployerRegistry('bun', [wsDeployer, daemonWorkspaceDeployer])
+
+  return { instRegistry, wsRegistry, instDeployer, wsDeployer }
+}
+
+// Default pipeline (no overrides)
+const defaultPipeline = buildDeployerPipeline()
 
 // ============================================================================
 // BunPlatform
@@ -293,23 +339,17 @@ export const BunPlatform = Platform.define({
   name: 'bun' as PlatformName,
   installation: {
     deploy: {
-      inProcess: inProcessInstallationDeployer.deployerKind,
+      inProcess: defaultPipeline.instDeployer.deployerKind,
       daemon: daemonInstallationDeployer.deployerKind,
     },
-    registry: new DeployerRegistry('bun', [
-      inProcessInstallationDeployer,
-      daemonInstallationDeployer,
-    ]),
+    registry: defaultPipeline.instRegistry,
   },
   workspace: {
     deploy: {
-      inProcess: inProcessWorkspaceDeployer.deployerKind,
+      inProcess: defaultPipeline.wsDeployer.deployerKind,
       daemon: daemonWorkspaceDeployer.deployerKind,
     },
-    registry: new DeployerRegistry('bun', [
-      inProcessWorkspaceDeployer,
-      daemonWorkspaceDeployer,
-    ]),
+    registry: defaultPipeline.wsRegistry,
   },
   printers: {
     "workspace-info": Printer.define<WorkspaceInfo>((ws, fmt) =>
@@ -348,11 +388,24 @@ export const BunPlatform = Platform.define({
       return new DefaultSupervisor(() => crypto.randomUUID() as string)
     },
   },
-  createGlobalMax(overrides?: Partial<ResolverFactories<GlobalGraphConfig, GlobalGraphDeps>>) {
-    const graph = overrides ? globalGraph.with(overrides) : globalGraph
-    const deps = graph.resolve({})
+  createGlobalMax(overrides?: PlatformOverrides) {
+    const hasLevelOverrides = overrides?.workspace || overrides?.installation
+    const gGraph = overrides?.global ? globalGraph.with(overrides.global) : globalGraph
+    const deps = gGraph.resolve({})
+
+    // Fast path: no workspace/installation overrides — use pre-built deployers
+    if (!hasLevelOverrides) {
+      return new GlobalMax({
+        workspaceDeployer: this.workspace.registry,
+        workspaceRegistry: deps.workspaceRegistry,
+        workspaceSupervisor: deps.supervisor,
+      })
+    }
+
+    // Rebuild the deployer pipeline with overridden graphs
+    const pipeline = buildDeployerPipeline(overrides)
     return new GlobalMax({
-      workspaceDeployer: this.workspace.registry,
+      workspaceDeployer: pipeline.wsRegistry,
       workspaceRegistry: deps.workspaceRegistry,
       workspaceSupervisor: deps.supervisor,
     })

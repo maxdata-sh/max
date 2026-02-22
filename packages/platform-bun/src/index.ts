@@ -12,6 +12,7 @@ export {
   type WorkspaceGraphDeps,
   type GlobalGraphConfig,
   type GlobalGraphDeps,
+  type PlatformOverrides,
 } from './bun-platform.js'
 
 

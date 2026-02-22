@@ -18,6 +18,7 @@ export interface WorkspaceInfo {
   readonly name: string
   readonly connectedAt: ISODateString
   readonly config: DeploymentConfig
+  readonly spec: WorkspaceSpec
 }
 
 /** WorkspaceInfo enriched with runtime health from the supervisor. */

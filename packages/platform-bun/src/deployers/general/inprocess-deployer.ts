@@ -34,12 +34,8 @@ export class InProcessDeployer<
     config: InProcessDeploymentConfig,
     spec: DeployableSpec
   ): Promise<UnlabelledHandle<C, InProcessLocator>> {
-
-    // We _could_ create the client right here, but we'd have no way to protect against duplicate creation
-    throw ErrCreateNotSupported.create(
-      { deployerKind: 'remote' },
-      'InProcess deployer requires a spec - use create, not connect'
-    )
+    // For in-process, reconnect = re-bootstrap from config + spec
+    return this.create(config, spec)
   }
 
   async teardown() {

@@ -58,15 +58,16 @@ export class GlobalMax implements GlobalClient {
     // Supervisor assigns identity, returns NodeHandle
     const handle = this.workspaceSupervisor.register(unlabelled)
 
+    const spec = args.spec ?? { name }
+
     // Persist to registry
     this.workspaceRegistry.add({
       id: handle.id,
       name: name,
       connectedAt: ISODateString.now(),
       config: { ...args.config, strategy: args.via } as DeploymentConfig,
+      spec,
     })
-
-    console.log("Persisted workspace at", args.config)
 
     // Persist the registry
     await this.workspaceRegistry.persist()
@@ -85,6 +86,7 @@ export class GlobalMax implements GlobalClient {
         name: item.name,
         connectedAt: item.connectedAt,
         config: item.config,
+        spec: item.spec,
       })
     )
   }
@@ -110,13 +112,22 @@ export class GlobalMax implements GlobalClient {
   }
 
   async start(): Promise<StartResult> {
-    // Load persisted workspace entries before hydrating
+    // Load persisted workspace entries
     await this.workspaceRegistry.load()
 
-    const handles = this.workspaceSupervisor.list()
-    for (const handle of handles) {
-      await handle.client.start()
+    // Reconcile: deploy each persisted workspace into the supervisor
+    const entries = this.workspaceRegistry.list()
+    for (const entry of entries) {
+      try {
+        const deployer = this.workspaceDeployer.get(entry.config.strategy)
+        const unlabelled = await deployer.connect(entry.config, entry.spec)
+        const handle = this.workspaceSupervisor.register(unlabelled, entry.id)
+        await handle.client.start()
+      } catch (err) {
+        console.warn(`Failed to reconcile workspace ${entry.name} (${entry.id}):`, err)
+      }
     }
+
     return StartResult.started()
   }
 

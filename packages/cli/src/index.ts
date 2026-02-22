@@ -127,14 +127,20 @@ class CLI {
   async getCurrentWorkspace(){
     const max = await this.getGlobalMax()
     const workspaces = await max.listWorkspaces()
-    if (!workspaces.length){
-      throw ErrProjectNotInitialised.create({
-        maxProjectRoot: this.cfg.workspaceRoot ?? this.cfg.cwd,
-      })
-    }
-    // FIXME: WATCH OUT!! We need to find the _actual_ workspace that is _this directory_!
-    return max.workspace(workspaces[0].id)
+    const root = this.cfg.workspaceRoot ?? this.cfg.cwd
+    const expectedDataDir = path.join(root, '.max')
 
+    // Find the workspace whose dataDir lives under this project root
+    const match = workspaces.find(ws => {
+      const dataDir = (ws.config as Record<string, unknown>).dataDir
+      return typeof dataDir === 'string' && path.resolve(dataDir) === path.resolve(expectedDataDir)
+    })
+
+    if (!match) {
+      throw ErrProjectNotInitialised.create({ maxProjectRoot: root })
+    }
+
+    return max.workspace(match.id)
   }
 
   // -- Program parser ---------------------------------------------------------
@@ -418,6 +424,11 @@ if (subprocessParsed.success && subprocessParsed.value.subprocess) {
       // and survives `bun --watch` restarts which change the child PID.
       fs.mkdirSync(daemonPaths.root, { recursive: true })
       fs.writeFileSync(daemonPaths.pid, String(process.pid))
+
+      // Start GlobalMax eagerly — reconcile persisted workspaces before accepting requests
+      const globalMax = await cli.getGlobalMax()
+      const workspaces = await globalMax.listWorkspaces()
+      console.log(`Reconciled ${workspaces.length} workspace(s)`)
 
       createSocketServer({
         socketPath: daemonPaths.socket,

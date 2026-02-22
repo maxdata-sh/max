@@ -6,19 +6,19 @@
  * - workspaceGraph: deployment config → workspace services (installation registry, connector registry)
  * - globalGraph: config → global services (workspace registry)
  *
- * Graphs support `.with()` for dependency injection and cascading overrides.
- * Override `engine` with an in-memory engine and taskStore/syncMeta cascade automatically.
+ * Each graph has two layers of nodes:
+ * - **Config nodes** (e.g. `engineConfig`) — resolve raw/empty config into defaults.
+ *   Check `c.ephemeral` to choose in-memory vs persistent defaults.
+ * - **Service nodes** (e.g. `engine`) — construct concrete services from resolved config.
+ *
+ * Three levels of override for callers:
+ * - **Intent**: `{ ephemeral: true }` — cascades to all config nodes
+ * - **Config**: override a config node — changes what's resolved, service factory handles construction
+ * - **Service**: override a service node — bypasses config entirely, injects a pre-built instance
  *
  * @example
- *   // Ephemeral installation — everything cascades through the :memory: engine
- *   const ephemeral = installationGraph.with({
- *     engine: (c) => SqliteEngine.open(':memory:', c.connector.def.schema),
- *   })
- *
- *   // Inject a pre-built credential store
- *   const withCreds = installationGraph.with({
- *     credentialStore: () => myExistingCredentialStore,
- *   })
+ *   // Fully ephemeral — all levels use in-memory implementations
+ *   BunPlatform.createGlobalMax({ ephemeral: true })
  *
  *   // Inject at any level via createGlobalMax
  *   BunPlatform.createGlobalMax({
@@ -36,6 +36,7 @@ import {
   type EngineConfig,
   GlobalMax,
   InMemoryInstallationRegistry,
+  InMemoryWorkspaceRegistry,
   type InstallationClient,
   InstallationClientProxy,
   InstallationDeployer,
@@ -45,6 +46,11 @@ import {
   type InstallationSpec,
   Platform,
   type PlatformName,
+  type ResolvedCredentialStoreConfig,
+  type ResolvedEngineConfig,
+  type ResolvedInstallationRegistryConfig,
+  type ResolvedSyncMetaConfig,
+  type ResolvedTaskStoreConfig,
   type SyncMetaConfig,
   type TaskStoreConfig,
   type WorkspaceClient,
@@ -107,6 +113,7 @@ const DEFAULT_MODULE_MAP: Record<string, string> = {
 export interface InstallationGraphConfig {
   dataDir: string
   connector: ConnectorModuleAny
+  ephemeral?: boolean
   engine?: EngineConfig
   credentials?: CredentialStoreConfig
   taskStore?: TaskStoreConfig
@@ -114,7 +121,14 @@ export interface InstallationGraphConfig {
 }
 
 export interface InstallationGraphDeps {
+  // Config resolution
   dbPath: string
+  engineConfig: ResolvedEngineConfig
+  credentialStoreConfig: ResolvedCredentialStoreConfig
+  taskStoreConfig: ResolvedTaskStoreConfig
+  syncMetaConfig: ResolvedSyncMetaConfig
+
+  // Services
   engine: Engine
   credentialStore: CredentialStore
   credentialProvider: InMemoryCredentialProvider
@@ -123,36 +137,60 @@ export interface InstallationGraphDeps {
 }
 
 export const installationGraph = ResolverGraph.define<InstallationGraphConfig, InstallationGraphDeps>({
+  // -- Config resolution layer ------------------------------------------------
+
   dbPath: (c) => path.join(c.dataDir, 'data.db'),
 
+  engineConfig: (c, r) => {
+    const cfg = c.engine ?? (c.ephemeral ? { type: 'in-memory' as const } : { type: 'sqlite' as const })
+    return cfg.type === 'in-memory'
+      ? { type: 'sqlite', path: ':memory:' }
+      : { type: 'sqlite', path: cfg.path ?? r.dbPath }
+  },
+
+  credentialStoreConfig: (c) => {
+    const cfg = c.credentials ?? (c.ephemeral ? { type: 'in-memory' as const } : { type: 'fs' as const })
+    return cfg.type === 'in-memory'
+      ? { type: 'in-memory', initialSecrets: cfg.initialSecrets ?? {} }
+      : { type: 'fs', path: cfg.path ?? path.join(c.dataDir, 'credentials.json') }
+  },
+
+  taskStoreConfig: (c, r) => {
+    const cfg = c.taskStore ?? (c.ephemeral ? { type: 'in-memory' as const } : { type: 'sqlite' as const })
+    return cfg.type === 'in-memory' ? cfg : { type: 'sqlite', dbPath: cfg.dbPath ?? r.dbPath }
+  },
+
+  syncMetaConfig: (c, r) => {
+    const cfg = c.syncMeta ?? (c.ephemeral ? { type: 'in-memory' as const } : { type: 'sqlite' as const })
+    return cfg.type === 'in-memory' ? cfg : { type: 'sqlite', dbPath: cfg.dbPath ?? r.dbPath }
+  },
+
+  // -- Service construction layer ---------------------------------------------
+
   engine: (c, r) => {
-    const cfg = c.engine ?? { type: 'sqlite' as const }
-    const enginePath = cfg.type === 'in-memory' ? ':memory:' : (cfg.path ?? r.dbPath)
-    const engine = SqliteEngine.open(enginePath, c.connector.def.schema)
+    const engine = SqliteEngine.open(r.engineConfig.path, c.connector.def.schema)
     // FIXME: Should be a lifecycle responsibility of SqliteEngine
     SqliteExecutionSchema.ensureTables(engine.db)
     return engine
   },
 
-  credentialStore: (c) => {
-    const cfg = c.credentials ?? { type: 'fs' as const }
-    if (cfg.type === 'in-memory') return new InMemoryCredentialStore(cfg.initialSecrets ?? {})
-    return new FsCredentialStore(cfg.path ?? path.join(c.dataDir, 'credentials.json'))
+  credentialStore: (_c, r) => {
+    const cfg = r.credentialStoreConfig
+    if (cfg.type === 'in-memory') return new InMemoryCredentialStore(cfg.initialSecrets)
+    return new FsCredentialStore(cfg.path)
   },
 
   // TODO: We need to configurize the credential provider
   credentialProvider: (_c, r) => new InMemoryCredentialProvider(r.credentialStore, []),
 
-  taskStore: (c, r) => {
-    const cfg = c.taskStore ?? { type: 'sqlite' as const }
-    if (cfg.type === 'in-memory') return new InMemoryTaskStore()
+  taskStore: (_c, r) => {
+    if (r.taskStoreConfig.type === 'in-memory') return new InMemoryTaskStore()
     if (r.engine instanceof SqliteEngine) return new SqliteTaskStore(r.engine.db)
     return new SqliteTaskStore(Database.open(r.dbPath))
   },
 
-  syncMeta: (c, r) => {
-    const cfg = c.syncMeta ?? { type: 'sqlite' as const }
-    if (cfg.type === 'in-memory') return new InMemorySyncMeta()
+  syncMeta: (_c, r) => {
+    if (r.syncMetaConfig.type === 'in-memory') return new InMemorySyncMeta()
     if (r.engine instanceof SqliteEngine) return new SqliteSyncMeta(r.engine.db)
     return new SqliteSyncMeta(Database.open(r.dbPath))
   },
@@ -164,28 +202,38 @@ export const installationGraph = ResolverGraph.define<InstallationGraphConfig, I
 
 export interface WorkspaceGraphConfig {
   dataDir: string
+  ephemeral?: boolean
   installationRegistry?: InstallationRegistryConfig
   connectorRegistry?: ConnectorRegistryConfig
 }
 
 export interface WorkspaceGraphDeps {
+  installationRegistryConfig: ResolvedInstallationRegistryConfig
   installationRegistry: InstallationRegistry
   connectorRegistry: ConnectorRegistry
   supervisor: Supervisor<any>
 }
 
 export const workspaceGraph = ResolverGraph.define<WorkspaceGraphConfig, WorkspaceGraphDeps>({
-  installationRegistry: (c) => {
-    const cfg = c.installationRegistry ?? { type: 'fs' as const }
+  installationRegistryConfig: (c) => {
+    const cfg = c.installationRegistry ?? (c.ephemeral ? { type: 'in-memory' as const } : { type: 'fs' as const })
+    switch (cfg.type) {
+      case 'in-memory':
+        return cfg
+      case 'fs':
+        return { type: 'max-json' as const, maxJsonPath: path.join(cfg.workspaceRoot ?? c.dataDir, 'max.json') }
+      default:
+        throw ErrConfigNotSupported.create({ kind: 'installationRegistry', config: cfg })
+    }
+  },
+
+  installationRegistry: (_c, r) => {
+    const cfg = r.installationRegistryConfig
     switch (cfg.type) {
       case 'in-memory':
         return new InMemoryInstallationRegistry()
-      case 'fs': {
-        const maxJsonPath = path.join(cfg.workspaceRoot ?? c.dataDir, 'max.json')
-        return new FsInstallationRegistry(maxJsonPath)
-      }
-      default:
-        throw ErrConfigNotSupported.create({ kind: 'installationRegistry', config: cfg })
+      case 'max-json':
+        return new FsInstallationRegistry(cfg.maxJsonPath)
     }
   },
 
@@ -202,6 +250,7 @@ export const workspaceGraph = ResolverGraph.define<WorkspaceGraphConfig, Workspa
 // ============================================================================
 
 export interface GlobalGraphConfig {
+  ephemeral?: boolean
   rootDir?: string
 }
 
@@ -213,7 +262,10 @@ export interface GlobalGraphDeps {
 
 export const globalGraph = ResolverGraph.define<GlobalGraphConfig, GlobalGraphDeps>({
   root: (c) => c.rootDir ?? path.join(os.homedir(), '.max'),
-  workspaceRegistry: (_c, r) => new FsWorkspaceRegistry(r.root),
+  workspaceRegistry: (c, r) => {
+    if (c.ephemeral) return new InMemoryWorkspaceRegistry()
+    return new FsWorkspaceRegistry(r.root)
+  },
   supervisor: () => new DefaultSupervisor(() => crypto.randomUUID() as string),
 })
 
@@ -222,6 +274,7 @@ export const globalGraph = ResolverGraph.define<GlobalGraphConfig, GlobalGraphDe
 // ============================================================================
 
 export interface PlatformOverrides {
+  ephemeral?: boolean
   global?: Partial<ResolverFactories<GlobalGraphConfig, GlobalGraphDeps>>
   workspace?: Partial<ResolverFactories<WorkspaceGraphConfig, WorkspaceGraphDeps>>
   installation?: Partial<ResolverFactories<InstallationGraphConfig, InstallationGraphDeps>>
@@ -231,7 +284,10 @@ export interface PlatformOverrides {
 // Bootstrap Callbacks
 // ============================================================================
 
-function createInstallationBootstrap(graph: ResolverGraph<InstallationGraphConfig, InstallationGraphDeps>) {
+function createInstallationBootstrap(
+  graph: ResolverGraph<InstallationGraphConfig, InstallationGraphDeps>,
+  ephemeral?: boolean,
+) {
   return async (
     config: InProcessDeploymentConfig,
     spec: InstallationSpec,
@@ -245,6 +301,7 @@ function createInstallationBootstrap(graph: ResolverGraph<InstallationGraphConfi
     const deps = graph.resolve({
       dataDir: config.dataDir,
       connector,
+      ephemeral,
       engine: config.engine,
       credentials: config.credentials,
       taskStore: config.taskStore,
@@ -286,6 +343,7 @@ function createInstallationBootstrap(graph: ResolverGraph<InstallationGraphConfi
 function createWorkspaceBootstrap(
   graph: ResolverGraph<WorkspaceGraphConfig, WorkspaceGraphDeps>,
   installationDeployer: DeployerRegistry<InstallationDeployer>,
+  ephemeral?: boolean,
 ) {
   return async (
     config: InProcessDeploymentConfig,
@@ -293,6 +351,7 @@ function createWorkspaceBootstrap(
   ): Promise<WorkspaceClient> => {
     const deps = graph.resolve({
       dataDir: config.dataDir,
+      ephemeral,
       installationRegistry: config.installationRegistry,
       connectorRegistry: config.connectorRegistry,
     })
@@ -317,12 +376,14 @@ const daemonInstallationDeployer = new DaemonDeployer(
 const daemonWorkspaceDeployer = new DaemonDeployer((t) => new WorkspaceClientProxy(t), 'workspace')
 
 function buildDeployerPipeline(overrides?: PlatformOverrides) {
+  const ephemeral = overrides?.ephemeral
+
   const iGraph = overrides?.installation ? installationGraph.with(overrides.installation) : installationGraph
-  const instDeployer = new InProcessDeployer(createInstallationBootstrap(iGraph))
+  const instDeployer = new InProcessDeployer(createInstallationBootstrap(iGraph, ephemeral))
   const instRegistry = new DeployerRegistry('bun', [instDeployer, daemonInstallationDeployer])
 
   const wGraph = overrides?.workspace ? workspaceGraph.with(overrides.workspace) : workspaceGraph
-  const wsDeployer = new InProcessDeployer(createWorkspaceBootstrap(wGraph, instRegistry))
+  const wsDeployer = new InProcessDeployer(createWorkspaceBootstrap(wGraph, instRegistry, ephemeral))
   const wsRegistry = new DeployerRegistry('bun', [wsDeployer, daemonWorkspaceDeployer])
 
   return { instRegistry, wsRegistry, instDeployer, wsDeployer }
@@ -389,9 +450,9 @@ export const BunPlatform = Platform.define({
     },
   },
   createGlobalMax(overrides?: PlatformOverrides) {
-    const hasLevelOverrides = overrides?.workspace || overrides?.installation
+    const hasLevelOverrides = overrides?.workspace || overrides?.installation || overrides?.ephemeral
     const gGraph = overrides?.global ? globalGraph.with(overrides.global) : globalGraph
-    const deps = gGraph.resolve({})
+    const deps = gGraph.resolve({ ephemeral: overrides?.ephemeral })
 
     // Fast path: no workspace/installation overrides — use pre-built deployers
     if (!hasLevelOverrides) {

@@ -7,7 +7,10 @@ import { InMemoryCredentialStore } from '@max/connector'
 import { InMemoryInstallationRegistry, InMemoryWorkspaceRegistry } from '@max/federation'
 import { ISODateString } from '@max/core'
 import { FsCredentialStore } from '../services/fs-credential-store.js'
+import { FsInstallationRegistry } from '../services/fs-installation-registry.js'
 import { FsWorkspaceRegistry } from '../services/fs-workspace-registry.js'
+import { InMemorySyncMeta, InMemoryTaskStore } from '@max/execution-local'
+import { AcmeConfig } from '@max/connector-acme'
 import * as fs from 'node:fs'
 
 const connectorRegistry = new BunConnectorRegistry({ acme: '@max/connector-acme' })
@@ -135,5 +138,97 @@ describe('resolver graph injection', () => {
     const workspaces = await max.listWorkspaces()
     expect(workspaces).toHaveLength(1)
     expect(workspaces[0].name).toBe('injected-workspace')
+  })
+
+  // ---------------------------------------------------------------------------
+  // Ephemeral mode
+  // ---------------------------------------------------------------------------
+
+  test('installation — ephemeral: true produces in-memory services', async () => {
+    const connector = await connectorRegistry.resolve('acme')
+
+    const deps = installationGraph.resolve({
+      dataDir: '/unused',
+      connector,
+      ephemeral: true,
+    })
+
+    expect(deps.credentialStore).toBeInstanceOf(InMemoryCredentialStore)
+    expect(deps.taskStore).toBeInstanceOf(InMemoryTaskStore)
+    expect(deps.syncMeta).toBeInstanceOf(InMemorySyncMeta)
+    // Engine is still SqliteEngine — but backed by :memory:
+    expect(deps.engine).toBeInstanceOf(SqliteEngine)
+    expect(deps.engineConfig.path).toBe(':memory:')
+  })
+
+  test('installation — ephemeral config nodes are independently overrideable', async () => {
+    const connector = await connectorRegistry.resolve('acme')
+    const dir = fs.mkdtempSync('/tmp/max-graph-')
+
+    // Ephemeral, but force credential store to fs
+    const deps = installationGraph.resolve({
+      dataDir: dir,
+      connector,
+      ephemeral: true,
+      credentials: { type: 'fs' },
+    })
+
+    // Explicit config wins over ephemeral default
+    expect(deps.credentialStore).toBeInstanceOf(FsCredentialStore)
+    // Everything else still in-memory
+    expect(deps.taskStore).toBeInstanceOf(InMemoryTaskStore)
+    expect(deps.syncMeta).toBeInstanceOf(InMemorySyncMeta)
+  })
+
+  test('workspace — ephemeral: true produces in-memory installation registry', () => {
+    const deps = workspaceGraph.resolve({
+      dataDir: '/unused',
+      ephemeral: true,
+    })
+
+    expect(deps.installationRegistry).toBeInstanceOf(InMemoryInstallationRegistry)
+  })
+
+  test('workspace — without ephemeral produces fs-backed installation registry', () => {
+    const dir = fs.mkdtempSync('/tmp/max-graph-')
+    const deps = workspaceGraph.resolve({ dataDir: dir })
+
+    expect(deps.installationRegistry).toBeInstanceOf(FsInstallationRegistry)
+  })
+
+  test('global — ephemeral: true produces in-memory workspace registry', () => {
+    const deps = globalGraph.resolve({ ephemeral: true })
+
+    expect(deps.workspaceRegistry).toBeInstanceOf(InMemoryWorkspaceRegistry)
+  })
+
+  test('createGlobalMax — ephemeral: true wires through all levels', async () => {
+    const max = BunPlatform.createGlobalMax({ ephemeral: true })
+    await max.start()
+
+    // Create workspace + installation — everything should work without touching the filesystem
+    const wsId = await max.createWorkspace('test-ws', {
+      via: BunPlatform.workspace.deploy.inProcess,
+      config: { strategy: 'in-process', dataDir: '/not-used' },
+      spec: { name: 'test-ws' },
+    })
+
+    const ws = max.workspace(wsId)
+    const instId = await ws.createInstallation({
+      via: BunPlatform.installation.deploy.inProcess,
+      config: { strategy: 'in-process', dataDir: '/not-used' },
+      spec: {
+        connector: 'acme',
+        name: 'test-inst',
+        connectorConfig: { workspaceId: '1', baseUrl: '' } satisfies AcmeConfig,
+        initialCredentials: { api_token: 'test' },
+      },
+    })
+
+    const installations = await ws.listInstallations()
+    expect(installations).toHaveLength(1)
+    expect(installations[0].connector).toBe('acme')
+
+    await max.stop()
   })
 })

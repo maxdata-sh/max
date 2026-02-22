@@ -9,8 +9,8 @@
  * Global: Multiple workspaces. Refs carry workspace and installationId
  */
 
-import type { InstallationId } from './ref-key.js'
 import { StaticTypeCompanion } from './companion.js'
+import {InstallationId} from "./core-id-types.js";
 
 export interface InstallationScope {
   readonly kind: 'installation'

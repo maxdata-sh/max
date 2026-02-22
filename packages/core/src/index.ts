@@ -14,7 +14,7 @@ export type { ScopedResource, InstallationScope, WorkspaceScope } from "./scope.
 
 // RefKey
 export { RefKey } from "./ref-key.js";
-export type { EntityType, EntityId, InstallationId, WorkspaceId, ConnectorType, ParsedRefKey } from "./ref-key.js";
+export type { ParsedRefKey } from "./ref-key.js";
 
 // Fields
 export { Field } from "./field.js";
@@ -165,27 +165,10 @@ export type { Lifecycle, LifecycleMethods, LifecycleStep } from "./lifecycle.js"
 
 // Federation — level-agnostic infrastructure abstractions
 export { HealthStatus, StartResult, StopResult, RpcResponse, Rpc, ErrUnknownTarget, ErrUnknownMethod, ErrSyncHandleNotFound, ErrNodeNotFound } from "./federation/index.js";
-export type {
-  HealthStatusKind,
-  StartOutcome,
-  StopOutcome,
-  Supervised,
-  Transport,
-  NodeHandle,
-  UnlabelledHandle,
-  IdGenerator,
-  ProviderKind,
-  NodeProvider,
-  AggregateHealthStatus,
-  Supervisor,
-  RpcRequest,
-  ScopeRouting,
-
-} from "./federation/index.js";
+export * from "./federation";
 
 // Proxies — proxy+handler pairs for interfaces crossing process boundaries
-export * from "./proxies/index.js";
-export type { DispatchFn } from "./proxies/index.js";
+export * from "./proxies";
 
 // Formatting
 export { Fmt } from "./fmt.js";
@@ -194,3 +177,8 @@ export { Fmt } from "./fmt.js";
 export { StaticTypeCompanion } from "./companion.js";
 export * from "./lazy.js";
 export {Duration} from "./duration.js";
+
+// Printables
+export {Printer, PrintFormatter} from './printable.js'
+
+export * from "./core-id-types.js";

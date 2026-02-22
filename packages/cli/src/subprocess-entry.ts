@@ -4,9 +4,9 @@
  * Invoked with: max --subprocess --role=installation --spec=<base64>
  *               --data-root=/path --socket-path=/tmp/max-inst-xxx.sock
  *
- * Uses BunPlatform.installation.inProcess() to resolve spec → concrete deps and bootstrap
- * the installation. Wraps it in an InstallationDispatcher, starts an RPC
- * socket server, and writes a ready signal to stdout so the parent can connect.
+ * Uses BunPlatform.installation.registry to look up the deployer, bootstrap
+ * the installation, wrap it in an InstallationDispatcher, start an RPC
+ * socket server, and write a ready signal to stdout so the parent can connect.
  */
 
 import { flag } from '@optique/core'
@@ -16,6 +16,7 @@ import { withDefault } from '@optique/core/modifiers'
 import { string } from '@optique/core/valueparser'
 import { InstallationDispatcher } from '@max/federation'
 import type { InstallationSpec } from '@max/federation'
+import { DeployerKind } from '@max/core'
 import {
   BunPlatform,
   BunConnectorRegistry,
@@ -53,11 +54,9 @@ export async function runSubprocess(args: SubprocessArgs): Promise<void> {
     Buffer.from(args.spec, 'base64').toString('utf-8')
   )
 
-  // FIXME: Connector registry should be configurable, not hardcoded
-  const connectorRegistry = new BunConnectorRegistry({ [spec.connector]: `@max/connector-${spec.connector}` })
-
-  const provider = BunPlatform.installation.inProcess({ dataDir: args.dataRoot, connectorRegistry })
-  const handle = await provider.create(spec)
+  // TODO: This is a bit circuitous. Perhaps we should expose the deployers directly.
+  const deployer = BunPlatform.installation.registry.get(BunPlatform.installation.deploy.inProcess)
+  const handle = await deployer.create({strategy:"in-process", dataDir: args.dataRoot}, spec)
 
   const dispatcher = new InstallationDispatcher(handle.client)
 

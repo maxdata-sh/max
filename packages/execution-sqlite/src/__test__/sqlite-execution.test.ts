@@ -108,7 +108,7 @@ describe("SqliteExecution E2E", () => {
     schema.ensureTables(db);
 
     // Execution tables
-    new SqliteExecutionSchema().ensureTables(db);
+    SqliteExecutionSchema.ensureTables(db);
 
     engine = new SqliteEngine(db, schema);
     syncMeta = new SqliteSyncMeta(db);

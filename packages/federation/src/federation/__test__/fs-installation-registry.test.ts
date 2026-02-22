@@ -2,8 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
-import type { ConnectorType, InstallationId, ISODateString } from '@max/core'
-import type { SerialisedInstallationHosting, PlatformName } from '@max/federation'
+import type { ConnectorVersionIdentifier, InstallationId, ISODateString } from '@max/core'
 import { FsInstallationRegistry } from '@max/platform-bun'
 import { InMemoryInstallationRegistry } from '../installation-registry.js'
 import type { InstallationRegistryEntry } from '../installation-registry.js'
@@ -16,19 +15,16 @@ function createTmpDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'max-registry-test-'))
 }
 
-const BUN_IN_PROCESS_HOSTING: SerialisedInstallationHosting = {
-  platform: 'bun' as PlatformName,
-  installation: { strategy: 'in-process' },
-}
-
 function entry(overrides: Partial<InstallationRegistryEntry> = {}): InstallationRegistryEntry {
   return {
     id: crypto.randomUUID() as InstallationId,
-    connector: '@max/connector-acme@1.0.0' as ConnectorType,
+    connector: '@max/connector-acme@1.0.0' as ConnectorVersionIdentifier,
     name: 'acme-default',
     connectedAt: '2026-02-18T12:00:00.000Z' as ISODateString,
-    hosting: BUN_IN_PROCESS_HOSTING,
     ...overrides,
+    deployment: overrides.deployment ?? { strategy: 'strategy-1' },
+    spec: overrides.spec ?? { connector: "@max/connector-something" },
+    locator: overrides.locator ?? 'locator-1'
   }
 }
 
@@ -57,7 +53,7 @@ describe('FsInstallationRegistry', () => {
     expect(result!.connector).toBe(e.connector)
     expect(result!.name).toBe('linear')
     expect(result!.connectedAt).toBe(e.connectedAt)
-    expect(result!.hosting.installation.strategy).toBe('in-process')
+    expect(result!.deployment.strategy).toBe('strategy-1')
   })
 
   test('add + list: returns entries sorted by name', () => {
@@ -145,8 +141,8 @@ describe('FsInstallationRegistry', () => {
     expect(registry.list()).toEqual([])
   })
 
-  test('backward compat: legacy provider field defaults to bun/in-process hosting', () => {
-    // Write a max.json with old provider format (no hosting field)
+  test('rejects legacy max.json entries missing required keys', () => {
+    // Write a max.json with old format (no spec/deployment/locator)
     fs.writeFileSync(
       maxJsonPath,
       JSON.stringify({
@@ -161,37 +157,34 @@ describe('FsInstallationRegistry', () => {
     )
 
     const registry = new FsInstallationRegistry(maxJsonPath)
-    const result = registry.get('test-id-123' as InstallationId)
-    expect(result).toBeDefined()
-    expect(result!.hosting.platform).toBe('bun')
-    expect(result!.hosting.installation.strategy).toBe('in-process')
+    expect(() => registry.get('test-id-123' as InstallationId)).toThrow()
   })
 
   test('stores and retrieves remote installation', () => {
     const registry = new FsInstallationRegistry(maxJsonPath)
-    const remoteHosting: SerialisedInstallationHosting = {
-      platform: 'remote' as PlatformName,
-      installation: { strategy: 'remote', url: 'https://staging.acme.com/max/linear' },
-    }
-    registry.add(entry({ name: 'linear-staging', hosting: remoteHosting }))
+
+    registry.add(
+      entry({
+        name: 'linear-staging',
+        deployment: { strategy: 'remote', url: 'https://staging.acme.com/max/linear' },
+      })
+    )
 
     const result = registry.list()
     expect(result).toHaveLength(1)
-    expect(result[0].hosting.platform).toBe('remote')
-    expect(result[0].hosting.installation.strategy).toBe('remote')
-    expect(result[0].hosting.installation.url).toBe('https://staging.acme.com/max/linear')
+    expect(result[0].deployment.strategy).toBe('remote')
+    expect(result[0].deployment.url).toBe('https://staging.acme.com/max/linear')
   })
 
-  test('writes hosting to disk', () => {
+  test('writes deployment to disk', () => {
     const registry = new FsInstallationRegistry(maxJsonPath)
     registry.add(entry({ name: 'linear' }))
 
     const raw = JSON.parse(fs.readFileSync(maxJsonPath, 'utf-8'))
     const diskEntry = raw.installations.linear
-    expect(diskEntry.hosting).toEqual({
-      platform: 'bun',
-      installation: { strategy: 'in-process' },
-    })
+    expect(diskEntry.deployment).toEqual({ strategy: 'strategy-1' })
+    expect(diskEntry.spec).toEqual({ connector: '@max/connector-something' })
+    expect(diskEntry.locator).toBe('locator-1')
   })
 })
 

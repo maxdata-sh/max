@@ -5,7 +5,7 @@
  */
 
 import {
-  type ConnectorType,
+  type ConnectorVersionIdentifier,
   type Engine,
   HealthStatus,
   type InstallationScope,
@@ -24,7 +24,7 @@ import type {InstallationClient, InstallationDescription} from "../protocols/ins
 // ============================================================================
 
 export interface InstallationMaxConstructable {
-  connector: ConnectorType;
+  connector: ConnectorVersionIdentifier;
   name: string;
   installation: Installation;
   schema: Schema;

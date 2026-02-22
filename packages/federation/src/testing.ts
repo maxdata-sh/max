@@ -8,7 +8,8 @@ import {
   StopResult,
   type InstallationId,
   type Schema,
-} from "@max/core"
+  Locator,
+} from '@max/core'
 import { StubbedEngine } from "@max/core/testing"
 import type { SyncHandle, SyncId, SyncPlan, SyncResult, SyncStatus } from "@max/execution"
 import type { InstallationClient, InstallationDescription } from "./protocols/installation-client.js"
@@ -98,19 +99,31 @@ export function StubbedWorkspaceClient(
     async listInstallations() {
       calls?.push("listInstallations")
       return [
-        { id: "inst-1" as InstallationId, connector: "hubspot" as any, name: "hs", connectedAt: "2026-01-01", hosting: { platform: "bun", installation: { strategy: "in-process" } } },
-        { id: "inst-2" as InstallationId, connector: "linear" as any, name: "lin", connectedAt: "2026-01-01", hosting: { platform: "bun", installation: { strategy: "in-process" } } },
+        {
+          id: 'inst-1' as InstallationId,
+          connector: 'hubspot' as any,
+          name: 'hs',
+          connectedAt: '2026-01-01',
+          locator: 'max://-/1',
+        },
+        {
+          id: 'inst-2' as InstallationId,
+          connector: 'linear' as any,
+          name: 'lin',
+          connectedAt: '2026-01-01',
+          locator: 'max://-/2',
+        },
       ] satisfies InstallationInfo[]
     },
     installation(id: InstallationId) {
       calls?.push(`installation(${id})`)
-      return installations.get(id)
+      return installations.get(id)!
     },
     async createInstallation(config: CreateInstallationConfig) {
       calls?.push("createInstallation")
       return "inst-new" as InstallationId
     },
-    async connectInstallation(config: ConnectInstallationConfig) {
+    async connectInstallation(id: InstallationId) {
       calls?.push("connectInstallation")
       return "inst-remote" as InstallationId
     },

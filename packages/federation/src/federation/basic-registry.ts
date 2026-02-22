@@ -7,16 +7,25 @@ export interface BasicRegistry<TEntry, TKey extends string> {
   list(): TEntry[]
 }
 
-export class InMemoryBasicRegistry<TEntry, TKey extends string> implements BasicRegistry<
-  TEntry,
-  TKey
-> {
+export class InMemoryBasicRegistry<in out TEntry, TKey extends string> implements BasicRegistry<TEntry, TKey> {
   private map = new Map<TKey, TEntry>()
-  constructor(private registryName: string, private keyGetter: (e: TEntry) => TKey) {}
-  add = (entry: TEntry) => this.map.set(this.keyGetter(entry), entry)
-  get = (id: TKey) => this.map.get(id)
-  list = () => [...this.map.values()]
-  remove = (id: TKey) => {
+  constructor(
+    private registryName: string,
+    private keyGetter: (e: TEntry) => TKey
+  ) {}
+  add(entry: TEntry) {
+    return this.map.set(this.keyGetter(entry), entry)
+  }
+
+  get(id: TKey) {
+    return this.map.get(id)
+  }
+
+  list() {
+    return [...this.map.values()]
+  }
+
+  remove(id: TKey) {
     if (!this.map.delete(id)) {
       throw ErrRegistryEntryNotFound.create({ registry: this.registryName, id })
     }

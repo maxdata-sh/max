@@ -4,8 +4,9 @@
 
 import type { EntityDefAny } from "./entity-def.js";
 import { Scope, InstallationScope, WorkspaceScope } from './scope.js'
-import { type RefKey, RefKey as RefKeyUtil, type EntityType, type EntityId } from "./ref-key.js";
+import { type RefKey, RefKey as RefKeyUtil } from "./ref-key.js";
 import {StaticTypeCompanion} from "./companion.js";
+import { EntityId, EntityType } from './core-id-types.js'
 
 // ============================================================================
 // ScopeUpgradeable Marker Interface

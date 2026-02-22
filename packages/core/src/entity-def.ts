@@ -5,8 +5,8 @@
 import type { FieldDefinitions } from "./field.js";
 import { type Ref, Ref as RefStatic, type LocalRef } from "./ref.js";
 import type { Scope, InstallationScope } from "./scope.js";
-import type { EntityId, EntityType } from "./ref-key.js";
 import {StaticTypeCompanion} from "./companion.js";
+import {EntityId, EntityType} from "./core-id-types.js";
 
 /**
  * EntityDef<Fields> - Defines an entity type and its fields.

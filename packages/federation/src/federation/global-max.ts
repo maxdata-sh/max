@@ -10,70 +10,81 @@
  *   4. Start the workspace
  */
 
-import { HealthStatus, StartResult, StopResult, ISODateString, type WorkspaceId } from '@max/core'
-import type { WorkspaceClient } from '../protocols/workspace-client.js'
-import type {
-  CreateWorkspaceConfig,
-  GlobalClient,
-  WorkspaceInfo,
-} from '../protocols/global-client.js'
+import { type DeployerKind, HealthStatus, ISODateString, StartResult, StopResult, type WorkspaceId } from '@max/core'
+import type { WorkspaceClient } from '../protocols/index.js'
+import type { GlobalClient, WorkspaceInfo } from '../protocols/global-client.js'
+import { CreateWorkspaceArgs } from '../protocols/global-client.js'
 import { WorkspaceSupervisor } from './supervisors.js'
-import { WorkspaceNodeProvider } from '../providers/index.js'
-import { WorkspaceRegistry } from "./workspace-registry.js"
 
-export type GlobaleMaxConstructable = {
+import { WorkspaceRegistry } from './workspace-registry.js'
+
+import { ErrWorkspaceHandleNotFound } from '../errors/errors.js'
+import { DeployerRegistry, DeploymentConfig, WorkspaceDeployer } from '../deployers/index.js'
+
+export type GlobalMaxConstructable = {
   workspaceSupervisor: WorkspaceSupervisor
-  workspaceProvider: WorkspaceNodeProvider
-  registry: WorkspaceRegistry
+  workspaceRegistry: WorkspaceRegistry
+  workspaceDeployer: DeployerRegistry<WorkspaceDeployer>
 }
 
 export class GlobalMax implements GlobalClient {
   private readonly workspaceSupervisor: WorkspaceSupervisor
-  private readonly workspaceProvider: WorkspaceNodeProvider
-  private readonly registry: WorkspaceRegistry
+  private readonly workspaceRegistry: WorkspaceRegistry
+  private readonly workspaceDeployer: DeployerRegistry<WorkspaceDeployer>
 
-  constructor(args: GlobaleMaxConstructable) {
+  constructor(args: GlobalMaxConstructable) {
     this.workspaceSupervisor = args.workspaceSupervisor
-    this.workspaceProvider = args.workspaceProvider
-    this.registry = args.registry
+    this.workspaceDeployer = args.workspaceDeployer
+    this.workspaceRegistry = args.workspaceRegistry
   }
 
-  workspace(id: WorkspaceId): WorkspaceClient | undefined {
-    return this.workspaceSupervisor.get(id)?.client
+  workspace(id: WorkspaceId): WorkspaceClient {
+    const ws = this.workspaceSupervisor.get(id)
+    if (!ws) {
+      throw ErrWorkspaceHandleNotFound.create({ workspace: id })
+    }
+    return ws.client
   }
 
-  async createWorkspace(config: CreateWorkspaceConfig): Promise<WorkspaceId> {
-    // 1. Provider creates a live workspace (stateless, returns UnlabelledHandle)
-    const unlabelled = await this.workspaceProvider.create(config)
+  async createWorkspace<K extends DeployerKind>(
+    name: string,
+    args: CreateWorkspaceArgs<K>
+  ): Promise<WorkspaceId> {
 
-    // 2. Supervisor assigns identity, returns NodeHandle
+    // Runtime lookup by the string value of args.via
+    const deployer = this.workspaceDeployer.get(args.via)
+    const unlabelled = await deployer.create(args.config as DeploymentConfig, args.spec ?? { name })
+
+    // Supervisor assigns identity, returns NodeHandle
     const handle = this.workspaceSupervisor.register(unlabelled)
 
-    // 3. Persist to registry
-    this.registry.add({
+    // Persist to registry
+    this.workspaceRegistry.add({
       id: handle.id,
-      name: config.name ?? "unnamed",
+      name: name,
       connectedAt: ISODateString.now(),
-      hosting: config.hosting ?? {
-        platform: "bun", // FIXME: GlobalMax should receive platformName, not hardcode
-        workspace: { strategy: "in-process" },
-      },
+      config: { ...args.config, strategy: args.via } as DeploymentConfig,
     })
 
-    // 4. Start
+    console.log("Persisted workspace at", args.config)
+
+    // Persist the registry
+    await this.workspaceRegistry.persist()
+
+    // Start 'er up
     await handle.client.start()
 
     return handle.id
   }
 
   async listWorkspaces(): Promise<WorkspaceInfo[]> {
-    const items = this.registry.list()
+    const items = this.workspaceRegistry.list()
     return items.map(
       (item): WorkspaceInfo => ({
         id: item.id,
         name: item.name,
         connectedAt: item.connectedAt,
-        hosting: item.hosting,
+        config: item.config,
       })
     )
   }
@@ -90,6 +101,9 @@ export class GlobalMax implements GlobalClient {
   }
 
   async start(): Promise<StartResult> {
+    // Load persisted workspace entries before hydrating
+    await this.workspaceRegistry.load()
+
     const handles = this.workspaceSupervisor.list()
     for (const handle of handles) {
       await handle.client.start()

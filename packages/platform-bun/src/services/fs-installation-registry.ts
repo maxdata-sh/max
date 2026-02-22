@@ -7,8 +7,13 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type { InstallationId } from '@max/core'
-import type { InstallationRegistry, InstallationRegistryEntry, SerialisedInstallationHosting, PlatformName } from '@max/federation'
+import { InstallationId, LocatorURI } from '@max/core'
+import {
+  DeploymentConfig,
+  ErrInvariant,
+  InstallationRegistry,
+  InstallationRegistryEntry,
+} from '@max/federation'
 import type { MaxJsonFile, MaxJsonInstallation } from '@max/federation'
 import { ErrRegistryEntryAlreadyExists, ErrRegistryEntryNotFound } from '@max/federation'
 
@@ -92,16 +97,18 @@ function toJsonInstallation(entry: InstallationRegistryEntry): MaxJsonInstallati
     id: entry.id,
     connector: entry.connector,
     connectedAt: entry.connectedAt,
-    hosting: entry.hosting,
+    deployment: entry.deployment,
+    locator: entry.locator,
+    spec: entry.spec,
   }
 }
 
 function toRegistryEntry(name: string, json: MaxJsonInstallation): InstallationRegistryEntry {
   // FIXME: We only have one customer (me!). Let's just fix our max.json files so we can sunset this.
   // Backward compat: old max.json files have `provider` + `location` instead of `hosting`
-  const hosting: SerialisedInstallationHosting = json.hosting ?? {
-    platform: "bun" as PlatformName,
-    installation: { strategy: json.provider ?? "in-process" },
+
+  if (!('spec' in json) || !('deployment' in json) || !('locator' in json)){
+    throw ErrInvariant.create({detail: "max.json is malformed. Expected at least keys [spec,deployment,locator]", args: json}, `${name}`)
   }
 
   return {
@@ -109,7 +116,9 @@ function toRegistryEntry(name: string, json: MaxJsonInstallation): InstallationR
     connector: json.connector,
     name,
     connectedAt: json.connectedAt,
-    hosting,
+    locator: json.locator,
+    spec: json.spec,
+    deployment: json.deployment,
   }
 }
 

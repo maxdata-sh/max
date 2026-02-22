@@ -9,9 +9,9 @@
  * not how it moves over the wire.
  */
 
-import type { InstallationId, WorkspaceId } from '../ref-key.js'
 import { SerializedError } from '../max-error.js'
 import {StaticTypeCompanion} from "../companion.js";
+import { InstallationId, WorkspaceId } from '../core-id-types.js'
 
 // ============================================================================
 // Request

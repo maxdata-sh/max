@@ -18,10 +18,9 @@ export type {
 export type { Transport } from "./transport.js"
 
 // NodeHandle + UnlabelledHandle + IdGenerator
-export type { NodeHandle, UnlabelledHandle, IdGenerator } from "./node-handle.js"
+export * from "./node-handle.js"
 
-// ChildProvider + ProviderKind
-export type { ProviderKind, NodeProvider } from "./node-provider.js"
+export type { NodeProvider } from "./node-provider.js"
 
 // Supervisor + AggregateHealthStatus
 export type { AggregateHealthStatus, Supervisor } from "./supervisor.js"
@@ -32,3 +31,9 @@ export type { RpcRequest, ScopeRouting } from "./rpc.js"
 
 // RPC errors
 export { Rpc, ErrUnknownTarget, ErrUnknownMethod, ErrSyncHandleNotFound, ErrNodeNotFound } from "./rpc-errors.js"
+
+export { DeployerKind } from './deployer.js'
+export type { ConfigOf, Deployer } from './deployer.js'
+
+
+// FIXME BIG FIXME: As soon as we're stable, we need to move all the federation stuff from @max/core into @max/federation

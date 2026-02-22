@@ -10,16 +10,16 @@
  */
 
 import {
-  type ConnectorType,
+  type ConnectorVersionIdentifier,
   type Engine,
   type SyncMeta,
   NoOpFlowController,
 } from '@max/core'
-import type { ConnectorModuleAny, CredentialStore } from '@max/connector'
+import type { ConnectorModuleAny, CredentialProvider, CredentialStore } from '@max/connector'
 import { InMemoryCredentialProvider } from '@max/connector'
 import { SyncExecutor, type TaskStore } from '@max/execution'
 import { DefaultTaskRunner, ExecutionRegistryImpl } from '@max/execution-local'
-import { InstallationMax } from './installation-max.js'
+import { InstallationMax } from '../installation-max.js'
 
 // ============================================================================
 // ResolvedInstallationDeps
@@ -30,8 +30,8 @@ import { InstallationMax } from './installation-max.js'
  * All dependencies are concrete, resolved implementations — no abstract config.
  */
 export interface ResolvedInstallationDeps {
-  /** Connector type name (e.g. "hubspot"). For describe(). */
-  connectorType: ConnectorType
+  /** Full identifier for the connector */
+  connectorVersionIdentifier: ConnectorVersionIdentifier
 
   /** Installation name/slug. For describe(). */
   name: string
@@ -42,8 +42,8 @@ export interface ResolvedInstallationDeps {
   /** Ready-to-use query engine. */
   engine: Engine
 
-  /** Ready-to-use credential store. */
-  credentialStore: CredentialStore
+  /** Ready-to-use credential provider. */
+  credentialProvider: CredentialProvider
 
   /** Ready-to-use task store for sync execution. */
   taskStore: TaskStore
@@ -59,10 +59,11 @@ export interface ResolvedInstallationDeps {
 // Bootstrap
 // ============================================================================
 
+// TODO: I'm not convinced we need this. I think it's reasonable to expect the Platform to produce its own InstallationMax
 export function bootstrapInstallation(deps: ResolvedInstallationDeps): InstallationMax {
-  // FIXME: The relationship between credential _store_ and credential _provider_ needs revisiting.
-  const credentials = new InMemoryCredentialProvider(deps.credentialStore, [])
+  const credentials = deps.credentialProvider
 
+  // FIXME: We need to introduce a way to validate connectorConfig
   const installation = deps.connector.initialise(deps.connectorConfig, credentials)
 
   const registry = new ExecutionRegistryImpl(deps.connector.def.resolvers)
@@ -78,7 +79,7 @@ export function bootstrapInstallation(deps: ResolvedInstallationDeps): Installat
   const syncExecutor = new SyncExecutor({ taskRunner, taskStore: deps.taskStore })
 
   return new InstallationMax({
-    connector: deps.connectorType,
+    connector: deps.connectorVersionIdentifier,
     name: deps.name,
     schema: deps.connector.def.schema,
     installation,

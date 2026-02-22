@@ -6,8 +6,8 @@
 import type { EntityDefAny } from "./entity-def.js";
 import type { EntityFields } from "./field-types.js";
 import type { Ref } from "./ref.js";
-import type { EntityId } from "./ref-key.js";
 import {StaticTypeCompanion} from "./companion.js";
+import {EntityId} from "./core-id-types.js";
 
 /**
  * EntityInput<E> - a complete upsert request.

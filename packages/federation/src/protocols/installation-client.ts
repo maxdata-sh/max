@@ -8,7 +8,7 @@
  * parent (the workspace).
  */
 
-import type { ConnectorType, Engine, InstallationScope, Schema, Supervised } from "@max/core"
+import type { ConnectorVersionIdentifier, Engine, InstallationScope, Schema, Supervised } from "@max/core"
 import type { SyncHandle } from "@max/execution"
 
 /**
@@ -16,7 +16,7 @@ import type { SyncHandle } from "@max/execution"
  * Lightweight — no I/O, just surfaces what the node already knows.
  */
 export interface InstallationDescription {
-  readonly connector: ConnectorType
+  readonly connector: ConnectorVersionIdentifier
   readonly name: string
   readonly schema: Schema
 }

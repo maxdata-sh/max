@@ -33,7 +33,7 @@ export class DefaultSupervisor<R extends Supervised, TId extends string = string
     const assignedId = id ?? this.idGenerator()
     const labelled: NodeHandle<R, TId> = {
       id: assignedId,
-      providerKind: handle.providerKind,
+      deployerKind: handle.deployerKind,
       client: handle.client,
     }
     this.handles.set(assignedId, labelled)

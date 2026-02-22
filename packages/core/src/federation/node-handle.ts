@@ -14,8 +14,10 @@
  *                  Defaults to string for generic infrastructure code.
  */
 
-import type { Supervised } from "./supervised.js"
-import type { ProviderKind } from "./node-provider.js"
+import type { Supervised } from './supervised.js'
+import { DeployerKind } from './deployer.js'
+import { StaticTypeCompanion } from '../companion.js'
+import {Id} from "../brand.js";
 
 /**
  * UnlabelledHandle — What a provider returns. A live node without identity.
@@ -24,13 +26,21 @@ import type { ProviderKind } from "./node-provider.js"
  * because identity is assigned by the parent (via the Supervisor), not by
  * the provider.
  */
-export interface UnlabelledHandle<R extends Supervised> {
+export interface UnlabelledHandle<R extends Supervised, TLocator extends Locator = Locator> {
   /** The typed client surface — real object (in-process) or proxy (remote). */
   readonly client: R
 
   /** Informational tag identifying the deployment strategy. */
-  readonly providerKind: ProviderKind
+  readonly deployerKind: DeployerKind
+
+  readonly locator: TLocator
 }
+
+export const UnlabelledHandle = StaticTypeCompanion({
+  create<R extends Supervised, TLocator extends Locator>(input: UnlabelledHandle<R,TLocator>): UnlabelledHandle<R,TLocator> {
+    return input
+  },
+})
 
 /**
  * NodeHandle — An unlabelled handle stamped with an ID by the parent.
@@ -42,7 +52,7 @@ export interface NodeHandle<R extends Supervised, TId extends string = string> {
   readonly id: TId
 
   /** Informational tag identifying the deployment strategy. Never branched on by Supervisor. */
-  readonly providerKind: ProviderKind
+  readonly deployerKind: DeployerKind
 
   /** The typed client surface — real object (in-process) or proxy (remote). */
   readonly client: R
@@ -55,3 +65,27 @@ export interface NodeHandle<R extends Supervised, TId extends string = string> {
  * reconciliation passes a specific persisted ID instead.
  */
 export type IdGenerator<TId extends string = string> = () => TId
+
+// TODO: We'll introduce a proper Locator type. This is a standin that works
+export interface Locator {
+  readonly strategy: DeployerKind
+}
+
+
+/** This is a stand-in type for a well-formed locator URL that's coming later (e.g. max://-/path/to/resource).
+ *  This exists here to scaffold out the stub-points that will want this information later
+ */
+export type LocatorURI = Id<'locator-string'>
+export const LocatorURI = StaticTypeCompanion({
+  create<TLocator extends Locator>(args:TLocator): LocatorURI {
+    return JSON.stringify(args)
+  },
+  read(arg:LocatorURI): Locator { return JSON.parse(arg) }
+})
+
+
+export const Locator = StaticTypeCompanion({
+  create<TLocator extends Locator>(args:TLocator): TLocator { return args},
+  toURI: LocatorURI.create
+})
+

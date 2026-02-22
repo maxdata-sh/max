@@ -6,20 +6,20 @@
  * method survives the serialize→dispatch→deserialize cycle.
  */
 
-import { describe, test, expect } from "bun:test"
+import { describe, expect, test } from 'bun:test'
 import {
-  LoopbackTransport,
-  LoopbackSerializedTransport,
-  MaxError,
-  NotFound,
   BadInput,
   type InstallationId,
+  LoopbackSerializedTransport,
+  LoopbackTransport,
+  MaxError,
+  NotFound,
 } from '@max/core'
-import { InstallationDispatcher } from "../dispatchers/installation-dispatcher.js"
-import { WorkspaceDispatcher } from "../dispatchers/workspace-dispatcher.js"
-import { InstallationClientProxy } from "../protocols/installation-client-proxy.js"
-import { WorkspaceClientProxy } from "../protocols/workspace-client-proxy.js"
-import { StubbedInstallationClient, StubbedWorkspaceClient } from "../testing.js"
+import { InstallationDispatcher } from '../dispatchers/installation-dispatcher.js'
+import { WorkspaceDispatcher } from '../dispatchers/workspace-dispatcher.js'
+import { InstallationClientProxy } from '../protocols/installation-client-proxy.js'
+import { WorkspaceClientProxy } from '../protocols/workspace-client-proxy.js'
+import { StubbedInstallationClient, StubbedWorkspaceClient } from '../testing.js'
 
 // -- Wiring helpers -----------------------------------------------------------
 
@@ -134,7 +134,11 @@ describe("Workspace full roundtrip", () => {
   test("createInstallation round-trips", async () => {
     const { proxy } = wireWorkspace()
 
-    const id = await proxy.createInstallation({ spec: { connector: "hubspot" as any } })
+    const id = await proxy.createInstallation({
+      via: 'some-deployer',
+      spec: { connector: "hubspot" as any},
+      config: { strategy: 'strategy1' }
+    })
     expect(id).toBe("inst-new")
   })
 

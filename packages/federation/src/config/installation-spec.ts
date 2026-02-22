@@ -8,40 +8,18 @@
  * without interpreting it. The node uses spec to wire its own internals.
  */
 
-import type { ConnectorType } from '@max/core'
-
-// ============================================================================
-// Sub-configs
-// ============================================================================
-
-export type EngineConfig =
-  | { type: "sqlite" }
-  | { type: "sqlite"; path: string }
-  | { type: "postgres"; connection: string }
-  | { type: "in-memory" }
-
-export type CredentialStoreConfig =
-  | { type: "fs" }
-  | { type: "fs"; path: string }
-  | { type: "in-memory" }
-  | { type: "vault"; url: string }
+import type { ConnectorVersionIdentifier } from '@max/core'
 
 // ============================================================================
 // InstallationSpec
 // ============================================================================
 
 export interface InstallationSpec {
-  /** Connector identifier, e.g. "hubspot", "linear". */
-  readonly connector: ConnectorType
+  /** Connector identifier, e.g. "@max/connector-hubspot", "@max/connector-linear". */
+  readonly connector: ConnectorVersionIdentifier
 
   /** Installation slug. Auto-generated from connector if omitted. */
   readonly name?: string
-
-  /** Engine configuration. Defaults to sqlite if omitted. */
-  readonly engine?: EngineConfig
-
-  /** Credential store configuration. Defaults to fs if omitted. */
-  readonly credentials?: CredentialStoreConfig
 
   /** Connector-specific config (API keys, workspace IDs — from onboarding). Opaque to federation. */
   readonly connectorConfig?: unknown

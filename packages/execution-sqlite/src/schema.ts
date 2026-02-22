@@ -12,7 +12,7 @@ import type { Database } from "bun:sqlite";
 
 export class SqliteExecutionSchema {
   /** Create the execution tables and indexes */
-  ensureTables(db: Database): void {
+  static ensureTables(db: Database): void {
     db.run(`
       CREATE TABLE IF NOT EXISTS _max_tasks (
         id            TEXT PRIMARY KEY,

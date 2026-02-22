@@ -8,15 +8,22 @@
  * practice, the CLI or cloud control plane manages it directly).
  */
 
-import { ISODateString, Supervised, WorkspaceId } from '@max/core'
-import type { SerialisedWorkspaceHosting } from '../config/hosting-config.js'
+import { type ConfigOf, type DeployerKind, ISODateString, Supervised, WorkspaceId } from '@max/core'
 import {  WorkspaceClient } from './workspace-client.js'
+import {DeploymentConfig} from "../deployers/index.js";
+import {WorkspaceSpec} from "../config/index.js";
 
 export interface WorkspaceInfo {
   readonly id: WorkspaceId
   readonly name: string
   readonly connectedAt: ISODateString
-  readonly hosting: SerialisedWorkspaceHosting
+  readonly config: DeploymentConfig
+}
+
+export interface CreateWorkspaceArgs<K extends DeployerKind = DeployerKind> {
+  via: K
+  config: ConfigOf<K>
+  spec?: WorkspaceSpec
 }
 
 export interface GlobalClient extends Supervised {
@@ -26,18 +33,11 @@ export interface GlobalClient extends Supervised {
   workspace(id: WorkspaceId): WorkspaceClient | undefined
 
   /** Create a new workspace from serializable config. */
-  createWorkspace(config: CreateWorkspaceConfig): Promise<WorkspaceId>
+  createWorkspace<K extends DeployerKind>(
+    name: string,
+    args: CreateWorkspaceArgs<K>
+  ): Promise<WorkspaceId>
 
   /** Tear down and remove a workspace. */
   removeWorkspace(id: WorkspaceId): Promise<void>
-}
-
-/**
- * Serializable configuration for creating a new workspace.
- * Intent-based — the global app figures out how to provision it.
- */
-export interface CreateWorkspaceConfig {
-  readonly name?: string
-  readonly hosting?: SerialisedWorkspaceHosting
-  readonly config?: unknown
 }

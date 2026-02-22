@@ -6,59 +6,56 @@
  */
 
 import * as path from 'node:path'
-import {
-  DefaultSupervisor,
-  type HostingStrategy,
-  InMemoryInstallationRegistry,
-  InProcessWorkspaceProvider,
-  type InstallationNodeProvider,
-  WorkspaceSupervisor,
-} from '@max/federation'
-import { type InstallationId, Projection, type WorkspaceId } from '@max/core'
-import { BunConnectorRegistry, BunInProcessInstallationProvider } from '@max/platform-bun'
-import { AcmeUser } from '@max/connector-acme'
+import { Projection } from '@max/core'
+import { BunPlatform } from '@max/platform-bun'
+import { AcmeConfig, AcmeUser } from '@max/connector-acme'
+import * as os from "node:os";
 
-const projectRoot = path.resolve(__dirname, '../../bun-test-project')
-const dataRoot = path.join(projectRoot, '.max', 'installations')
+const workspaceRoot = path.resolve(__dirname, '../../bun-test-project')
 
 try {
-  const connectorRegistry = new BunConnectorRegistry({
-    acme: '@max/connector-acme'
-  })
+  const max = BunPlatform.createGlobalMax()
+  const dataDir = os.tmpdir()
 
-  const workspaceSupervisor: WorkspaceSupervisor = new DefaultSupervisor(
-    () => crypto.randomUUID() as WorkspaceId
+  const workspaceId = await max.createWorkspace(
+    'test-workspace', // we don't need this anymore, it can come from the spec
+    {
+      via: BunPlatform.workspace.deploy.inProcess,
+      config:{
+        strategy: 'in-process',
+        dataDir: workspaceRoot,
+        engine:{type: 'sqlite'},
+      },
+      spec:{
+        name: "test-workspace",
+      }
+    }
   )
 
-  const installationProvider = new BunInProcessInstallationProvider(connectorRegistry, dataRoot)
+  const workspace = max.workspace(workspaceId)
 
-  const providers = new Map<HostingStrategy, InstallationNodeProvider>([
-    ['in-process', installationProvider],
-  ])
-
-  const workspaceProvider = new InProcessWorkspaceProvider()
-  const unlabelledWorkspace = await workspaceProvider.create({
-    workspace: {
-      registry: new InMemoryInstallationRegistry(),
-      installationSupervisor: new DefaultSupervisor(
-        () => crypto.randomUUID() as InstallationId
-      ),
-      providers,
-      defaultHostingStrategy: 'in-process',
-      platformName: 'bun',
-      connectorRegistry,
+  // ACTUALLY: We're trying to achieve the wrong thing here. We should either:
+  // 1. Be 100% ephemeral - spin up an in-memory max and an in-memory acme and e2e test it
+  // 2. Use "connect" here rather than create - and connect to the existing installation in bun-test-project
+  // ^ That means that we need to implement logic in BunPlatform's "connect" that will re-create the installation client from the dependency config in the max.json file
+  const acmeId = await workspace.createInstallation({
+    via: BunPlatform.installation.deploy.inProcess,
+    spec: {
+      connector: 'acme',
+      name: 'default',
+      connectorConfig: { workspaceId: '1', baseUrl: 'none' } satisfies AcmeConfig,
+      initialCredentials: { api_token: "123" }
     },
+    config: {
+      strategy: 'in-process',
+      dataDir
+    }
   })
-  const workspace = workspaceSupervisor.register(unlabelledWorkspace)
-
-  const acmeId = await workspace.client.createInstallation({
-    spec: { connector: 'acme', name: 'default' },
-  })
-  const acme = await workspace.client.installation(acmeId)!
+  const acme = await workspace.installation(acmeId)
 
   console.log({
-    installations: await workspace.client.listInstallations(),
-    data: await workspace.client.health(),
+    installations: await workspace.listInstallations(),
+    data: await workspace.health(),
     acme: await acme.engine.load(
       AcmeUser.ref('usr_14cc9f9adc384561b79f93b738e44649'),
       Projection.all

@@ -1,6 +1,6 @@
 // Config types
 export * from './config/installation-spec.js'
-export * from './config/hosting-config.js'
+export * from './config/workspace-spec.js'
 
 // Errors
 export * from "./errors/errors.js"
@@ -16,3 +16,10 @@ export * from './providers/index.js'
 
 // Dispatchers
 export * from './dispatchers/index.js'
+
+// Platform
+export * from './platform/index.js'
+
+// Deployers
+export * from './deployers/index.js'
+export * from './config/index.js'

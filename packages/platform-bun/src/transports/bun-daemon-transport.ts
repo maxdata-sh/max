@@ -1,5 +1,5 @@
 /**
- * SubprocessTransport — Transport implementation over a Unix socket.
+ * BunDaemonTransport — Transport implementation over a Unix socket.
  *
  * Connects to an RPC socket server, sends RpcRequests as JSONL,
  * and matches responses by request ID. Supports multiple in-flight
@@ -16,21 +16,21 @@ interface PendingRequest {
   reject: (error: Error) => void
 }
 
-export class SubprocessTransport implements Transport {
+export class BunDaemonTransport implements Transport {
   private socket: ReturnType<typeof Bun.connect> extends Promise<infer T> ? T : never
   private readonly pending = new Map<string, PendingRequest>()
   private buffer = new Uint8Array(0)
   private requestCounter = 0
 
-  private constructor(socket: SubprocessTransport['socket']) {
+  private constructor(socket: BunDaemonTransport['socket']) {
     this.socket = socket
   }
 
   /**
    * Connect to an RPC socket server at the given Unix socket path.
    */
-  static async connect(socketPath: string): Promise<SubprocessTransport> {
-    let transport: SubprocessTransport
+  static async connect(socketPath: string): Promise<BunDaemonTransport> {
+    let transport: BunDaemonTransport
 
     const socket = await Bun.connect({
       unix: socketPath,
@@ -42,13 +42,13 @@ export class SubprocessTransport implements Transport {
           transport!.onClose()
         },
         error(_socket, err) {
-          console.error('SubprocessTransport socket error:', err)
+          console.error('BunDaemonTransport socket error:', err)
         },
         open() {},
       },
     })
 
-    transport = new SubprocessTransport(socket)
+    transport = new BunDaemonTransport(socket)
     return transport
   }
 
@@ -104,5 +104,23 @@ export class SubprocessTransport implements Transport {
       pending.reject(new Error(`Connection closed with pending request ${id}`))
     }
     this.pending.clear()
+  }
+
+  static async awaitReadySignal(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<string> {
+    let accumulated = ''
+
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) {
+        // FIXME: This needs a MaxError
+        throw new Error('Daemon exited before sending ready signal')
+      }
+
+      accumulated += new TextDecoder().decode(value)
+      const newlineIdx = accumulated.indexOf('\n')
+      if (newlineIdx !== -1) {
+        return accumulated.slice(0, newlineIdx).trim()
+      }
+    }
   }
 }

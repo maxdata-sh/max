@@ -6,11 +6,11 @@
  *   Workspace:     "ews:<installationId>:<entityType>:<entityId>"
  */
 
-import { type HardBrand, hardBrand } from "./brand.js";
-import { Scope, InstallationScope, WorkspaceScope } from './scope.js'
-import type { Id } from "./brand.js";
+import {type HardBrand} from "./brand.js";
+import {InstallationScope, Scope, WorkspaceScope} from './scope.js'
 import {StaticTypeCompanion} from "./companion.js";
 import {ErrInvalidRefKey} from "./errors/errors.js";
+import { EntityId, EntityType, InstallationId } from './core-id-types.js'
 
 // ============================================================================
 // Types
@@ -20,12 +20,6 @@ import {ErrInvalidRefKey} from "./errors/errors.js";
  * RefKey is a hard-branded string - must be created via RefKey.from() or RefKey.parse().
  */
 export type RefKey = HardBrand<string, "ref-key">;
-
-export type EntityType = Id<"entity-type">;
-export type EntityId = Id<"entity-id">;
-export type InstallationId = Id<"installation-id">;
-export type WorkspaceId = Id<"workspace-id">;
-export type ConnectorType = Id<"connector-type">;
 
 // ============================================================================
 // Parsing Result

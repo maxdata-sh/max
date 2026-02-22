@@ -1,16 +1,12 @@
+import { ErrInvariant, GlobalMax, type WorkspaceClient } from '@max/federation'
 import {
-  ErrInvariant,
-  type WorkspaceClient,
-} from '@max/federation'
-import {
+  BunPlatform,
   ErrCannotInitialiseProject,
   ErrDaemonDisabled,
   ErrProjectNotInitialised,
   findProjectRoot,
   GlobalConfig,
   ProjectConfig,
-  BunPlatform,
-  initProject,
 } from '@max/platform-bun'
 import { InMemoryCredentialStore } from '@max/connector'
 
@@ -25,9 +21,16 @@ import { Mode, Parser, suggestAsync, type Suggestion } from '@optique/core/parse
 import { ProjectCompleters } from './parsers/project-completers.js'
 import * as fs from 'node:fs'
 
-import { LazyOne, LazyX, makeLazy, MaxError } from '@max/core'
-import { CliPrinter } from './cli-printable.js'
-import { Fmt } from '@max/core'
+import {
+  Fmt,
+  LazyOne,
+  LazyX,
+  Lifecycle,
+  makeLazy,
+  MaxError,
+  PrintFormatter,
+  WorkspaceId,
+} from '@max/core'
 import { SchemaPrinters } from './printers/schema-printers.js'
 import * as path from 'node:path'
 import { createSocketServer } from './socket-server.js'
@@ -40,8 +43,8 @@ import { initCommand } from './commands/init-command.js'
 import { syncCommandBuild } from './commands/sync-command.js'
 import { runOnboarding } from './onboarding-runner.js'
 import { DirectPrompter, type Prompter } from './prompter.js'
-// import { DaemonPrinters } from './printers/daemon-printers.js' // Temporarily disabled during federation migration
 import { runSubprocess, subprocessParsers } from './subprocess-entry.js'
+import * as util from 'node:util'
 
 const shells: Record<string, ShellCompletion> = {
   zsh: Completion.zsh,
@@ -67,7 +70,6 @@ class Commands {
   })
 }
 
-
 type ParserResultType<X extends Parser<Mode>> =
   X extends Parser<Mode, infer TValue> ? TValue : never
 type CmdInput<k extends keyof Commands['all']> = ParserResultType<Commands['all'][k]>
@@ -81,34 +83,59 @@ class CLI {
     )
   }
 
+  /** Get a resource (that has a lifecycle) and start it. Useful for lazy starting of services. */
+  private async getAndStart<T extends Lifecycle>(
+    f: T | (() => T) | (() => Promise<T>)
+  ): Promise<T> {
+    const value = await (typeof f === 'function' ? f() : f)
+    await value.lifecycle.start()
+    return value
+  }
+
   commands: Commands
 
   lazy = makeLazy({
     /** Create a WorkspaceClient */
     workspace: async (): Promise<WorkspaceClient> => {
-      const projectRoot = this.cfg.projectRoot
-      if (!projectRoot || !fs.existsSync(path.join(projectRoot, 'max.json'))) {
-        throw ErrProjectNotInitialised.create({ maxProjectRoot: projectRoot ?? this.cfg.cwd })
-      }
-      const provider = BunPlatform.workspace.inProcess()
-      return provider
-        .create({
-          projectRoot,
-          connectors: KNOWN_CONNECTORS,
-        })
-        .then((handle) => handle.client)
+      return this.getCurrentWorkspace()
     },
     /** Create a ProjectConfig */
     projectConfig: (): ProjectConfig => {
-      const projectRoot = this.cfg.projectRoot
+      const projectRoot = this.cfg.workspaceRoot
       if (!projectRoot || !fs.existsSync(projectRoot)) {
         throw ErrProjectNotInitialised.create({ maxProjectRoot: projectRoot ?? this.cfg.cwd })
       }
       return new ProjectConfig(this.cfg, { projectRootFolder: projectRoot })
     },
-
+    globalUnstarted: ():GlobalMax => BunPlatform.createGlobalMax(),
+    globalStarted: async ():Promise<GlobalMax> => {
+      const max = this.lazy.globalUnstarted
+      await max.start()
+      return max
+    },
   })
 
+  async getGlobalMax() {
+    return this.lazy.globalStarted
+  }
+
+  async getWorkspace(id:WorkspaceId){
+    const max = await this.getGlobalMax()
+    return max.workspace(id)
+  }
+
+  async getCurrentWorkspace(){
+    const max = await this.getGlobalMax()
+    const workspaces = await max.listWorkspaces()
+    if (!workspaces.length){
+      throw ErrProjectNotInitialised.create({
+        maxProjectRoot: this.cfg.workspaceRoot ?? this.cfg.cwd,
+      })
+    }
+    // FIXME: WATCH OUT!! We need to find the _actual_ workspace that is _this directory_!
+    return max.workspace(workspaces[0].id)
+
+  }
 
   // -- Program parser ---------------------------------------------------------
 
@@ -130,7 +157,7 @@ class CLI {
 
   // -- Command handlers -------------------------------------------------------
 
-  runInit(arg: CmdInput<'init'>) {
+  async runInit(arg: CmdInput<'init'>) {
     const dir = path.resolve(arg.directory)
     const existingRoot = findProjectRoot(dir)
 
@@ -141,21 +168,26 @@ class CLI {
       )
     }
 
-    initProject(dir)
+    const max = await this.getGlobalMax()
+    await max.createWorkspace(path.basename(dir), {
+      via: BunPlatform.workspace.deploy.inProcess,
+      config: { strategy: 'in-process', dataDir: path.join(dir, '.max') },
+      spec: { name: path.basename(dir) },
+    })
   }
 
   async runSchema(arg: CmdInput<'schema'>, color: boolean) {
-    const printer = this.printerFor(color)
+    const printer = this.getPrintFormatter(color)
     const ws = await this.lazy.workspace
     const schema = await ws.connectorSchema(arg.source)
     switch (arg.output) {
       default:
       case 'text':
-        return printer.print(SchemaPrinters.SchemaText, schema)
+        return printer.printVia(SchemaPrinters.SchemaText, schema)
       case 'json':
-        return printer.print(SchemaPrinters.SchemaJson, schema)
+        return printer.printVia(SchemaPrinters.SchemaJson, schema)
       case 'ndjson':
-        return printer.print(SchemaPrinters.SchemaJsonl, schema)
+        return printer.printVia(SchemaPrinters.SchemaJsonl, schema)
     }
   }
 
@@ -178,6 +210,11 @@ class CLI {
       }
 
       const id = await ws.createInstallation({
+        via: BunPlatform.installation.deploy.inProcess,
+        config: {
+          strategy: 'in-process',
+          dataDir: path.join(this.cfg.workspaceRoot!, '.max', 'installations', arg.source),
+        },
         spec: {
           connector: arg.source,
           connectorConfig: config,
@@ -192,7 +229,7 @@ class CLI {
   }
 
   async runSync(arg: CmdInput<'sync'>, color: boolean) {
-    const printer = this.printerFor(color)
+    const printer = this.getPrintFormatter(color)
     const ws = await this.lazy.workspace
     const [connector, name] = arg.target
 
@@ -225,11 +262,21 @@ class CLI {
     return lines.join('\n')
   }
 
-  runDaemon(_arg: CmdInput<'daemon'>, _color: boolean) {
+  async runDaemon(_arg: CmdInput<'daemon'>, _color: boolean) {
     // Daemon subcommands (start/stop/enable/disable/list) are temporarily
     // unavailable. The FsProjectDaemonManager has been retired as part of
     // the federation migration. These commands will be re-implemented via
     // GlobalMax + workspace supervisor + workspace registry.
+    switch (_arg.sub) {
+      case 'list': {
+        const printFormatter = this.getPrintFormatter(_color)
+        const g = await this.getGlobalMax()
+        const w = await g.listWorkspaces()
+        // FIXME: Need a proper printer for workspace entries
+        return w.map(e => `${e.id} ${e.name} (${e.connectedAt})`).join('\n')
+      }
+    }
+
     throw ErrInvariant.create({
       detail: `Daemon commands are temporarily unavailable during federation migration`,
     })
@@ -237,10 +284,10 @@ class CLI {
 
   // -- Shared utilities -------------------------------------------------------
 
-  private colorPrinter = new CliPrinter({ color: true })
-  private plainPrinter = new CliPrinter({ color: false })
+  private colorPrinter = new PrintFormatter(Fmt.ansi)
+  private plainPrinter = new PrintFormatter(Fmt.plain)
 
-  private printerFor(color: boolean) {
+  private getPrintFormatter(color: boolean): PrintFormatter {
     return color ? this.colorPrinter : this.plainPrinter
   }
 
@@ -313,105 +360,100 @@ const subprocessParsed = parseSync(subprocessParsers, process.argv.slice(2))
 if (subprocessParsed.success && subprocessParsed.value.subprocess) {
   await runSubprocess(subprocessParsed.value)
 } else {
-// ============================================================================
-// Normal CLI mode
-// ============================================================================
+  // ============================================================================
+  // Normal CLI mode
+  // ============================================================================
 
-const rustShimParsers = object({
-  devMode: withDefault(flag('--dev-mode'), () => process.env.MAX_DEV_MODE === 'true'),
-  projectRoot: withDefault(option('--project-root', string()), () => process.cwd()),
-  daemonized: withDefault(flag('--daemonized'), false),
-  maxCommand: passThrough({ format: 'greedy' }),
-})
-
-const parsed = parseSync(rustShimParsers, process.argv.slice(2))
-
-if (parsed.success) {
-  const cfg = new GlobalConfig({
-    devMode: parsed.value.devMode,
-    projectRoot: parsed.value.projectRoot,
-    cwd: process.cwd(),
-    mode: parsed.value.daemonized ? 'daemon' : 'direct',
+  const rustShimParsers = object({
+    devMode: withDefault(flag('--dev-mode'), () => process.env.MAX_DEV_MODE === 'true'),
+    projectRoot: withDefault(option('--project-root', string()), () => process.cwd()),
+    daemonized: withDefault(flag('--daemonized'), false),
+    maxCommand: passThrough({ format: 'greedy' }),
   })
 
-  const cli = new CLI(cfg)
+  const parsed = parseSync(rustShimParsers, process.argv.slice(2))
 
-  if (cfg.mode === 'daemon') {
-    if (!cfg.projectRoot) {
-      console.error('Cannot daemonize without a project root')
-      process.exit(1)
-    }
-
-    const projectConfig = new ProjectConfig(cfg, { projectRootFolder: cfg.projectRoot })
-    const daemonPaths = projectConfig.paths.daemon
-
-    // Guard: check if daemon is disabled
-    if (fs.existsSync(daemonPaths.disabled)) {
-      console.error(ErrDaemonDisabled.create({}).prettyPrint({ color: cfg.useColor }))
-      process.exit(1)
-    }
-
-    // Guard: check if daemon is already running (read PID, check liveness)
-    try {
-      const pidRaw = fs.readFileSync(daemonPaths.pid, 'utf-8').trim()
-      const existingPid = parseInt(pidRaw, 10)
-      if (!isNaN(existingPid)) {
-        try {
-          process.kill(existingPid, 0) // signal 0 = liveness check
-          console.error(`Daemon already running (pid ${existingPid})`)
-          process.exit(0)
-        } catch {
-          // Process not alive — stale PID file, continue startup
-        }
-      }
-    } catch {
-      // No PID file — continue startup
-    }
-
-    // Write our own PID — works regardless of who spawned us (Rust shim or `max daemon start`)
-    // and survives `bun --watch` restarts which change the child PID.
-    fs.mkdirSync(daemonPaths.root, { recursive: true })
-    fs.writeFileSync(daemonPaths.pid, String(process.pid))
-
-    createSocketServer({
-      socketPath: daemonPaths.socket,
-      handler: (req, prompter) =>
-        cli.execute(req, prompter).catch((err) => {
-          const color = req.color ?? false
-          const msg = MaxError.isMaxError(err)
-            ? err.prettyPrint({ color })
-            : err instanceof Error
-              ? err.message
-              : String(err)
-          return { stderr: `${msg}\n`, exitCode: 1 }
-        }),
+  if (parsed.success) {
+    const cfg = new GlobalConfig({
+      devMode: parsed.value.devMode,
+      workspaceRoot: parsed.value.projectRoot,
+      cwd: process.cwd(),
+      mode: parsed.value.daemonized ? 'daemon' : 'direct',
     })
 
-    console.log(`Max daemon listening on ${daemonPaths.socket}`)
-  } else {
-    const req: CliRequest = {
-      kind: 'run',
-      argv: parsed.value.maxCommand,
-      cwd: process.cwd(),
-      color: cfg.useColor,
-    }
+    const cli = new CLI(cfg)
 
-    await cli.execute(req).then(
-      (response) => {
-        if (response.completionOutput) process.stdout.write(response.completionOutput)
-        if (response.stdout) process.stdout.write(response.stdout)
-        if (response.stderr) process.stderr.write(response.stderr)
-        process.exit(response.exitCode)
-      },
-      (err) => {
-        console.error(err)
+    if (cfg.mode === 'daemon') {
+      if (!cfg.workspaceRoot) {
+        console.error('Cannot daemonize without a project root')
         process.exit(1)
       }
-    )
-  }
-} else {
-  console.error('Unexpected error')
-  throw new Error(parsed.error.join('\n'))
-}
 
+      const projectConfig = new ProjectConfig(cfg, { projectRootFolder: cfg.workspaceRoot })
+      const daemonPaths = projectConfig.paths.daemon
+
+      // Guard: check if daemon is disabled
+      if (fs.existsSync(daemonPaths.disabled)) {
+        console.error(ErrDaemonDisabled.create({}).prettyPrint({ color: cfg.useColor }))
+        process.exit(1)
+      }
+
+      // Guard: check if daemon is already running (read PID, check liveness)
+      try {
+        const pidRaw = fs.readFileSync(daemonPaths.pid, 'utf-8').trim()
+        const existingPid = parseInt(pidRaw, 10)
+        if (!isNaN(existingPid)) {
+          try {
+            process.kill(existingPid, 0) // signal 0 = liveness check
+            console.error(`Daemon already running (pid ${existingPid})`)
+            process.exit(0)
+          } catch {
+            // Process not alive — stale PID file, continue startup
+          }
+        }
+      } catch {
+        // No PID file — continue startup
+      }
+
+      // Write our own PID — works regardless of who spawned us (Rust shim or `max daemon start`)
+      // and survives `bun --watch` restarts which change the child PID.
+      fs.mkdirSync(daemonPaths.root, { recursive: true })
+      fs.writeFileSync(daemonPaths.pid, String(process.pid))
+
+      createSocketServer({
+        socketPath: daemonPaths.socket,
+        handler: (req, prompter) =>
+          cli.execute(req, prompter).catch((err) => {
+            const color = req.color ?? false
+            const msg = MaxError.isMaxError(err) ? err.prettyPrint({ color }) : util.inspect(err)
+            return { stderr: `${msg}\n`, exitCode: 1 }
+          }),
+      })
+
+      console.log(`Max daemon listening on ${daemonPaths.socket}`)
+    } else {
+      const req: CliRequest = {
+        kind: 'run',
+        argv: parsed.value.maxCommand,
+        cwd: process.cwd(),
+        color: cfg.useColor,
+      }
+
+      await cli.execute(req).then(
+        (response) => {
+          if (response.completionOutput) process.stdout.write(response.completionOutput)
+          if (response.stdout) process.stdout.write(response.stdout)
+          if (response.stderr) process.stderr.write(response.stderr)
+          process.exit(response.exitCode)
+        },
+        (err) => {
+          console.error(err)
+          process.exit(1)
+        }
+      )
+    }
+  } else {
+    console.error('Unexpected error')
+    throw new Error(parsed.error.join('\n'))
+  }
 } // end subprocess else

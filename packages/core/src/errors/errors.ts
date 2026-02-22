@@ -7,8 +7,8 @@
 
 import {ErrFacet, MaxError} from "../max-error.js";
 import {Execution} from "@max/execution";
-import {EntityId, EntityType} from "../ref-key.js";
 import {LoaderName} from "../loader.js";
+import { EntityId, EntityType } from '../core-id-types.js'
 
 // ============================================================================
 // Core Boundary
@@ -29,6 +29,8 @@ export const BadInput = ErrFacet.marker("BadInput");
 /** Code path not yet implemented */
 export const NotImplemented = ErrFacet.marker("NotImplemented");
 export const NotSupported = ErrFacet.marker("NotSupported")
+
+export const NotAvailable = ErrFacet.marker('NotAvailable')
 
 /** Internal invariant violated — always a bug */
 export const InvariantViolated = ErrFacet.marker("InvariantViolated");
@@ -64,6 +66,12 @@ export const ErrNotImplemented = Core.define("not_implemented", {
 export const ErrNotSupported = Core.define('not_supported', {
   facets: [NotSupported],
   message: () => 'Operation not supported',
+})
+
+export const ErrConfigNotSupported = Core.define('config_not_supported', {
+  customProps: ErrFacet.props<{ kind: string, config: object }>(),
+  facets: [NotSupported],
+  message: () => 'Encountered unsupported config',
 })
 
 /** Accessed a field that was not loaded */

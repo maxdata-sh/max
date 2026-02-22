@@ -1,63 +1,51 @@
-import { describe, test } from 'bun:test'
-import {
-  InProcessWorkspaceProvider,
-  DefaultSupervisor,
-  type WorkspaceSupervisor,
-  InMemoryInstallationRegistry,
-  type HostingStrategy,
-  type InstallationNodeProvider,
-} from '@max/federation'
-import { BunConnectorRegistry, BunInProcessInstallationProvider } from '@max/platform-bun'
-import { AcmeUser } from '@max/connector-acme'
-import { Projection, type InstallationId, type WorkspaceId } from '@max/core'
-import * as path from 'node:path'
+import { describe, test, expect } from 'bun:test'
+import { BunPlatform } from '../bun-platform.js'
+import { AcmeConfig, AcmeUser } from '@max/connector-acme'
+import { Projection } from '@max/core'
+import * as fs from "node:fs";
 
 describe('in-process-provider', () => {
-  test('smoke test', async () => {
-    try {
-      const projectRoot = '/Users/ben/projects/playground/max/max/bun-test-project'
-      const dataRoot = path.join(projectRoot, '.max', 'installations')
-      const connectorRegistry = new BunConnectorRegistry({ acme: '@max/connector-acme' })
+  test('smoke test — ephemeral workspace with in-process installation', async () => {
+    const global = BunPlatform.createGlobalMax()
+    await global.start()
 
-      const workspaceSupervisor: WorkspaceSupervisor = new DefaultSupervisor(
-        () => crypto.randomUUID() as WorkspaceId
-      )
+    const dir = fs.mkdtempSync('/tmp/max-acme')
 
-      const installationProvider = new BunInProcessInstallationProvider(connectorRegistry, dataRoot)
-      const providers = new Map<HostingStrategy, InstallationNodeProvider>([
-        ['in-process', installationProvider],
-      ])
+    // Create workspace via typed deployer kind
+    const wsId = await global.createWorkspace('test-workspace', {
+      via: BunPlatform.workspace.deploy.inProcess,
+      config: {
+        strategy: 'in-process',
+        dataDir: dir,
+      },
+      spec: { name: 'test-workspace' },
+    })
 
-      const workspaceProvider = new InProcessWorkspaceProvider()
-      const unlabelledWorkspace = await workspaceProvider.create({
-        workspace: {
-          registry: new InMemoryInstallationRegistry(),
-          installationSupervisor: new DefaultSupervisor(
-            () => crypto.randomUUID() as InstallationId
-          ),
-          providers,
-          defaultHostingStrategy: 'in-process',
-          platformName: 'bun',
-          connectorRegistry,
-        },
-      })
-      const workspace = workspaceSupervisor.register(unlabelledWorkspace)
+    const workspace = global.workspace(wsId)
+    expect(workspace).toBeDefined()
 
-      const acmeId = await workspace.client.createInstallation({
-        spec: { connector: 'acme', name: 'default', connectorConfig:{workspaceId: "123"} },
-      })
-      const acme = await workspace.client.installation(acmeId)!
 
-      console.log({
-        installations: await workspace.client.listInstallations(),
-        data: await workspace.client.health(),
-        acme: await acme.engine.load(
-          AcmeUser.ref('usr_14cc9f9adc384561b79f93b738e44649'),
-          Projection.all
-        ),
-      })
-    } catch (e) {
-      console.error(e)
-    }
+    // Create installation via typed deployer kind
+    const instId = await workspace!.createInstallation({
+      via: BunPlatform.installation.deploy.inProcess,
+      config: {
+        strategy: 'in-process',
+        dataDir: dir,
+        credentials: { type: 'in-memory', initialSecrets: { api_token: '333' } },
+      },
+      spec: {
+        connector: 'acme',
+        name: 'default',
+        connectorConfig: { workspaceId: '123', baseUrl: "http://no" } satisfies AcmeConfig,
+      },
+    })
+
+    // Verify installation is accessible
+    const installations = await workspace!.listInstallations()
+    expect(installations.length).toBe(1)
+    expect(installations[0].connector).toBe('acme')
+
+    // Clean up
+    await global.stop()
   })
 })

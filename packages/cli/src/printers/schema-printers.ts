@@ -1,13 +1,12 @@
-import { CliValuePrinter } from '../cli-printable.js'
 import {
   EntityDefAny,
   type EntityRelationship,
-  type FieldDef,
+  Printer,
   Schema,
   SchemaPrettyPrinter,
 } from '@max/core'
 
-const FieldSummaryPrinter = CliValuePrinter.of<EntityDefAny>((entity, fmt) => {
+const FieldSummaryPrinter = Printer.define<EntityDefAny>((entity, fmt) => {
   const parts: string[] = []
   for (const [name, field] of Object.entries(entity.fields)) {
     const f = field
@@ -22,13 +21,13 @@ const FieldSummaryPrinter = CliValuePrinter.of<EntityDefAny>((entity, fmt) => {
   return parts.join(', ')
 })
 
-const EntityRelationshipPrinter = CliValuePrinter.of<EntityRelationship>((r, fmt) => {
+const EntityRelationshipPrinter = Printer.define<EntityRelationship>((r, fmt) => {
   const card = r.cardinality === 'one' ? 'one' : 'many'
   return `  ${r.from}.${r.field} → ${r.to} (${card})`
 })
 
 export const SchemaPrinters = {
-  SchemaText: CliValuePrinter.of<Schema>((schema, fmt) => {
+  SchemaText: Printer.define<Schema>((schema, fmt) => {
     const lines: string[] = []
     lines.push(
       `${fmt.underline('Name:')} ${schema.namespace} (${schema.entities.length} entities, ${schema.roots.length} root${schema.roots.length !== 1 ? 's' : ''})`
@@ -59,10 +58,10 @@ export const SchemaPrinters = {
 
     return lines.join('\n')
   }),
-  SchemaJson: CliValuePrinter.of<Schema>((value, fmt) => {
+  SchemaJson: Printer.define<Schema>((value, fmt) => {
     return JSON.stringify(SchemaPrettyPrinter.jsonObject(value), null, 2)
   }),
-  SchemaJsonl: CliValuePrinter.of<Schema>((value, fmt) => {
+  SchemaJsonl: Printer.define<Schema>((value, fmt) => {
     return JSON.stringify(SchemaPrettyPrinter.jsonObject(value))
   }),
 }

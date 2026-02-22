@@ -30,7 +30,7 @@ const ansiFmt: Fmt = {
   normal(text) { return `\x1b[37m${text}${RESET}` },
 }
 
-const noopFmt: Fmt = {
+const plainFmt: Fmt = {
   isColor: false,
   dim: (t) => t,
   bold: (t) => t,
@@ -43,8 +43,8 @@ const noopFmt: Fmt = {
 
 export const Fmt = StaticTypeCompanion({
   ansi: ansiFmt as Fmt,
-  noop: noopFmt as Fmt,
+  plain: plainFmt as Fmt,
   usingColor(color: boolean): Fmt {
-    return color ? ansiFmt : noopFmt
+    return color ? ansiFmt : plainFmt
   },
 })

@@ -17,7 +17,8 @@ import {
   type HealthStatus,
   type StartResult,
   type StopResult,
-} from "@max/core"
+  Locator,
+} from '@max/core'
 import type { ConnectorRegistryEntry, OnboardingFlowAny } from "@max/connector"
 import type { InstallationInfo } from "../federation/installation-registry.js"
 import type { InstallationClient } from "./installation-client.js"
@@ -48,7 +49,7 @@ export class WorkspaceClientProxy implements WorkspaceClient {
     return this.rpc("listInstallations")
   }
 
-  installation(id: InstallationId): InstallationClient | undefined {
+  installation(id: InstallationId): InstallationClient {
     // Returns a proxy routed through this workspace's transport.
     // Every request from this proxy carries scope.installationId.
     const scopedTransport = new ScopedTransport(this.transport, { installationId: id })
@@ -62,8 +63,8 @@ export class WorkspaceClientProxy implements WorkspaceClient {
     return this.rpc('createInstallation', config)
   }
 
-  async connectInstallation(config: ConnectInstallationConfig): Promise<InstallationId> {
-    return this.rpc('connectInstallation', config)
+  async connectInstallation(id: InstallationId): Promise<InstallationId> {
+    return this.rpc('connectInstallation', id)
   }
 
   async removeInstallation(id: InstallationId): Promise<void> {

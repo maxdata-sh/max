@@ -54,7 +54,11 @@ describe("WorkspaceDispatcher", () => {
   test("routes createInstallation with config arg", async () => {
     const { dispatcher, calls } = setup()
 
-    const config: CreateInstallationConfig = { spec: { connector: "hubspot" as any } }
+    const config: CreateInstallationConfig = {
+      via: 'deployer1',
+      spec: { connector: "hubspot" as any },
+      config: {strategy: 'strategy-1'}
+    }
     const response = await dispatcher.dispatch(request("", "createInstallation", [config]))
     expect(response.ok).toBe(true)
     if (response.ok) expect(response.result).toBe("inst-new")

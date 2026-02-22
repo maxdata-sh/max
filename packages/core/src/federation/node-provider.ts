@@ -22,20 +22,13 @@
  * @typeParam TConfig - Provider-specific configuration for spawning
  */
 
-import type { Id } from "../brand.js"
-import type { Supervised } from "./supervised.js"
-import type { UnlabelledHandle } from "./node-handle.js"
+import type { Supervised } from './supervised.js'
+import type { UnlabelledHandle } from './node-handle.js'
+import { PlatformName } from '@max/federation'
 
-/**
- * Informational tag identifying the deployment strategy.
- * Soft-branded — string literals assign directly: `const kind: ProviderKind = "fs"`
- *
- * The Supervisor never branches on this. Used in health reports, logs, diagnostics.
- */
-export type ProviderKind = Id<"provider-kind">
-
+/** @deprecated: Trying to move everything to Deployer<R,TConfig> instead! */
 export interface NodeProvider<R extends Supervised, TConfig = unknown> {
-  readonly kind: ProviderKind
+  readonly platform: PlatformName
 
   /** Spawn or provision a new node. Returns an unlabelled handle (no ID). */
   create(config: TConfig): Promise<UnlabelledHandle<R>>

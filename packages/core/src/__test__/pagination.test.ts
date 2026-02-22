@@ -12,7 +12,7 @@ import { EntityDef } from "../entity-def.js";
 import { Field } from "../field.js";
 import { Ref } from "../ref.js";
 import { Scope } from "../scope.js";
-import type { EntityId, InstallationId } from "../ref-key.js";
+import { EntityId, InstallationId } from '../core-id-types.js'
 
 // ============================================================================
 // Test Helpers

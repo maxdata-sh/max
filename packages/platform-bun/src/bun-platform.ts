@@ -55,6 +55,7 @@ import {
   InstallationId,
   Printer,
   ResolverGraph,
+  type ResolverFactories,
   type Supervisor,
   type SyncMeta,
 } from '@max/core'
@@ -86,7 +87,7 @@ import * as os from 'node:os'
 // FIXME: No hardcoded module map
 const DEFAULT_MODULE_MAP: Record<string, string> = {
   acme: '@max/connector-acme',
-  linear: '@max/connector-acme',
+  linear: '@max/connector-linear',
 }
 
 // ============================================================================
@@ -347,8 +348,9 @@ export const BunPlatform = Platform.define({
       return new DefaultSupervisor(() => crypto.randomUUID() as string)
     },
   },
-  createGlobalMax() {
-    const deps = globalGraph.resolve({})
+  createGlobalMax(overrides?: Partial<ResolverFactories<GlobalGraphConfig, GlobalGraphDeps>>) {
+    const graph = overrides ? globalGraph.with(overrides) : globalGraph
+    const deps = graph.resolve({})
     return new GlobalMax({
       workspaceDeployer: this.workspace.registry,
       workspaceRegistry: deps.workspaceRegistry,

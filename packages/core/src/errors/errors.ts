@@ -117,3 +117,10 @@ export const ErrRootNotInEntities = Core.define("root_not_in_entities", {
   facets: [BadInput],
   message: (d) => `Root entity "${d.root}" is not in the entities list`,
 });
+
+/** Printer key has no registered implementation */
+export const ErrPrinterNotRegistered = Core.define("printer_not_registered", {
+  customProps: ErrFacet.props<{ key: string }>(),
+  facets: [NotFound],
+  message: (d) => `No printer registered for "${d.key}"`,
+});

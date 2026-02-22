@@ -269,11 +269,10 @@ class CLI {
     // GlobalMax + workspace supervisor + workspace registry.
     switch (_arg.sub) {
       case 'list': {
-        const printFormatter = this.getPrintFormatter(_color)
+        const printer = this.getPrintFormatter(_color)
         const g = await this.getGlobalMax()
         const w = await g.listWorkspaces()
-        // FIXME: Need a proper printer for workspace entries
-        return w.map(e => `${e.id} ${e.name} (${e.connectedAt})`).join('\n')
+        return printer.printList("workspace-info", w)
       }
     }
 
@@ -284,10 +283,10 @@ class CLI {
 
   // -- Shared utilities -------------------------------------------------------
 
-  private colorPrinter = new PrintFormatter(Fmt.ansi)
-  private plainPrinter = new PrintFormatter(Fmt.plain)
+  private colorPrinter = new PrintFormatter(Fmt.ansi, BunPlatform.printers)
+  private plainPrinter = new PrintFormatter(Fmt.plain, BunPlatform.printers)
 
-  private getPrintFormatter(color: boolean): PrintFormatter {
+  private getPrintFormatter(color: boolean) {
     return color ? this.colorPrinter : this.plainPrinter
   }
 

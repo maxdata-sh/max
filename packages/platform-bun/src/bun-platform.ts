@@ -42,6 +42,8 @@ import {
   WorkspaceClientProxy,
   WorkspaceRegistry,
   WorkspaceSpec,
+  type WorkspaceInfo,
+  type InstallationInfo,
 } from '@max/federation'
 import { Database } from 'bun:sqlite'
 import {
@@ -49,6 +51,7 @@ import {
   ErrConfigNotSupported,
   ErrNotSupported,
   InstallationId,
+  Printer,
   Schema,
   Supervisor,
   SyncMeta,
@@ -363,6 +366,14 @@ export const BunPlatform = Platform.define({
       inProcessWorkspaceDeployer,
       daemonWorkspaceDeployer,
     ]),
+  },
+  printers: {
+    "workspace-info": Printer.define<WorkspaceInfo>((ws, fmt) =>
+      `${fmt.bold(ws.name)} (${ws.id}) — connected ${ws.connectedAt}`
+    ),
+    "installation-info": Printer.define<InstallationInfo>((inst, fmt) =>
+      `${fmt.bold(inst.name)} [${inst.connector}] (${inst.id})`
+    ),
   },
   general: {
     createSupervisor(): Supervisor<any> {

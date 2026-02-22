@@ -20,6 +20,9 @@ export * from './dispatchers/index.js'
 // Platform
 export * from './platform/index.js'
 
+// Printable types
+export * from './printable-types.js'
+
 // Deployers
 export * from './deployers/index.js'
 export * from './config/index.js'

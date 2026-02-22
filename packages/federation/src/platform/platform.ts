@@ -2,6 +2,7 @@ import {InstallationDeployer, WorkspaceDeployer} from '../deployers/index.js'
 import {type DeployerKind, type Id, Supervisor} from '@max/core'
 import {DeployerRegistry} from "../deployers/deployer-registry.js";
 import {GlobalMax} from "../federation/index.js";
+import type {PlatformPrinters} from "../printable-types.js";
 
 /** The type for a config outside of our purview - lives with the provider/platform */
 export type UnknownConfig = Record<string,unknown>
@@ -29,6 +30,7 @@ export interface Platform {
   general: {
     createSupervisor(): Supervisor<any>
   }
+  printers?: PlatformPrinters
 }
 
 export class Platform {

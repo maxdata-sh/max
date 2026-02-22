@@ -271,8 +271,8 @@ class CLI {
       case 'list': {
         const printer = this.getPrintFormatter(_color)
         const g = await this.getGlobalMax()
-        const w = await g.listWorkspaces()
-        return printer.printList("workspace-info", w)
+        const w = await g.listWorkspacesFull()
+        return printer.printList("workspace-list-entry", w)
       }
     }
 

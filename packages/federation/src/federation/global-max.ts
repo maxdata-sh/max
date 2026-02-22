@@ -12,7 +12,7 @@
 
 import { type DeployerKind, HealthStatus, ISODateString, StartResult, StopResult, type WorkspaceId } from '@max/core'
 import type { WorkspaceClient } from '../protocols/index.js'
-import type { GlobalClient, WorkspaceInfo } from '../protocols/global-client.js'
+import type { GlobalClient, WorkspaceInfo, WorkspaceListEntry } from '../protocols/global-client.js'
 import { CreateWorkspaceArgs } from '../protocols/global-client.js'
 import { WorkspaceSupervisor } from './supervisors.js'
 
@@ -87,6 +87,15 @@ export class GlobalMax implements GlobalClient {
         config: item.config,
       })
     )
+  }
+
+  async listWorkspacesFull(): Promise<WorkspaceListEntry[]> {
+    const items = await this.listWorkspaces()
+    const aggregate = await this.workspaceSupervisor.health()
+    return items.map((item): WorkspaceListEntry => ({
+      ...item,
+      health: aggregate.children.get(item.id) ?? HealthStatus.unhealthy('not running'),
+    }))
   }
 
   removeWorkspace(id: WorkspaceId): Promise<void> {

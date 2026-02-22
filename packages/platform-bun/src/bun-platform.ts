@@ -43,6 +43,7 @@ import {
   WorkspaceRegistry,
   WorkspaceSpec,
   type WorkspaceInfo,
+  type WorkspaceListEntry,
   type InstallationInfo,
 } from '@max/federation'
 import { Database } from 'bun:sqlite'
@@ -369,10 +370,34 @@ export const BunPlatform = Platform.define({
   },
   printers: {
     "workspace-info": Printer.define<WorkspaceInfo>((ws, fmt) =>
-      `${fmt.bold(ws.name)} (${ws.id}) — connected ${ws.connectedAt}`
+      Printer.lines([
+        fmt.underline(ws.name),
+        `  ${fmt.normal('Id:')}    ${ws.id}`,
+        `  ${fmt.normal('Since:')} ${ws.connectedAt}`,
+      ])
     ),
+    "workspace-list-entry": Printer.define<WorkspaceListEntry>((ws, fmt) => {
+      const indicator =
+        ws.health.status === 'healthy' ? fmt.green('●') :
+        ws.health.status === 'degraded' ? fmt.yellow('●') :
+        fmt.yellow('○')
+      const label =
+        ws.health.status === 'healthy' ? fmt.green('healthy') :
+        ws.health.status === 'degraded' ? fmt.yellow(`degraded${ws.health.reason ? ` — ${ws.health.reason}` : ''}`) :
+        fmt.yellow('not connected')
+      return Printer.lines([
+        fmt.underline(ws.name),
+        `  ${fmt.normal('Id:')}     ${ws.id}`,
+        `  ${fmt.normal('Status:')} ${indicator} ${label}`,
+        `  ${fmt.normal('Since:')}  ${ws.connectedAt}`,
+      ])
+    }),
     "installation-info": Printer.define<InstallationInfo>((inst, fmt) =>
-      `${fmt.bold(inst.name)} [${inst.connector}] (${inst.id})`
+      Printer.lines([
+        `${fmt.underline(inst.name)} ${fmt.dim(`[${inst.connector}]`)}`,
+        `  ${fmt.normal('Id:')}    ${inst.id}`,
+        `  ${fmt.normal('Since:')} ${inst.connectedAt}`,
+      ])
     ),
   },
   general: {

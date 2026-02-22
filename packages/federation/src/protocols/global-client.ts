@@ -8,7 +8,7 @@
  * practice, the CLI or cloud control plane manages it directly).
  */
 
-import { type ConfigOf, type DeployerKind, ISODateString, Supervised, WorkspaceId } from '@max/core'
+import { type ConfigOf, type DeployerKind, HealthStatus, ISODateString, Supervised, WorkspaceId } from '@max/core'
 import {  WorkspaceClient } from './workspace-client.js'
 import {DeploymentConfig} from "../deployers/index.js";
 import {WorkspaceSpec} from "../config/index.js";
@@ -20,6 +20,11 @@ export interface WorkspaceInfo {
   readonly config: DeploymentConfig
 }
 
+/** WorkspaceInfo enriched with runtime health from the supervisor. */
+export interface WorkspaceListEntry extends WorkspaceInfo {
+  readonly health: HealthStatus
+}
+
 export interface CreateWorkspaceArgs<K extends DeployerKind = DeployerKind> {
   via: K
   config: ConfigOf<K>
@@ -28,6 +33,9 @@ export interface CreateWorkspaceArgs<K extends DeployerKind = DeployerKind> {
 
 export interface GlobalClient extends Supervised {
   listWorkspaces(): Promise<WorkspaceInfo[]>
+
+  /** List workspaces enriched with runtime health from the supervisor. */
+  listWorkspacesFull(): Promise<WorkspaceListEntry[]>
 
   /** Synchronous lookup of a single workspace by its parent-assigned ID. */
   workspace(id: WorkspaceId): WorkspaceClient | undefined

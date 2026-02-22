@@ -1,10 +1,11 @@
-import type { WorkspaceInfo } from './protocols/global-client.js'
+import type { WorkspaceInfo, WorkspaceListEntry } from './protocols/global-client.js'
 import type { InstallationInfo } from './federation/installation-registry.js'
 import type { HealthStatus, Printer } from '@max/core'
 
 /** Known domain types that platforms can provide printers for. */
 export interface PrintableTypes {
   "workspace-info": WorkspaceInfo
+  "workspace-list-entry": WorkspaceListEntry
   "installation-info": InstallationInfo
   "health": HealthStatus
 }

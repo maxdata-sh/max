@@ -160,7 +160,8 @@ describe('CLI smoke', () => {
       const res = await run('max://~', ['status'])
 
       expect(res.exitCode).toBe(0)
-      expect(res.stdout).toContain('~ (max://~)')
+      expect(res.stdout).toContain('Global:')
+      expect(res.stdout).toContain('max://~')
       expect(res.stdout).toContain('Status:')
     })
 

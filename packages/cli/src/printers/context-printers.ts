@@ -14,7 +14,11 @@ import type { WorkspaceListEntry, InstallationDescription } from '@max/federatio
 
 function contextHeader(url: MaxUrl, fmt: Fmt): string {
   const name = url.installation ?? url.workspace ?? url.host
-  return ` ${fmt.bold(name)} ${fmt.dim(`(${url})`)}`
+  const levelLabel =
+    url.level === 'global'       ? fmt.yellow('Global') :
+    url.level === 'workspace'    ? fmt.yellow('Project') :
+                                   fmt.yellow('Installation')
+  return `${levelLabel}: ${fmt.bold(name)} ${fmt.dim(`(${url})`)}`
 }
 
 function healthIndicator(health: HealthStatus, fmt: Fmt): string {
@@ -56,12 +60,16 @@ export interface LsGlobalView {
 }
 
 export const LsGlobalPrinter = Printer.define<LsGlobalView>((view, fmt) => {
+  const name = view.url.host
   const lines: string[] = [contextHeader(view.url, fmt), '']
 
   if (view.workspaces.length === 0) {
     lines.push('  No workspaces.')
     return Printer.lines(lines)
   }
+
+  lines.push(`${fmt.underline(`Workspaces:`)}`)
+  lines.push('')
 
   const rows = view.workspaces.map(ws => [
     ws.name,
@@ -84,12 +92,16 @@ export interface LsWorkspaceView {
 }
 
 export const LsWorkspacePrinter = Printer.define<LsWorkspaceView>((view, fmt) => {
+  const name = view.url.workspace ?? view.url.host
   const lines: string[] = [contextHeader(view.url, fmt), '']
 
   if (view.installations.length === 0) {
     lines.push('  No installations.')
     return Printer.lines(lines)
   }
+
+  lines.push(`${fmt.underline(`Installations:`)}`)
+  lines.push('')
 
   const rows = view.installations.map(inst => [
     inst.name,

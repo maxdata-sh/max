@@ -1,24 +1,5 @@
-
-// export const DaemonPrinters = {
-//   DaemonStatus: CliValuePrinter.of<ProjectDaemonStatus>((value, fmt) => {
-//     const lines: string[] = []
-//     if (value.alive) {
-//       lines.push(
-//         `${fmt.normal('Daemon:')}  ${fmt.green('● running')} ${fmt.dim(`(pid ${value.pid})`)}`
-//       )
-//       lines.push(`${fmt.normal('Socket:')}  ${value.socketPath}`)
-//     } else {
-//       lines.push(`${fmt.normal('Daemon:')}  ${fmt.yellow('○ not running')}`)
-//       if (value.staleSocket)
-//         lines.push(`${fmt.yellow('Warning:')} stale socket at ${value.socketPath}`)
-//     }
-//     lines.push(`${fmt.normal('Enabled:')} ${value.enabled ? fmt.green('✓ yes') : fmt.red('x no')}`)
-//     return lines.join('\n')
-//   }),
-
-
 import { Printer } from '@max/core'
-import { WorkspaceRegistryEntry } from '@max/federation'
+import { WorkspaceInfo, WorkspaceListEntry, WorkspaceRegistryEntry } from '@max/federation'
 
 export const WorkspaceEntryPrinter = Printer.define<WorkspaceRegistryEntry>((value, fmt) => {
   // const indicator =
@@ -36,5 +17,35 @@ export const WorkspaceEntryPrinter = Printer.define<WorkspaceRegistryEntry>((val
     fmt.underline(value.name),
     `  ${fmt.normal('Hash:')}   ${'no hash'}`,
     `  ${fmt.normal('Status:')} ${indicator} ${label}`,
+  ])
+})
+
+
+export const WorkspaceInfoPrinter = Printer.define<WorkspaceInfo>((ws, fmt) =>
+  Printer.lines([
+    fmt.underline(ws.name),
+    `  ${fmt.normal('Id:')}    ${ws.id}`,
+    `  ${fmt.normal('Since:')} ${ws.connectedAt}`,
+  ])
+)
+
+export const WorkspaceListEntryPrinter = Printer.define<WorkspaceListEntry>((ws, fmt) => {
+  const indicator =
+    ws.health.status === 'healthy'
+      ? fmt.green('●')
+      : ws.health.status === 'degraded'
+        ? fmt.yellow('●')
+        : fmt.yellow('○')
+  const label =
+    ws.health.status === 'healthy'
+      ? fmt.green('healthy')
+      : ws.health.status === 'degraded'
+        ? fmt.yellow(`degraded${ws.health.reason ? ` — ${ws.health.reason}` : ''}`)
+        : fmt.yellow('not connected')
+  return Printer.lines([
+    fmt.underline(ws.name),
+    `  ${fmt.normal('Id:')}     ${ws.id}`,
+    `  ${fmt.normal('Status:')} ${indicator} ${label}`,
+    `  ${fmt.normal('Since:')}  ${ws.connectedAt}`,
   ])
 })

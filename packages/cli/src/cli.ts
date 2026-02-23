@@ -34,6 +34,8 @@ import { CmdConnect } from './commands/connect-command.js'
 import { CmdSchemaInstallation, CmdSchemaWorkspace } from './commands/schema-command.js'
 import { CmdSyncInstallation, CmdSyncWorkspace } from './commands/sync-command.js'
 import { CmdDaemon } from './commands/daemon-command.js'
+import { CmdLsGlobal, CmdLsWorkspace } from './commands/ls-command.js'
+import { CmdStatusGlobal, CmdStatusWorkspace, CmdStatusInstallation } from './commands/status-command.js'
 import { Command } from './command.js'
 
 // ============================================================================
@@ -69,6 +71,8 @@ class GlobalCommands implements CommandBlock {
   all = makeLazy({
     init: () => new CmdInit(this.services),
     daemon: () => new CmdDaemon(this.services),
+    ls: () => new CmdLsGlobal(this.services),
+    status: () => new CmdStatusGlobal(this.services),
   })
 }
 
@@ -80,6 +84,8 @@ class WorkspaceCommands implements CommandBlock {
     connect: () => new CmdConnect(this.services),
     schema: () => new CmdSchemaWorkspace(this.services),
     sync: () => new CmdSyncWorkspace(this.services),
+    ls: () => new CmdLsWorkspace(this.services),
+    status: () => new CmdStatusWorkspace(this.services),
   })
 }
 
@@ -89,6 +95,7 @@ class InstallationCommands implements CommandBlock {
   all = makeLazy({
     schema: () => new CmdSchemaInstallation(this.services),
     sync: () => new CmdSyncInstallation(this.services),
+    status: () => new CmdStatusInstallation(this.services),
   })
 }
 
@@ -220,8 +227,12 @@ export class CLI {
       return this.suggest(req, commands)
     }
 
-    // Find command name
-    const commandName = findCommandName(argv)
+    // Find command name — bare `max` defaults to status
+    const rawName = findCommandName(argv)
+    const commandName = rawName ?? (argv.length === 0 ? 'status' : undefined)
+    const commandArgv = rawName ? argv : ['status']
+
+    // Only flags, no command (e.g. `max --help`) → legacy help
     if (!commandName) return this.executeLegacy(req, color, commands)
 
     let command: Command
@@ -236,7 +247,7 @@ export class CLI {
     }
 
     // Parse + execute
-    const parsed = await parseAndValidateArgs(command.parser.get, 'max', argv, color)
+    const parsed = await parseAndValidateArgs(command.parser.get, 'max', commandArgv, color)
     if (!parsed.ok) return parsed.response
 
     const result = await command.run(parsed.value, { color, prompter })

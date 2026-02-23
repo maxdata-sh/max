@@ -128,6 +128,76 @@ describe('CLI smoke', () => {
     })
   })
 
+  describe('ls', () => {
+    test('global level — lists workspaces', async () => {
+      const { run } = await createTestCli()
+      const res = await run('max://~', ['ls'])
+
+      expect(res.exitCode).toBe(0)
+      expect(res.stdout).toContain('test-project')
+      expect(res.stdout).toContain('max://~/test-project')
+    })
+
+    test('workspace level — lists installations', async () => {
+      const { run } = await createTestCli()
+      const res = await run('max://~/test-project', ['ls'])
+
+      expect(res.exitCode).toBe(0)
+      expect(res.stdout).toContain('default')
+      expect(res.stdout).toContain('max://~/test-project/default')
+    })
+
+    test('installation level → not available', async () => {
+      const { run } = await createTestCli()
+      const res = await run('max://~/test-project/default', ['ls'])
+      expect(res.exitCode).toBe(1)
+    })
+  })
+
+  describe('status', () => {
+    test('global level', async () => {
+      const { run } = await createTestCli()
+      const res = await run('max://~', ['status'])
+
+      expect(res.exitCode).toBe(0)
+      expect(res.stdout).toContain('~ (max://~)')
+      expect(res.stdout).toContain('Status:')
+    })
+
+    test('workspace level', async () => {
+      const { run } = await createTestCli()
+      const res = await run('max://~/test-project', ['status'])
+
+      expect(res.exitCode).toBe(0)
+      expect(res.stdout).toContain('test-project')
+      expect(res.stdout).toContain('Status:')
+      expect(res.stdout).toContain('default')
+    })
+
+    test('installation level', async () => {
+      const { run } = await createTestCli()
+      const res = await run('max://~/test-project/default', ['status'])
+
+      expect(res.exitCode).toBe(0)
+      expect(res.stdout).toContain('default')
+      expect(res.stdout).toContain('Connector:')
+      expect(res.stdout).toContain('acme')
+    })
+
+    test('bare invocation defaults to status', async () => {
+      const { cli } = await createTestCli()
+      const res = await cli.execute({
+        kind: 'run',
+        argv: ['-t', 'max://~/test-project'],
+        color: false,
+      })
+
+      expect(res.exitCode).toBe(0)
+      expect(res.stdout).toContain('test-project')
+      expect(res.stdout).toContain('Status:')
+    })
+  })
+
   describe('daemon', () => {
     test('list at global level', async () => {
       const { run } = await createTestCli()

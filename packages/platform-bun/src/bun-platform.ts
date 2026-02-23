@@ -95,6 +95,8 @@ import { FsWorkspaceRegistry } from './services/fs-workspace-registry.js'
 import { InProcessDeployer } from './deployers/general/inprocess-deployer.js'
 import { DaemonDeployer } from './deployers/general/daemon-deployer.js'
 import * as os from 'node:os'
+import { WorkspaceInfoPrinter, WorkspaceListEntryPrinter } from './printers/workspace-printers.js'
+import {InstallationInfoPrinter} from "./printers/installation-printers.js";
 
 // ============================================================================
 // Constants
@@ -414,36 +416,9 @@ export const BunPlatform = Platform.define({
     registry: defaultPipeline.wsRegistry,
   },
   printers: {
-    "workspace-info": Printer.define<WorkspaceInfo>((ws, fmt) =>
-      Printer.lines([
-        fmt.underline(ws.name),
-        `  ${fmt.normal('Id:')}    ${ws.id}`,
-        `  ${fmt.normal('Since:')} ${ws.connectedAt}`,
-      ])
-    ),
-    "workspace-list-entry": Printer.define<WorkspaceListEntry>((ws, fmt) => {
-      const indicator =
-        ws.health.status === 'healthy' ? fmt.green('●') :
-        ws.health.status === 'degraded' ? fmt.yellow('●') :
-        fmt.yellow('○')
-      const label =
-        ws.health.status === 'healthy' ? fmt.green('healthy') :
-        ws.health.status === 'degraded' ? fmt.yellow(`degraded${ws.health.reason ? ` — ${ws.health.reason}` : ''}`) :
-        fmt.yellow('not connected')
-      return Printer.lines([
-        fmt.underline(ws.name),
-        `  ${fmt.normal('Id:')}     ${ws.id}`,
-        `  ${fmt.normal('Status:')} ${indicator} ${label}`,
-        `  ${fmt.normal('Since:')}  ${ws.connectedAt}`,
-      ])
-    }),
-    "installation-info": Printer.define<InstallationInfo>((inst, fmt) =>
-      Printer.lines([
-        `${fmt.underline(inst.name)} ${fmt.dim(`[${inst.connector}]`)}`,
-        `  ${fmt.normal('Id:')}    ${inst.id}`,
-        `  ${fmt.normal('Since:')} ${inst.connectedAt}`,
-      ])
-    ),
+    'workspace-info': WorkspaceInfoPrinter,
+    'workspace-list-entry': WorkspaceListEntryPrinter,
+    'installation-info': InstallationInfoPrinter,
   },
   general: {
     createSupervisor(): Supervisor<any> {
@@ -451,7 +426,8 @@ export const BunPlatform = Platform.define({
     },
   },
   createGlobalMax(overrides?: PlatformOverrides) {
-    const hasLevelOverrides = overrides?.workspace || overrides?.installation || overrides?.ephemeral
+    const hasLevelOverrides =
+      overrides?.workspace || overrides?.installation || overrides?.ephemeral
     const gGraph = overrides?.global ? globalGraph.with(overrides.global) : globalGraph
     const deps = gGraph.resolve({ ephemeral: overrides?.ephemeral })
 

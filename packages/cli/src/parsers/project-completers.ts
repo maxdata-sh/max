@@ -1,4 +1,4 @@
-import { LazyX, makeLazy, makeLazyF} from '@max/core'
+import { makeLazy } from '@max/core'
 import { ValueParser, type ValueParserResult } from '@optique/core/valueparser'
 import type { Suggestion } from '@optique/core/parser'
 import { message, text } from '@optique/core/message'
@@ -11,13 +11,12 @@ export class ProjectCompleters {
 
     /** Completer for connector names (sources) */
     connectorSource: (): ValueParser<'async', string> => {
-      const getWorkspace = this.workspaceThunk
+      const self = this
       return {
         $mode: 'async',
         metavar: 'SOURCE',
         async parse(input: string): Promise<ValueParserResult<string>> {
-          const ws = await getWorkspace()
-          return ws.connectorSchema(input).then(
+          return self.workspace.connectorSchema(input).then(
             () => ({ success: true, value: input }),
             (e): ValueParserResult<string> => {
               if (ErrConnectorNotFound.is(e)) {
@@ -32,8 +31,7 @@ export class ProjectCompleters {
           return value
         },
         async *suggest(): AsyncGenerator<Suggestion> {
-          const ws = await getWorkspace()
-          const sources = await ws.listConnectors()
+          const sources = await self.workspace.listConnectors()
           for (const source of sources) {
             yield { kind: 'literal', text: source.name, description: message`${source.name}` }
           }
@@ -43,14 +41,12 @@ export class ProjectCompleters {
 
     /** Completer for installed connectors */
     installedConnectorSource: (): ValueParser<'async', string> => {
-      const getWorkspace = this.workspaceThunk
-      const fmt = this.fmt
+      const self = this
       return {
         $mode: 'async',
         metavar: 'CONNECTOR',
         async parse(input: string): Promise<ValueParserResult<string>> {
-          const ws = await getWorkspace()
-          return ws.connectorSchema(input).then(
+          return self.workspace.connectorSchema(input).then(
             () => ({ success: true, value: input }),
             (e): ValueParserResult<string> => {
               if (ErrConnectorNotFound.is(e)) {
@@ -65,9 +61,8 @@ export class ProjectCompleters {
           return value
         },
         async *suggest(): AsyncGenerator<Suggestion> {
-          const ws = await getWorkspace()
-          const connectors = await ws.listConnectors()
-          const installations = await ws.listInstallations()
+          const connectors = await self.workspace.listConnectors()
+          const installations = await self.workspace.listInstallations()
           const installed = new Set(installations.map((i) => i.connector))
 
           for (const c of connectors) {
@@ -80,7 +75,7 @@ export class ProjectCompleters {
               yield {
                 kind: 'literal',
                 text: c.name,
-                description: message`${text(fmt.red('\u2717'))} no installations`,
+                description: message`${text(self.fmt.red('\u2717'))} no installations`,
               }
             }
           }
@@ -90,8 +85,7 @@ export class ProjectCompleters {
 
     /** Completer for installation names */
     installationName: (): ValueParser<'async', string> => {
-      const getWorkspace = this.workspaceThunk
-      const fmt = this.fmt
+      const self = this
       return {
         $mode: 'async',
         metavar: 'NAME',
@@ -102,19 +96,22 @@ export class ProjectCompleters {
           return value
         },
         async *suggest(): AsyncGenerator<Suggestion> {
-          const ws = await getWorkspace()
-          const installations = await ws.listInstallations()
+          const installations = await self.workspace.listInstallations()
           for (const inst of installations) {
             yield {
               kind: 'literal',
               text: inst.name,
-              description: message`${text(fmt.dim(inst.connector))}:${inst.name}`,
+              description: message`${text(self.fmt.dim(inst.connector))}:${inst.name}`,
             }
           }
         },
       }
     },
   })
+
+  get workspace(){
+    return this.lazyInput.workspace
+  }
 
   get connectorSource() {
     return this.lazy.connectorSource
@@ -130,7 +127,10 @@ export class ProjectCompleters {
   }
 
   constructor(
-    private workspaceThunk: () => Promise<WorkspaceClient>,
+    // nested to allow laziness
+    private lazyInput:{
+      workspace: WorkspaceClient,
+    },
     private fmt: Fmt
   ) {}
 }

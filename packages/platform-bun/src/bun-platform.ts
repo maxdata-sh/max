@@ -221,7 +221,8 @@ export const workspaceGraph = ResolverGraph.define<WorkspaceGraphConfig, Workspa
       case 'in-memory':
         return cfg
       case 'fs':
-        return { type: 'max-json' as const, maxJsonPath: path.join(cfg.workspaceRoot ?? c.dataDir, 'max.json') }
+        // FIXME: I don't think dataDir is helping us. We should resolve max.json path at the root config. And probably ditch "dataDir" entirely - it's too confusing (what is it? The project root? The .max folder? it depends on what context we're in)
+        return { type: 'max-json' as const, maxJsonPath: path.join(cfg.workspaceRoot ?? path.dirname(c.dataDir), 'max.json') }
       default:
         throw ErrConfigNotSupported.create({ kind: 'installationRegistry', config: cfg })
     }

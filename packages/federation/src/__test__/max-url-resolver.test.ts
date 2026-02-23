@@ -67,7 +67,7 @@ describe('MaxUrlResolver', async () => {
     const result = resolver.resolve(MaxUrl.parse('max://~'))
 
     expect(result.level).toBe('global')
-    expect(result.client).toBeDefined()
+    expect(result.global).toBeDefined()
   })
 
   test('max://~/my-team → workspace level, returns WorkspaceClient + correct ID', () => {
@@ -76,7 +76,8 @@ describe('MaxUrlResolver', async () => {
     expect(result.level).toBe('workspace')
     if (result.level === 'workspace') {
       expect(result.id).toBe(workspaceId)
-      expect(result.client).toBeDefined()
+      expect(result.global).toBeDefined()
+      expect(result.workspace).toBeDefined()
     }
   })
 
@@ -96,7 +97,9 @@ describe('MaxUrlResolver', async () => {
     if (result.level === 'installation') {
       expect(result.id).toBe(installationId)
       expect(result.workspaceId).toBe(workspaceId)
-      expect(result.client).toBeDefined()
+      expect(result.global).toBeDefined()
+      expect(result.workspace).toBeDefined()
+      expect(result.installation).toBeDefined()
     }
   })
 

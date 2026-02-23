@@ -85,7 +85,7 @@ export interface ErrorDef<
   readonly code: string;
   readonly domain: string;
   readonly facets: Fs;
-  create(data: MergeFacetProps<Fs> & D, context?: string, cause?: MaxError): MaxError<Fs>;
+  create(data: MergeFacetProps<Fs> & D, context?: string, cause?: Error): MaxError<Fs>;
   is(err: unknown): err is MaxError<Fs> & { readonly data: MergeFacetProps<Fs> & D };
 
   /** Intent wrap: run fn, if it throws, wrap the error in this ErrorDef */
@@ -314,7 +314,7 @@ function defineError<const Fs extends readonly ErrFacetAny[], D extends Record<s
 ): ErrorDef<Fs, D> {
   const facetNames = Object.freeze(new Set(opts.facets.map((f) => f.name)));
 
-  function create(data: MergeFacetProps<Fs> & D, context?: string, cause?: MaxError): MaxError<Fs> {
+  function create(data: MergeFacetProps<Fs> & D, context?: string, cause?: Error): MaxError<Fs> {
     const message = opts.message(data);
     const err = new MaxErrorImpl(
       fullCode,
@@ -323,7 +323,7 @@ function defineError<const Fs extends readonly ErrFacetAny[], D extends Record<s
       facetNames,
       data as Record<string, unknown>,
       context,
-      cause as MaxErrorImpl | undefined,
+      cause && MaxError.wrap(cause),
     ) as unknown as MaxError<Fs>;
     Error.captureStackTrace(err, create)
     return err

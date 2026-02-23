@@ -10,6 +10,9 @@ export type { InstallationClient, InstallationDescription } from "./installation
 export type { WorkspaceClient, CreateInstallationConfig, ConnectInstallationConfig } from "./workspace-client.js"
 export type { GlobalClient, CreateWorkspaceArgs, WorkspaceInfo, WorkspaceListEntry } from "./global-client.js"
 
+// Connecting clients (lazy wrappers)
+export { ConnectingInstallationClient } from "./connecting-installation-client.js"
+
 // Client proxies
 export { InstallationClientProxy } from "./installation-client-proxy.js"
 export { WorkspaceClientProxy } from "./workspace-client-proxy.js"

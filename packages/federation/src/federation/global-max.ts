@@ -71,7 +71,7 @@ export class GlobalMax implements GlobalClient {
 
         // Level 0: Global
         if (url.level === 'global') {
-          return { level: 'global', client: this }
+          return { level: 'global', global: this }
         }
 
         // Level 1: Workspace
@@ -81,7 +81,7 @@ export class GlobalMax implements GlobalClient {
         }
 
         if (url.level === 'workspace') {
-          return { level: 'workspace', client: ws.client, id: ws.id }
+          return { level: 'workspace', global: this, workspace: ws.client, id: ws.id }
         }
 
         // Level 2: Installation (delegate to workspace's name lookup)
@@ -98,7 +98,7 @@ export class GlobalMax implements GlobalClient {
           })
         }
 
-        return { level: 'installation', client: inst.client, id: inst.id, workspaceId: ws.id }
+        return { level: 'installation', global: this, workspace: ws.client, installation: inst.client, id: inst.id, workspaceId: ws.id }
       },
     }
   }

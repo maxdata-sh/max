@@ -1,0 +1,133 @@
+/**
+ * CLI harness — process-level entry point.
+ *
+ * Handles subprocess mode, daemon mode, and direct mode. All
+ * process-level concerns (argv parsing, PID files, socket server,
+ * process.exit) live here. The CLI class in cli.ts is pure logic.
+ */
+
+import { BunPlatform, ErrDaemonDisabled, GlobalConfig, ProjectConfig } from '@max/platform-bun'
+import { flag, parseSync, passThrough } from '@optique/core'
+import { object } from '@optique/core/constructs'
+import { option } from '@optique/core/primitives'
+import { withDefault } from '@optique/core/modifiers'
+import { string } from '@optique/core/valueparser'
+import * as fs from 'node:fs'
+
+import { MaxError } from '@max/core'
+import { createSocketServer } from './socket-server.js'
+import { CliRequest } from './types.js'
+import { runSubprocess, subprocessParsers } from './subprocess-entry.js'
+import * as util from 'node:util'
+import { CLI } from './cli.js'
+
+export async function main() {
+  // ---- Subprocess mode — early exit if --subprocess is present ----
+
+  const subprocessParsed = parseSync(subprocessParsers, process.argv.slice(2))
+  if (subprocessParsed.success && subprocessParsed.value.subprocess) {
+    await runSubprocess(subprocessParsed.value)
+    return
+  }
+
+  // ---- Normal CLI mode ----
+
+  const rustShimParsers = object({
+    devMode: withDefault(flag('--dev-mode'), () => process.env.MAX_DEV_MODE === 'true'),
+    projectRoot: withDefault(option('--project-root', string()), () => process.cwd()),
+    daemonized: withDefault(flag('--daemonized'), false),
+    maxCommand: passThrough({ format: 'greedy' }),
+  })
+
+  const parsed = parseSync(rustShimParsers, process.argv.slice(2))
+
+  if (!parsed.success) {
+    console.error('Unexpected error')
+    throw new Error(parsed.error.join('\n'))
+  }
+
+  const cfg = new GlobalConfig({
+    devMode: parsed.value.devMode,
+    workspaceRoot: parsed.value.projectRoot,
+    cwd: process.cwd(),
+    mode: parsed.value.daemonized ? 'daemon' : 'direct',
+  })
+
+  const cli = new CLI(cfg)
+
+  if (cfg.mode === 'daemon') {
+    if (!cfg.workspaceRoot) {
+      console.error('Cannot daemonize without a project root')
+      process.exit(1)
+    }
+
+    const projectConfig = new ProjectConfig(cfg, { projectRootFolder: cfg.workspaceRoot })
+    const daemonPaths = projectConfig.paths.daemon
+
+    // Guard: check if daemon is disabled
+    if (fs.existsSync(daemonPaths.disabled)) {
+      console.error(ErrDaemonDisabled.create({}).prettyPrint({ color: cfg.useColor }))
+      process.exit(1)
+    }
+
+    // Guard: check if daemon is already running (read PID, check liveness)
+    try {
+      const pidRaw = fs.readFileSync(daemonPaths.pid, 'utf-8').trim()
+      const existingPid = parseInt(pidRaw, 10)
+      if (!isNaN(existingPid)) {
+        try {
+          process.kill(existingPid, 0) // signal 0 = liveness check
+          console.error(`Daemon already running (pid ${existingPid})`)
+          process.exit(0)
+        } catch {
+          // Process not alive — stale PID file, continue startup
+        }
+      }
+    } catch {
+      // No PID file — continue startup
+    }
+
+    // Write our own PID
+    fs.mkdirSync(daemonPaths.root, { recursive: true })
+    fs.writeFileSync(daemonPaths.pid, String(process.pid))
+
+    // Start GlobalMax eagerly — reconcile persisted workspaces before accepting requests
+    const globalMax = await cli.lazy.globalStarted
+    const workspaces = await globalMax.listWorkspaces()
+    console.log(`Reconciled ${workspaces.length} workspace(s)`)
+
+    createSocketServer({
+      socketPath: daemonPaths.socket,
+      handler: (req, prompter) =>
+        cli.execute(req, prompter).catch((err) => {
+          const color = req.color ?? false
+          const msg = MaxError.isMaxError(err) ? err.prettyPrint({ color }) : util.inspect(err)
+          return { stderr: `${msg}\n`, exitCode: 1 }
+        }),
+    })
+
+    console.log(`Max daemon listening on ${daemonPaths.socket}`)
+  } else {
+    // ---- Direct mode ----
+
+    const req: CliRequest = {
+      kind: 'run',
+      argv: parsed.value.maxCommand,
+      cwd: process.cwd(),
+      color: cfg.useColor,
+    }
+
+    await cli.execute(req).then(
+      (response) => {
+        if (response.completionOutput) process.stdout.write(response.completionOutput)
+        if (response.stdout) process.stdout.write(response.stdout)
+        if (response.stderr) process.stderr.write(response.stderr)
+        process.exit(response.exitCode)
+      },
+      (err) => {
+        console.error(err)
+        process.exit(1)
+      }
+    )
+  }
+}

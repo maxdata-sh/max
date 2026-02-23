@@ -2,11 +2,14 @@ import { group, or } from '@optique/core/constructs'
 import { InferValue, suggestAsync } from '@optique/core/parser'
 import { run } from '@optique/run'
 import { defineProgram } from '@optique/core/program'
-import { daemonCommand } from '../commands/daemon-command.js'
-import { initCommand } from '../commands/init-command.js'
+import { command, constant } from '@optique/core/primitives'
 import { message } from '@optique/core/message'
 
-const parser = group('top', or(daemonCommand, initCommand))
+// Minimal parsers for playground testing
+const daemonParser = command('daemon', constant('daemon'), { description: message`Manage daemon` })
+const initParser = command('init', constant('init'), { description: message`Initialize project` })
+
+const parser = group('top', or(daemonParser, initParser))
 
 // TypeScript creates a perfect discriminated union
 type GitCommand = InferValue<typeof parser>

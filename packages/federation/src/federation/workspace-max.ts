@@ -36,6 +36,8 @@ import {
   ErrInstallationNotFound,
 } from '../errors/errors.js'
 import {DeployerRegistry, DeploymentConfig} from "../deployers/index.js";
+import { ConnectingInstallationClient } from '../protocols/connecting-installation-client.js'
+import type { InstallationRegistryEntry } from './installation-registry.js'
 
 export type WorkspaceMaxConstructable = {
   installationSupervisor: InstallationSupervisor
@@ -88,13 +90,16 @@ export class WorkspaceMax implements WorkspaceClient {
     )
   }
 
-  // FIXME: These are strange ergonomics. We need to smooth how "connect" "create" and "installation()" are used
   installation(id: InstallationId): InstallationClient {
+    // Return live handle if already supervised
     const handle = this.supervisor.get(id)
-    if (!handle){
-      throw ErrInstallationHandleNotFound.create({installation: id})
-    }
-    return handle.client
+    if (handle) return handle.client
+
+    // Return connecting client if in registry (will deploy + start on first use)
+    const entry = this.installationRegistry.get(id)
+    if (entry) return this.connectingClient(entry)
+
+    throw ErrInstallationHandleNotFound.create({ installation: id })
   }
 
   installationByNameOrId(nameOrId: string): { id: InstallationId; client: InstallationClient } | undefined {
@@ -102,14 +107,33 @@ export class WorkspaceMax implements WorkspaceClient {
     const byName = this.installationRegistry.list().find(e => e.name === nameOrId)
     if (byName) {
       const handle = this.supervisor.get(byName.id)
-      if (handle) return { id: byName.id, client: handle.client }
+      return { id: byName.id, client: handle ? handle.client : this.connectingClient(byName) }
     }
 
-    // Fall back to ID
-    const handle = this.supervisor.get(nameOrId as InstallationId)
-    if (handle) return { id: nameOrId as InstallationId, client: handle.client }
+    // Fall back to ID via supervisor
+    const handle = this.supervisor.get(nameOrId)
+    if (handle) return { id: nameOrId, client: handle.client }
+
+    // Fall back to ID via registry
+    const byId = this.installationRegistry.get(nameOrId)
+    if (byId) return { id: byId.id, client: this.connectingClient(byId) }
 
     return undefined
+  }
+
+  /** Create a connecting client that deploys + starts an installation on first async call. */
+  private connectingClient(entry: InstallationRegistryEntry): InstallationClient {
+    return new ConnectingInstallationClient(async () => {
+      // Check if another connecting client already started this installation
+      const existing = this.supervisor.get(entry.id)
+      if (existing) return existing.client
+
+      const deployer = this.installationDeployer.get(entry.deployment.strategy)
+      const unlabelled = await deployer.connect(entry.deployment, entry.spec)
+      const handle = this.supervisor.register(unlabelled, entry.id)
+      await handle.client.start()
+      return handle.client
+    })
   }
 
   async createInstallation<K extends DeployerKind>(config: CreateInstallationConfig<K>): Promise<InstallationId> {
@@ -196,10 +220,12 @@ export class WorkspaceMax implements WorkspaceClient {
   }
 
   async start(): Promise<StartResult> {
+    // Start any installations already in the supervisor (e.g. created this session).
+    // Persisted installations are NOT eagerly reconciled — they connect lazily
+    // on first use via ConnectingInstallationClient.
     const handles = this.supervisor.list()
     for (const handle of handles) {
       const result = await handle.client.start()
-      // FIXME: We need to log / throw errors if start has failures
       if (result.outcome === 'error' || result.outcome === 'refused') {
         const reason = result.outcome === 'error' ? result.error : result.reason
         console.warn(

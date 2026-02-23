@@ -100,6 +100,17 @@ export const ErrDeployerNotAvailable = AppBoundary.define('deployer_not_availabl
 })
 
 // ============================================================================
+// Connecting Client Errors
+// ============================================================================
+
+/** Sync property accessed on a connecting client before connection was triggered. */
+export const ErrClientNotConnected = AppBoundary.define('client_not_connected', {
+  customProps: ErrFacet.props<{ member: string }>(),
+  facets: [NotAvailable],
+  message: (d) => `"${d.member}" requires a connected client — call an async method first to trigger connection`,
+})
+
+// ============================================================================
 // URL Resolution Errors
 // ============================================================================
 

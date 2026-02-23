@@ -122,7 +122,10 @@ export function makeLazy<T extends object>(fields: FieldBuilders<T>): T {
       }
 
       return cache[prop]
-    }
+    },
+    has(target, prop) {
+      return prop in fields
+    },
   })
   return proxy
 }

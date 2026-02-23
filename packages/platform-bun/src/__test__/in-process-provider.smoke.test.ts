@@ -6,7 +6,9 @@ import * as fs from "node:fs";
 
 describe('in-process-provider', () => {
   test('smoke test — ephemeral workspace with in-process installation', async () => {
-    const global = BunPlatform.createGlobalMax()
+    const global = BunPlatform.createGlobalMax({
+      ephemeral: true
+    })
     await global.start()
 
     const dir = fs.mkdtempSync('/tmp/max-acme')

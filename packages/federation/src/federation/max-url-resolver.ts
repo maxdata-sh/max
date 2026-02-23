@@ -24,9 +24,9 @@ import {
 // ============================================================================
 
 export type ResolvedTarget =
-  | { level: 'global'; client: GlobalClient }
-  | { level: 'workspace'; client: WorkspaceClient; id: WorkspaceId }
-  | { level: 'installation'; client: InstallationClient; id: InstallationId; workspaceId: WorkspaceId }
+  | { level: 'global'; global: GlobalClient }
+  | { level: 'workspace'; global: GlobalClient; workspace: WorkspaceClient; id: WorkspaceId }
+  | { level: 'installation'; global: GlobalClient; workspace: WorkspaceClient; installation: InstallationClient; id: InstallationId; workspaceId: WorkspaceId }
 
 // ============================================================================
 // MaxUrlResolver Interface

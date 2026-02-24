@@ -107,8 +107,8 @@
         "@max/core": "workspace:*",
         "@max/federation": "workspace:*",
         "@max/platform-bun": "workspace:*",
-        "@optique/core": "0.10.3",
-        "@optique/run": "0.10.3",
+        "@optique/core": "0.10.6",
+        "@optique/run": "0.10.6",
         "yargs-parser": "^21.1.1",
       },
       "devDependencies": {
@@ -262,9 +262,9 @@
 
     "@max/storage-sqlite": ["@max/storage-sqlite@workspace:packages/storage-sqlite"],
 
-    "@optique/core": ["@optique/core@0.10.3", "", {}, "sha512-lLmQs632NTZNgIOC2QCi7vpXq8ZDJ2IiJce3o4tM4jxCo3JZk1tyh4iAAeTS6/Htqt83r7LiBIQQTmLc5Q9wMQ=="],
+    "@optique/core": ["@optique/core@0.10.6", "", {}, "sha512-H/E0oqLm1FVFoAp4a4LH1w0P7hG1LSXRC2kpYqxmHy1rv8pypTjs0il8joK+/GFXRIFCyoEw3Cj0YClw7mZ7RQ=="],
 
-    "@optique/run": ["@optique/run@0.10.3", "", { "dependencies": { "@optique/core": "0.10.3" } }, "sha512-S/zJooDMrKQDKg7tyMmEXyyMhgyKQ2/+uK+soSBMDxGZMbSoZ5U4M82dQhx1+Z5nXga7JSL/iV9fHHNVGN775g=="],
+    "@optique/run": ["@optique/run@0.10.6", "", { "dependencies": { "@optique/core": "0.10.6" } }, "sha512-MWnB2iOUtahzGXkWZDqvJJR5mt0WtE0ut9A3zUpwB25MjKK2e7MgiLjfTSmCYpWYUxE2Pw2YEvbqUbd64M6Gnw=="],
 
     "@types/bun": ["@types/bun@1.3.6", "", { "dependencies": { "bun-types": "1.3.6" } }, "sha512-uWCv6FO/8LcpREhenN1d1b6fcspAB+cefwD7uti8C8VffIv0Um08TKMn98FynpTiU38+y2dUO55T11NgDt8VAA=="],
 

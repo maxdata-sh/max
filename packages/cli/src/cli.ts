@@ -23,7 +23,12 @@ import { CliRequest, CliResponse } from './types.js'
 import { parseAndValidateArgs } from './argv-parser.js'
 import { type Prompter } from './prompter.js'
 import { toContext, ContextAt } from './resolved-context.js'
-import { detectCwdContext, cwdToMaxUrl, normalizeGlobalFlag, createLevelResolver } from './resolve-context.js'
+import {
+  detectCwdContext,
+  cwdToMaxUrl,
+  normalizeGlobalFlag,
+  createLevelResolver,
+} from './resolve-context.js'
 import { CliServices } from './cli-services.js'
 import { createTargetCompleter } from './parsers/target-completer.js'
 

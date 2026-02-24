@@ -36,7 +36,11 @@ export function detectCwdContext(cwd: string): CwdContext {
     const installationName = installationMatch[1]
     const workspaceRoot = findProjectRoot(cwd)
     if (workspaceRoot) {
-      return { level: 'installation', workspaceName: path.basename(workspaceRoot), installationName }
+      return {
+        level: 'installation',
+        workspaceName: path.basename(workspaceRoot),
+        installationName,
+      }
     }
   }
 
@@ -54,7 +58,7 @@ export function detectCwdContext(cwd: string): CwdContext {
 
 /** Rewrite -g → -t ~ so optique handles both as one option. */
 export function normalizeGlobalFlag(argv: readonly string[]): string[] {
-  const hasTarget = argv.some(a => a === '-t' || a === '--target')
+  const hasTarget = argv.some((a) => a === '-t' || a === '--target')
   const result: string[] = []
   for (const arg of argv) {
     if ((arg === '-g' || arg === '--global') && !hasTarget) {
@@ -73,9 +77,12 @@ export function normalizeGlobalFlag(argv: readonly string[]): string[] {
 /** Convert a CwdContext to a MaxUrl. */
 export function cwdToMaxUrl(ctx: CwdContext): MaxUrl {
   switch (ctx.level) {
-    case 'global':       return MaxUrl.global()
-    case 'workspace':    return MaxUrl.forWorkspace(ctx.workspaceName)
-    case 'installation': return MaxUrl.forInstallation(ctx.workspaceName, ctx.installationName)
+    case 'global':
+      return MaxUrl.global()
+    case 'workspace':
+      return MaxUrl.forWorkspace(ctx.workspaceName)
+    case 'installation':
+      return MaxUrl.forInstallation(ctx.workspaceName, ctx.installationName)
   }
 }
 
@@ -92,16 +99,21 @@ export function createLevelResolver(
   globalMax: GlobalMax,
   cwd: string,
   ctxRef: { current: ResolvedContext },
-  completer: { suggest?(prefix: string): AsyncIterable<Suggestion> },
+  completer: { suggest?(prefix: string): AsyncIterable<Suggestion> }
 ): ValueParser<'async', MaxUrlLevel> {
   return {
     $mode: 'async',
     metavar: 'TARGET',
 
     async parse(input: string): Promise<ValueParserResult<MaxUrlLevel>> {
-      const url = input.startsWith('max://') ? MaxUrl.parse(input)
-               : input === '~'               ? MaxUrl.global()
-               :                                cwdToMaxUrl(detectCwdContext(cwd)).child(input)
+      const url = input.startsWith('max://')
+        ? MaxUrl.parse(input)
+        : input === '~'
+          ? MaxUrl.global()
+          :  input.split('/').filter(Boolean).reduce(
+            (u,seg) => u.child(seg),
+            cwdToMaxUrl(detectCwdContext(cwd))
+          )
       const target = globalMax.maxUrlResolver().resolve(url)
       ctxRef.current = toContext(target, url)
       return { success: true, value: ctxRef.current.level }

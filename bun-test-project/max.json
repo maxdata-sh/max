@@ -17,9 +17,6 @@
         "connectorConfig": {
           "workspaceId": "1",
           "baseUrl": "none"
-        },
-        "initialCredentials": {
-          "api_token": "123"
         }
       }
     },
@@ -37,9 +34,23 @@
         "connectorConfig": {
           "baseUrl": "http://localhost:49441",
           "workspaceId": "ws_52797b5c7d6e4e398a1b0067460dc602"
-        },
-        "initialCredentials": {
-          "api_token": "acme_f4fe4441f9fa4ea091632b1dcd310317"
+        }
+      }
+    },
+    "gabe": {
+      "id": "930e86b8-3c1f-48aa-aa17-10951f0fd3a5",
+      "connector": "@max/connector-acme",
+      "connectedAt": "2026-02-24T11:42:47.548Z",
+      "deployment": {
+        "strategy": "in-process",
+        "dataDir": "/Users/ben/projects/playground/max/max/bun-test-project/.max/installations/gabe"
+      },
+      "locator": "{\"strategy\":\"in-process\"}",
+      "spec": {
+        "connector": "@max/connector-acme",
+        "connectorConfig": {
+          "baseUrl": "http://localhost:49441/",
+          "workspaceId": "ws_d9686c0a7c01467d8cdb370b91c213ef"
         }
       }
     }

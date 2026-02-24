@@ -2,7 +2,7 @@ import { LazyX } from '@max/core'
 import { argument, command, constant } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { message } from '@optique/core/message'
-import { ErrInvariant, type InstallationClient } from '@max/federation'
+import { ErrInstallationNotFound, ErrInvariant, type InstallationClient } from '@max/federation'
 import type { Command, Inferred, CommandOptions } from '../command.js'
 import type { CliServices } from '../cli-services.js'
 
@@ -27,8 +27,8 @@ export class CmdSyncWorkspace implements Command {
     const installations = await this.services.ctx.workspace.listInstallations()
     const match = installations.find(i => i.name === args.installation)
     if (!match) {
-      throw ErrInvariant.create({
-        detail: `No installation found: ${args.installation}`,
+      throw ErrInstallationNotFound.create({
+        installation: args.installation
       })
     }
     const inst = this.services.ctx.workspace.installation(match.id)

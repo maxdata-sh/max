@@ -10,9 +10,19 @@ Items are grouped by area. Within each group, items near the top are more pressi
 - SyncMeta should not be in core, and should be a Service. Possibly `execution`.
 - FlowController should not be in core. Possibly `execution`.
 - Credentials need to be written / accessed through a CredentialStore
-- **Daemon file logger** — The daemon process currently has `stderr: "inherit"` and uses `console.error` for diagnostics. Since the daemon runs detached, stderr may point to a terminal that has moved on. Introduce a file-based logger that writes to the daemon directory (e.g. `~/.max/daemons/<hash>/daemon.log`). Replace all `console.error`/`console.log` in the daemon code path with this logger.
-- Need a common Lifecycle interface / runner for services with lifecycles.
+  - This now happens but - `initialCredentials` will be persisted to max.json; they need routing through a store.
+- **Daemon file logger** - background nodes need a place to write logs. Currently stderr is blackholed...
 
+---
+
+## Federation / node liveness
+
+### Nodes need services / to expose capabilities
+Right now, a node is started / stopped. But there's no distinction between a started node, and a node
+that, say, listens to webhooks. And a node must be "started" in order to serve data. So - we need to separate out these
+concerns. I propose the idea of services (or capabilities) that can be enabled/disabled independently.
+For example, a listener (for webhooks) can be disabled on a running node. Each service has its own health.
+These must be declared upfront on the connector-def. Some notes recorded at [installation-services](specs/DESIGN-installation-services.md)
 
 ---
 

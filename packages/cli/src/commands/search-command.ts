@@ -86,6 +86,8 @@ export class CmdSearchInstallation implements Command {
       projection: Projection.all,
     }
 
+    // FIXME: This is a footgun. We need to start the installation before we can access the engine. Instead, engine should just be awaitable.
+    await ctx.installation.start()
     const page = await ctx.installation.engine.query(query)
 
     // Format output (field filtering handled by printers)

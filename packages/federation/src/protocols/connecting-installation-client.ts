@@ -20,12 +20,14 @@ import { ErrClientNotConnected } from '../errors/errors.js'
 
 export class ConnectingInstallationClient implements InstallationClient {
   private _connected: Promise<InstallationClient> | undefined
+  private _actual: InstallationClient | undefined
 
   constructor(private readonly _connect: () => Promise<InstallationClient>) {}
 
   private ensure(): Promise<InstallationClient> {
     if (!this._connected) {
       this._connected = this._connect()
+      this._connected.then(actual => this._actual = actual)
     }
     return this._connected
   }
@@ -61,6 +63,10 @@ export class ConnectingInstallationClient implements InstallationClient {
   }
 
   get engine(): Engine<InstallationScope> {
-    throw ErrClientNotConnected.create({ member: 'engine' })
+    if (!this._actual){
+      throw ErrClientNotConnected.create({ member: 'engine' })
+    }else{
+      return this._actual.engine
+    }
   }
 }

@@ -59,7 +59,8 @@ async function runSync(installation: InstallationClient): Promise<string> {
   const handle = await installation.sync()
   const result = await handle.completion()
 
-  await installation.stop()
+  // TODO: Is this a "start/stop? scenario? Something needs to tell us from above. For now, assume it remains connected
+  // await installation.stop()
 
   const lines = [
     `Sync ${result.status} in ${result.duration}ms`,

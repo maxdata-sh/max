@@ -1,20 +1,8 @@
 {
   "installations": {
-    "acme": {
-      "id": "936f3d74-639e-474a-acbf-3d7697422b1d",
-      "connector": "@max/connector-acme",
-      "connectedAt": "2026-02-20T14:36:46.638Z",
-      "deployment": {
-        "strategy": "in-process"
-      },
-      "spec": {
-        "strategy": "in-process"
-      },
-      "locator": "null"
-    },
     "default": {
       "id": "eea5041a-6399-4d4e-9e30-89d7fad0c489",
-      "connector": "acme",
+      "connector": "@max/connector-acme",
       "connectedAt": "2026-02-22T12:32:13.557Z",
       "deployment": {
         "strategy": "in-process",
@@ -32,6 +20,26 @@
         },
         "initialCredentials": {
           "api_token": "123"
+        }
+      }
+    },
+    "acme-1": {
+      "id": "e9a15a5c-58f4-41c7-98b1-06bd014dd346",
+      "connector": "@max/connector-acme",
+      "connectedAt": "2026-02-24T08:35:45.300Z",
+      "deployment": {
+        "strategy": "in-process",
+        "dataDir": "/Users/ben/projects/playground/max/max/bun-test-project/.max/installations/acme-1"
+      },
+      "locator": "{\"strategy\":\"in-process\"}",
+      "spec": {
+        "connector": "@max/connector-acme",
+        "connectorConfig": {
+          "baseUrl": "http://localhost:49441",
+          "workspaceId": "ws_52797b5c7d6e4e398a1b0067460dc602"
+        },
+        "initialCredentials": {
+          "api_token": "acme_f4fe4441f9fa4ea091632b1dcd310317"
         }
       }
     }

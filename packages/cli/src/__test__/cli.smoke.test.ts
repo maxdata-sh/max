@@ -38,6 +38,8 @@ async function createTestCli() {
     cli,
     run: (target: string, argv: string[]) =>
       cli.execute({ kind: 'run', argv: ['-t', target, ...argv], color: false }),
+    complete: (argv: string[]) =>
+      cli.execute({ kind: 'complete', argv, color: false }),
   }
 }
 
@@ -196,6 +198,52 @@ describe('CLI smoke', () => {
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('test-project')
       expect(res.stdout).toContain('Status:')
+    })
+  })
+
+  describe('tab completion', () => {
+    test('bare <TAB> suggests commands (global context)', async () => {
+      const { complete } = await createTestCli()
+      const res = await complete([''])
+
+      expect(res.exitCode).toBe(0)
+      expect(res.completions).toBeDefined()
+      expect(res.completions!.length).toBeGreaterThan(0)
+      // Should include global-level commands
+      expect(res.completions).toContain('status')
+      expect(res.completions).toContain('ls')
+    })
+
+    test('-t <TAB> suggests workspaces and global', async () => {
+      const { complete } = await createTestCli()
+      const res = await complete(['-t', ''])
+
+      expect(res.completions).toContain('~')
+      expect(res.completions).toContain('test-project')
+    })
+
+    test('-t max://~/ suggests workspace URLs', async () => {
+      const { complete } = await createTestCli()
+      const res = await complete(['-t', 'max://~/'])
+
+      expect(res.completions).toContain('~')
+      expect(res.completions).toContain('max://~/test-project')
+    })
+
+    test('-t max://~/test-project/ suggests installation URLs', async () => {
+      const { complete } = await createTestCli()
+      const res = await complete(['-t', 'max://~/test-project/'])
+
+      expect(res.completions).toContain('max://~/test-project/default')
+    })
+
+    test('command completion still works after -t', async () => {
+      const { complete } = await createTestCli()
+      const res = await complete(['-t', 'max://~/test-project', ''])
+
+      // Should suggest command names, not target values
+      expect(res.completions).toBeDefined()
+      expect(res.completions!.length).toBeGreaterThan(0)
     })
   })
 

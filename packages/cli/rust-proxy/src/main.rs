@@ -2,10 +2,9 @@ mod daemon;
 
 use std::env;
 use std::io::{self, BufRead, IsTerminal, Write};
-use std::path::Path;
 use std::process::{Command, Stdio};
 
-fn run_direct(args: &[String], project_root: Option<&Path>) {
+fn run_direct(args: &[String]) {
     let script = match daemon::find_daemon_script() {
         Ok(s) => s,
         Err(e) => {
@@ -15,9 +14,6 @@ fn run_direct(args: &[String], project_root: Option<&Path>) {
     };
     let mut cmd = Command::new("bun");
     cmd.arg("run").arg(&script);
-    if let Some(root) = project_root {
-        cmd.arg("--project-root").arg(root.as_os_str());
-    }
     let status = cmd
         .args(args)
         .stdin(Stdio::inherit())
@@ -42,26 +38,27 @@ fn should_use_color(args: &[String]) -> bool {
     io::stdout().is_terminal()
 }
 
+fn extract_flag(args: &mut Vec<String>, flag: &str) -> bool {
+    if let Some(pos) = args.iter().position(|a| a == flag) {
+        args.remove(pos);
+        true
+    } else {
+        false
+    }
+}
+
 fn main() {
     let mut args: Vec<String> = env::args().skip(1).collect();
     let cwd = env::current_dir().expect("Cannot determine CWD");
-    let project_root = daemon::find_project_root(&cwd);
     let use_color = should_use_color(&args);
+    let direct = extract_flag(&mut args, "--direct");
 
-    // daemon subcommand — always run direct (bypasses socket)
-    if args.first().map(|s| s == "daemon").unwrap_or(false) {
-        run_direct(&args, project_root.as_deref());
+    // daemon subcommand or --direct — bypass daemon, invoke bun directly
+    if direct || args.first().map(|s| s == "daemon").unwrap_or(false) {
+        run_direct(&args);
     }
 
-    // No project found — run direct (handles init, non-project commands)
-    let project_root = match project_root {
-        Some(root) => root,
-        None => {
-            run_direct(&args, None);
-            return;
-        }
-    };
-
+    // Detect __complete early — completions must work everywhere
     let (kind, shell) = if args.first().map(|s| s == "__complete").unwrap_or(false) {
         args.remove(0);
         let shell = if !args.is_empty() {
@@ -74,6 +71,7 @@ fn main() {
         ("run", None)
     };
 
+    // Build request
     let mut req = serde_json::json!({
         "kind": kind,
         "argv": args,
@@ -84,12 +82,12 @@ fn main() {
         req["shell"] = serde_json::json!(s);
     }
 
-    // Try daemon socket; fall back to direct mode
-    let mut stream = match daemon::connect(&project_root) {
+    // Connect to global daemon (spawns it if not running); fall back to direct mode
+    let mut stream = match daemon::connect() {
         Ok(s) => s,
         Err(e) => {
             eprintln!("\x1b[31mDaemon not responding ({})\x1b[0m", e);
-            run_direct(&args, Some(&project_root));
+            run_direct(&args);
             return;
         }
     };

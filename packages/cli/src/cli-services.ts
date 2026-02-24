@@ -21,10 +21,12 @@ export class CliServices<L extends MaxUrlLevel = MaxUrlLevel> {
   private colorPrinter: PrintFormatter
   private plainPrinter: PrintFormatter
 
-  constructor(readonly ctx: ContextAt<L>, readonly useColor: boolean) {
+  constructor(private ctxProvider: () => ContextAt<L>, readonly useColor: boolean) {
     this.colorPrinter = new PrintFormatter(Fmt.ansi, BunPlatform.printers)
     this.plainPrinter = new PrintFormatter(Fmt.plain, BunPlatform.printers)
   }
+
+  get ctx(): ContextAt<L> { return this.ctxProvider() }
 
   lazy = makeLazy({
     completers: () => {

@@ -32,7 +32,7 @@ export async function parseAndValidateArgs<T>(
      * */
     const value = await runParserAsync(parser, programName, args, {
       colors: useColor,
-      aboveError: 'help',
+      aboveError: 'usage',
       completion: {
         mode: 'both',
         group: 'meta',

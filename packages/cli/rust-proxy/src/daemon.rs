@@ -1,8 +1,7 @@
-use sha2::{Sha256, Digest};
 use std::env;
 use std::fs::File;
 use std::os::unix::net::UnixStream;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::thread;
 use std::time::Duration;
@@ -11,51 +10,24 @@ const MAX_CONNECT_ATTEMPTS: u32 = 20;
 const CONNECT_RETRY_MS: u64 = 50;
 
 // ---------------------------------------------------------------------------
-// DaemonPaths — per-project paths under ~/.max/daemons/<hash>/
+// DaemonPaths — global daemon at ~/.max/
 // ---------------------------------------------------------------------------
 
-pub struct DaemonPaths {
-    pub dir: PathBuf,
-    pub socket: PathBuf,
-    pub pid: PathBuf,
-    pub log: PathBuf,
+struct DaemonPaths {
+    dir: PathBuf,
+    socket: PathBuf,
+    pid: PathBuf,
+    log: PathBuf,
 }
 
-fn project_hash(project_root: &Path) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(project_root.to_string_lossy().as_bytes());
-    let result = hasher.finalize();
-    result.iter().take(6).map(|b| format!("{:02x}", b)).collect()
-}
-
-impl DaemonPaths {
-    pub fn for_project(project_root: &Path) -> Self {
-        let hash = project_hash(project_root);
-        let home = env::var("HOME").expect("HOME not set");
-        let dir = PathBuf::from(home).join(".max").join("daemons").join(&hash);
-        DaemonPaths {
-            socket: dir.join("daemon.sock"),
-            pid: dir.join("daemon.pid"),
-            log: dir.join("daemon.log"),
-            dir,
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Project root discovery
-// ---------------------------------------------------------------------------
-
-/// Walk up from start_dir looking for .max/ + max.json (matches Bun-side algorithm).
-pub fn find_project_root(start_dir: &Path) -> Option<PathBuf> {
-    let mut dir = start_dir.canonicalize().ok()?;
-    loop {
-        if dir.join("max.json").exists() && dir.join(".max").is_dir() {
-            return Some(dir);
-        }
-        if !dir.pop() {
-            return None;
-        }
+fn global_daemon_paths() -> DaemonPaths {
+    let home = env::var("HOME").expect("HOME not set");
+    let dir = PathBuf::from(home).join(".max");
+    DaemonPaths {
+        socket: dir.join("daemon.sock"),
+        pid: dir.join("daemon.pid"),
+        log: dir.join("daemon.log"),
+        dir,
     }
 }
 
@@ -114,21 +86,13 @@ fn clean_stale_files(paths: &DaemonPaths) {
     let _ = std::fs::remove_file(&paths.pid);
 }
 
-pub fn spawn(project_root: &Path, paths: &DaemonPaths) -> Result<(), String> {
+fn spawn(paths: &DaemonPaths) -> Result<(), String> {
     let script = find_daemon_script()?;
     let dev = is_dev_mode();
 
     // Ensure daemon directory exists
     std::fs::create_dir_all(&paths.dir)
         .map_err(|e| format!("Failed to create daemon dir: {}", e))?;
-
-    // Write project.json for discoverability
-    let project_json = format!(
-        r#"{{"root":"{}"}}"#,
-        project_root.to_string_lossy().replace('\\', "\\\\").replace('"', "\\\"")
-    );
-    std::fs::write(paths.dir.join("project.json"), &project_json)
-        .map_err(|e| format!("Failed to write project.json: {}", e))?;
 
     if dev {
         eprintln!("\x1b[33mStarting daemon in watch mode\x1b[0m");
@@ -146,9 +110,6 @@ pub fn spawn(project_root: &Path, paths: &DaemonPaths) -> Result<(), String> {
 
     cmd.arg(&script)
         .arg("--daemonized")
-        .arg("--project-root")
-        .arg(project_root.as_os_str())
-        .current_dir(project_root)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::from(log_file))
@@ -158,8 +119,8 @@ pub fn spawn(project_root: &Path, paths: &DaemonPaths) -> Result<(), String> {
     Ok(())
 }
 
-pub fn connect(project_root: &Path) -> Result<UnixStream, String> {
-    let paths = DaemonPaths::for_project(project_root);
+pub fn connect() -> Result<UnixStream, String> {
+    let paths = global_daemon_paths();
 
     if let Ok(stream) = UnixStream::connect(&paths.socket) {
         return Ok(stream);
@@ -167,7 +128,7 @@ pub fn connect(project_root: &Path) -> Result<UnixStream, String> {
 
     if !is_daemon_alive(&paths) {
         clean_stale_files(&paths);
-        spawn(project_root, &paths)?;
+        spawn(&paths)?;
     }
 
     for attempt in 0..MAX_CONNECT_ATTEMPTS {

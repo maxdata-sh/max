@@ -1,10 +1,9 @@
 /**
  * CLI — The dispatch engine.
  *
- * Owns the GlobalMax lifecycle, target derivation, context resolution,
- * command lookup, parsing, and execution. Stateless per-request: each
- * execute() call creates fresh CliServices and Commands for the resolved
- * context.
+ * Uses optique's `conditional` combinator to route commands based on the
+ * resolved target level. The cwd context is pre-populated as the default
+ * branch; -t overrides it via the level resolver discriminator.
  *
  * The harness (process argv parsing, daemon mode, socket server) lives
  * in main.ts. This file is pure logic, no process-level side effects.
@@ -15,19 +14,18 @@ import { BunPlatform, GlobalConfig } from '@max/platform-bun'
 
 import * as Completion from '@optique/core/completion'
 import { ShellCompletion } from '@optique/core/completion'
-import { group, or } from '@optique/core/constructs'
-import { command as cmd, constant } from '@optique/core/primitives'
-import { suggestAsync, type Suggestion } from '@optique/core/parser'
-import { message } from '@optique/core/message'
+import { conditional, or } from '@optique/core/constructs'
+import { option } from '@optique/core/primitives'
+import { Mode, Parser, suggestAsync, type Suggestion } from '@optique/core/parser'
 
-import { LazyX, makeLazy, MaxUrlLevel } from '@max/core'
+import { LazyX, LazyOne, makeLazy, MaxUrlLevel, MaxError } from '@max/core'
 import { CliRequest, CliResponse } from './types.js'
 import { parseAndValidateArgs } from './argv-parser.js'
 import { type Prompter } from './prompter.js'
-import { toContext, ResolvedContext } from './resolved-context.js'
-import { deriveTarget } from './resolve-context.js'
+import { toContext, ContextAt } from './resolved-context.js'
+import { detectCwdContext, cwdToMaxUrl, normalizeGlobalFlag, createLevelResolver } from './resolve-context.js'
 import { CliServices } from './cli-services.js'
-import { ErrCommandNotAtLevel } from './errors.js'
+import { createTargetCompleter } from './parsers/target-completer.js'
 
 import { CmdInit } from './commands/init-command.js'
 import { CmdConnect } from './commands/connect-command.js'
@@ -37,6 +35,7 @@ import { CmdDaemon } from './commands/daemon-command.js'
 import { CmdLsGlobal, CmdLsWorkspace } from './commands/ls-command.js'
 import { CmdStatusGlobal, CmdStatusWorkspace, CmdStatusInstallation } from './commands/status-command.js'
 import { Command } from './command.js'
+import * as util from "node:util";
 
 // ============================================================================
 // Shell completion codecs
@@ -52,17 +51,24 @@ const shells: Record<string, ShellCompletion> = {
 // Command blocks — level-grouped command factories
 // ============================================================================
 
-/** Extract the first non-flag argument — the command name. */
-function findCommandName(argv: readonly string[]): string | undefined {
-  for (const arg of argv) {
-    if (!arg.startsWith('-')) return arg
+/** suggestAsync expects a non-empty tuple; this bridges the length guard. */
+function asNonEmptyArgv(argv: readonly string[]): [string, ...string[]] {
+  return (argv.length > 0 ? argv : ['']) as [string, ...string[]]
+}
+
+/** Check if argv contains a command name (positional arg not consumed by -t). */
+function hasCommand(argv: readonly string[]): boolean {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '-t' || argv[i] === '--target') { i++; continue }
+    if (!argv[i].startsWith('-')) return true
   }
-  return undefined
+  return false
 }
 
 interface CommandBlock {
   level: MaxUrlLevel
   all: { [key: string]: Command }
+  program: LazyOne<Parser<Mode>>
 }
 
 class GlobalCommands implements CommandBlock {
@@ -74,6 +80,12 @@ class GlobalCommands implements CommandBlock {
     ls: () => new CmdLsGlobal(this.services),
     status: () => new CmdStatusGlobal(this.services),
   })
+  program = LazyX.once(() => or(
+    this.all.init.parser.get,
+    this.all.daemon.parser.get,
+    this.all.ls.parser.get,
+    this.all.status.parser.get,
+  ))
 }
 
 class WorkspaceCommands implements CommandBlock {
@@ -87,6 +99,14 @@ class WorkspaceCommands implements CommandBlock {
     ls: () => new CmdLsWorkspace(this.services),
     status: () => new CmdStatusWorkspace(this.services),
   })
+  program = LazyX.once(() => or(
+    this.all.connect.parser.get,
+    this.all.schema.parser.get,
+    this.all.sync.parser.get,
+    this.all.daemon.parser.get,
+    this.all.ls.parser.get,
+    this.all.status.parser.get,
+  ))
 }
 
 class InstallationCommands implements CommandBlock {
@@ -97,58 +117,11 @@ class InstallationCommands implements CommandBlock {
     sync: () => new CmdSyncInstallation(this.services),
     status: () => new CmdStatusInstallation(this.services),
   })
-}
-
-class Commands {
-  global: GlobalCommands
-  workspace: WorkspaceCommands
-  installation: InstallationCommands
-  constructor(services: CliServices<any>) {
-    this.global = new GlobalCommands(services)
-    this.workspace = new WorkspaceCommands(services)
-    this.installation = new InstallationCommands(services)
-  }
-
-  resolve(name: string, context: ResolvedContext) {
-    const target = this[context.level] as CommandBlock
-    if (name in target.all) {
-      return target.all[name]
-    } else {
-      const supportedLevels = [this.global, this.workspace, this.installation]
-        .filter((i) => name in i.all)
-        .map((i) => i.level)
-      throw ErrCommandNotAtLevel.create({
-        command: name,
-        level: context.level,
-        url: context.url.toString(),
-        supportedLevels: supportedLevels,
-      })
-    }
-  }
-
-  program = LazyX.once(() =>
-    or(
-      group('global', or(this.global.all.init.parser.get, this.global.all.daemon.parser.get)),
-      group(
-        'workspace',
-        or(
-          this.workspace.all.schema.parser.get,
-          this.workspace.all.connect.parser.get,
-          this.workspace.all.sync.parser.get
-        )
-      ),
-      group(
-        'installation',
-        or(this.installation.all.schema.parser.get, this.installation.all.sync.parser.get)
-      ),
-      group(
-        'system',
-        cmd('daemon', constant('daemon'), {
-          description: message`Manage the background daemon process`,
-        })
-      )
-    )
-  )
+  program = LazyX.once(() => or(
+    this.all.schema.parser.get,
+    this.all.sync.parser.get,
+    this.all.status.parser.get,
+  ))
 }
 
 // ============================================================================
@@ -177,94 +150,103 @@ export class CLI {
     },
   })
 
-  async suggest(req: CliRequest, commands: Commands): Promise<CliResponse> {
-    return this.getSuggestions(req.argv, commands).then(
-      (suggestions) => {
-        const shell = req.shell && shells[req.shell]
-        if (shell) {
-          const chunks: string[] = []
-          for (const chunk of shell.encodeSuggestions(suggestions)) {
-            chunks.push(chunk)
-          }
-          return { exitCode: 0, completionOutput: chunks.join('\n') }
-        }
-        const completions = suggestions.filter((s) => s.kind === 'literal').map((s) => s.text)
-        return { exitCode: 0, completions }
-      },
-      (error): CliResponse => {
-        return { exitCode: 1, stderr: error, completionOutput: 'Ah fuckles' }
+  private encodeSuggestions(req: CliRequest, suggestions: readonly Suggestion[]): CliResponse {
+    const shell = req.shell && shells[req.shell]
+    if (shell) {
+      const chunks: string[] = []
+      for (const chunk of shell.encodeSuggestions(suggestions)) {
+        chunks.push(chunk)
       }
-    )
+      return { exitCode: 0, completionOutput: chunks.join('\n') }
+    }
+    const completions = suggestions.filter((s) => s.kind === 'literal').map((s) => s.text)
+    return { exitCode: 0, completions }
   }
 
-  async getSuggestions(
-    argv: readonly string[],
-    commands: Commands
-  ): Promise<readonly Suggestion[]> {
-    const args: [string, ...string[]] =
-      argv.length > 0 ? (argv as unknown as [string, ...string[]]) : ['']
-    return await suggestAsync(commands.program.get, args)
+  private async suggest(
+    req: CliRequest,
+    program: Parser<Mode>,
+  ): Promise<CliResponse> {
+    try {
+      const normalized = normalizeGlobalFlag(req.argv)
+      const args = asNonEmptyArgv(normalized)
+      const suggestions = await suggestAsync(program, args)
+      return this.encodeSuggestions(req, suggestions)
+    } catch (error) {
+      return { exitCode: 1, stderr: String(error), completionOutput: '' }
+    }
   }
 
   // -- Dispatch --------------------------------------------------------------
 
   async execute(req: CliRequest, prompter?: Prompter): Promise<CliResponse> {
     const color = req.color ?? this.cfg.useColor ?? true
-
-    // Derive target (sync, no daemon)
-    const { target, argv } = deriveTarget(req.argv, req.cwd ?? this.cfg.cwd)
-
-    // Resolve target to clients (needs daemon)
+    const cwd = req.cwd ?? this.cfg.cwd
     const globalMax = await this.lazy.globalStarted
-    const resolved = globalMax.maxUrlResolver().resolve(target)
-    const ctx = toContext(resolved, target)
 
-    // Create per-request services + commands
-    const services = new CliServices(ctx, color)
-    const commands = new Commands(services)
+    // Normalize: -g → -t ~, bare `max` → `max status`
+    let argv = normalizeGlobalFlag(req.argv)
+    if (!hasCommand(argv)) {
+      // Insert `status` after -t <value> (conditional expects discriminator first)
+      const tIdx = argv.indexOf('-t')
+      const insertAt = (tIdx >= 0 && tIdx + 1 < argv.length) ? tIdx + 2 : 0
+      argv = [...argv.slice(0, insertAt), 'status', ...argv.slice(insertAt)]
+    }
+
+    // Resolve cwd as default context (always available, overridden by -t)
+    const cwdCtx = detectCwdContext(cwd)
+    const cwdUrl = cwdToMaxUrl(cwdCtx)
+    const cwdResolved = globalMax.maxUrlResolver().resolve(cwdUrl)
+    const ctxRef = { current: toContext(cwdResolved, cwdUrl) }
+
+    // Level resolver — overrides ctxRef.current when -t is parsed
+    // Delegates suggest() to target completer for -t <TAB> completions
+    const completer = createTargetCompleter(globalMax, cwd)
+    const levelResolver = createLevelResolver(globalMax, cwd, ctxRef, completer)
+
+    // Lazy services — reads from ctxRef.current (always valid)
+    const services = new CliServices(() => ctxRef.current as ContextAt<any>, color)
+
+    // Command blocks
+    const global       = new GlobalCommands(services)
+    const workspace    = new WorkspaceCommands(services)
+    const installation = new InstallationCommands(services)
+    const blocks = { global, workspace, installation } as const
+
+    // Lazy branches — parser only constructed when conditional selects that level
+    const branches = {
+      global:       global.program.get,
+      workspace:    workspace.program.get,
+      installation: installation.program.get,
+    }
+
+    // The parser — one tree, handles everything
+    const program = conditional(
+      option('-t', '--target', levelResolver),
+      branches,
+      branches[cwdCtx.level],
+    )
 
     if (req.kind === 'complete') {
-      return this.suggest(req, commands)
+      return this.suggest(req, program)
     }
 
-    // Find command name — bare `max` defaults to status
-    const rawName = findCommandName(argv)
-    const commandName = rawName ?? (argv.length === 0 ? 'status' : undefined)
-    const commandArgv = rawName ? argv : ['status']
+    // Parse
+    const parsed = await parseAndValidateArgs(program, 'max', argv, color)
+    if (!parsed.ok) return parsed.response
 
-    // Only flags, no command (e.g. `max --help`) → legacy help
-    if (!commandName) return this.executeLegacy(req, color, commands)
+    const [, cmdResult] = parsed.value
 
-    let command: Command
+    // Execute
+    const cmdName = (cmdResult as { cmd: string }).cmd
+    const block = blocks[ctxRef.current.level] as CommandBlock
+    const command = block.all[cmdName]
     try {
-      command = commands.resolve(commandName, ctx)
-    } catch (e) {
-      if (ErrCommandNotAtLevel.is(e)) {
-        return await this.executeLegacy(req, color, commands)
-      } else {
-        throw e
-      }
+      const result = await command.run(cmdResult, { color, prompter })
+      return { exitCode: 0, stdout: result + '\n' }
+    }catch (e){
+      return { exitCode: 1, stderr: MaxError.wrap(e).prettyPrint({color})}
     }
 
-    // Parse + execute
-    const parsed = await parseAndValidateArgs(command.parser.get, 'max', commandArgv, color)
-    if (!parsed.ok) return parsed.response
-
-    const result = await command.run(parsed.value, { color, prompter })
-    return { exitCode: 0, stdout: result ? result + '\n' : '' }
-  }
-
-  /**
-   * Legacy parse path — handles bare `max` and `max --help`.
-   * Will be replaced by default-to-status once the status command exists.
-   */
-  private async executeLegacy(
-    req: CliRequest,
-    color: boolean,
-    commands: Commands
-  ): Promise<CliResponse> {
-    const parsed = await parseAndValidateArgs(commands.program.get, 'max', req.argv, color)
-    if (!parsed.ok) return parsed.response
-    return { exitCode: 0, stdout: '' }
   }
 }

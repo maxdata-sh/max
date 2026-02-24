@@ -6,13 +6,13 @@
  * process.exit) live here. The CLI class in cli.ts is pure logic.
  */
 
-import { BunPlatform, ErrDaemonDisabled, GlobalConfig, ProjectConfig } from '@max/platform-bun'
+import { BunPlatform, GlobalConfig } from '@max/platform-bun'
 import { flag, parseSync, passThrough } from '@optique/core'
 import { object } from '@optique/core/constructs'
-import { option } from '@optique/core/primitives'
 import { withDefault } from '@optique/core/modifiers'
-import { string } from '@optique/core/valueparser'
 import * as fs from 'node:fs'
+import * as path from 'node:path'
+import * as os from 'node:os'
 
 import { MaxError } from '@max/core'
 import { createSocketServer } from './socket-server.js'
@@ -20,6 +20,17 @@ import { CliRequest } from './types.js'
 import { runSubprocess, subprocessParsers } from './subprocess-entry.js'
 import * as util from 'node:util'
 import { CLI } from './cli.js'
+
+/** Global daemon paths — ~/.max/daemon.{sock,pid,log} */
+function globalDaemonPaths() {
+  const dir = path.join(os.homedir(), '.max')
+  return {
+    root: dir,
+    socket: path.join(dir, 'daemon.sock'),
+    pid: path.join(dir, 'daemon.pid'),
+    log: path.join(dir, 'daemon.log'),
+  }
+}
 
 export async function main() {
   // ---- Subprocess mode — early exit if --subprocess is present ----
@@ -34,7 +45,6 @@ export async function main() {
 
   const rustShimParsers = object({
     devMode: withDefault(flag('--dev-mode'), () => process.env.MAX_DEV_MODE === 'true'),
-    projectRoot: withDefault(option('--project-root', string()), () => process.cwd()),
     daemonized: withDefault(flag('--daemonized'), false),
     maxCommand: passThrough({ format: 'greedy' }),
   })
@@ -48,7 +58,6 @@ export async function main() {
 
   const cfg = new GlobalConfig({
     devMode: parsed.value.devMode,
-    workspaceRoot: parsed.value.projectRoot,
     cwd: process.cwd(),
     mode: parsed.value.daemonized ? 'daemon' : 'direct',
   })
@@ -56,19 +65,7 @@ export async function main() {
   const cli = new CLI(cfg)
 
   if (cfg.mode === 'daemon') {
-    if (!cfg.workspaceRoot) {
-      console.error('Cannot daemonize without a project root')
-      process.exit(1)
-    }
-
-    const projectConfig = new ProjectConfig(cfg, { projectRootFolder: cfg.workspaceRoot })
-    const daemonPaths = projectConfig.paths.daemon
-
-    // Guard: check if daemon is disabled
-    if (fs.existsSync(daemonPaths.disabled)) {
-      console.error(ErrDaemonDisabled.create({}).prettyPrint({ color: cfg.useColor }))
-      process.exit(1)
-    }
+    const daemonPaths = globalDaemonPaths()
 
     // Guard: check if daemon is already running (read PID, check liveness)
     try {

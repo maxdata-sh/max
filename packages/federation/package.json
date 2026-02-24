@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "@max/platform-bun": "workspace:"
   }
 }

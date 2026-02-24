@@ -1,6 +1,7 @@
 
 import {ConnectorModuleAny, ConnectorRegistry, ConnectorRegistryEntry, InMemoryConnectorRegistry} from "@max/connector";
 import {ConnectorVersionIdentifier} from "@max/core";
+import { ErrConnectorNotFound, ErrConnectorNotInstalled } from '@max/federation'
 
 
 export class BunConnectorRegistry implements ConnectorRegistry {
@@ -9,7 +10,14 @@ export class BunConnectorRegistry implements ConnectorRegistry {
 
   constructor(modules: Record<string,string>) {
     Object.entries(modules).forEach(([k,v]) => {
-      this.addLocalNamed(k,async () => import(v))
+      this.addLocalNamed(k,async () => {
+        try{
+          return await import(v)
+        }catch (e){
+          throw ErrConnectorNotInstalled.create({connector: k, location: v})
+        }
+
+      })
     })
   }
 

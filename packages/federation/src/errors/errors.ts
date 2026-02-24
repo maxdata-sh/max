@@ -22,6 +22,12 @@ export const ErrConnectorNotFound = AppBoundary.define('connector_not_found', {
   message: (d) => `Unknown connector: ${d.connector}`,
 })
 
+export const ErrConnectorNotInstalled = AppBoundary.define('connector_not_installed', {
+  customProps: ErrFacet.props<{ connector: string, location: string }>(),
+  facets: [NotFound],
+  message: (d) => `Connector: ${d.connector} could not be loaded`,
+})
+
 export const ErrWorkspaceHandleNotFound = AppBoundary.define('workspace_handle_not_found', {
   customProps: ErrFacet.props<{ workspace: string }>(),
   facets: [NotFound],

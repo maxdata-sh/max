@@ -16,16 +16,18 @@ export class ProjectCompleters {
         $mode: 'async',
         metavar: 'SOURCE',
         async parse(input: string): Promise<ValueParserResult<string>> {
-          return self.workspace.connectorSchema(input).then(
-            () => ({ success: true, value: input }),
-            (e): ValueParserResult<string> => {
-              if (ErrConnectorNotFound.is(e)) {
-                return { success: false, error: message`${e.message}` }
-              } else {
-                return { success: false, error: e.message }
-              }
-            }
-          )
+          return ({ success: true, value: input })
+          /** On reflection: I've avoided validating at the parse layer - it's better to fail at execution time */
+          // return self.workspace.connectorSchema(input).then(
+          //   () => ({ success: true, value: input }),
+          //   (e): ValueParserResult<string> => {
+          //     if (ErrConnectorNotFound.is(e)) {
+          //       return { success: false, error: message`${e.message}` }
+          //     } else {
+          //       return { success: false, error: e.message }
+          //     }
+          //   }
+          // )
         },
         format(value: string): string {
           return value

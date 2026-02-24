@@ -1,12 +1,19 @@
 /**
- * Target derivation — cwd, env, and flags → MaxUrl.
+ * Context resolution — cwd detection, -g normalization, and -t level resolver.
  *
- * Phase 1 of dispatch: sync, no daemon, pure filesystem + string work.
- * Phase 2 (resolver.resolve()) happens inline in execute().
+ * The conditional parser handles -t natively. This module provides:
+ * 1. detectCwdContext() — filesystem walk to determine default level
+ * 2. normalizeGlobalFlag() — argv rewrite: -g → -t ~
+ * 3. cwdToMaxUrl() — convert CwdContext to a MaxUrl
+ * 4. createLevelResolver() — ValueParser for -t that resolves to MaxUrlLevel
  */
 
-import { MaxUrl } from '@max/core'
+import { MaxUrl, MaxUrlLevel } from '@max/core'
 import { findProjectRoot } from '@max/platform-bun'
+import type { GlobalMax } from '@max/federation'
+import type { Suggestion } from '@optique/core/parser'
+import type { ValueParser, ValueParserResult } from '@optique/core/valueparser'
+import { toContext, ResolvedContext } from './resolved-context.js'
 import * as path from 'node:path'
 
 // ============================================================================
@@ -42,89 +49,68 @@ export function detectCwdContext(cwd: string): CwdContext {
 }
 
 // ============================================================================
-// Target flag extraction
+// -g normalization
 // ============================================================================
 
-export interface TargetFlags {
-  target: string | undefined
-  global: boolean
-  /** argv with -t/--target and -g/--global removed. */
-  argv: string[]
-}
-
-/**
- * Extract -t/--target and -g/--global from argv.
- * Returns the cleaned argv and the extracted flag values.
- */
-export function extractTargetFlags(argv: readonly string[]): TargetFlags {
-  const cleaned: string[] = []
-  let target: string | undefined
-  let global = false
-
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]
-    if ((arg === '-t' || arg === '--target') && i + 1 < argv.length) {
-      target = argv[++i]
-    } else if (arg === '-g' || arg === '--global') {
-      global = true
-    } else {
-      cleaned.push(arg)
+/** Rewrite -g → -t ~ so optique handles both as one option. */
+export function normalizeGlobalFlag(argv: readonly string[]): string[] {
+  const hasTarget = argv.some(a => a === '-t' || a === '--target')
+  const result: string[] = []
+  for (const arg of argv) {
+    if ((arg === '-g' || arg === '--global') && !hasTarget) {
+      result.push('-t', '~')
+    } else if (arg !== '-g' && arg !== '--global') {
+      result.push(arg)
     }
   }
-
-  return { target, global, argv: cleaned }
+  return result
 }
 
 // ============================================================================
-// Target derivation (Phase 1 — sync, no daemon)
+// CwdContext → MaxUrl
 // ============================================================================
 
-export interface DerivedTarget {
-  /** The MaxUrl to resolve — always present, even for bare `max` (→ max://~). */
-  target: MaxUrl
-  /** argv with -t/--target and -g/--global stripped out. */
-  argv: string[]
+/** Convert a CwdContext to a MaxUrl. */
+export function cwdToMaxUrl(ctx: CwdContext): MaxUrl {
+  switch (ctx.level) {
+    case 'global':       return MaxUrl.global()
+    case 'workspace':    return MaxUrl.forWorkspace(ctx.workspaceName)
+    case 'installation': return MaxUrl.forInstallation(ctx.workspaceName, ctx.installationName)
+  }
 }
+
+// ============================================================================
+// Level resolver for -t discriminator
+// ============================================================================
 
 /**
- * Derive the target MaxUrl from argv flags, env, and cwd.
- * Sync — no daemon needed. Pure filesystem + string work.
- *
- * Precedence: -t (absolute) > -g > MAX_TARGET > cwd walk > -t (relative) > MAX_TARGET (relative)
+ * ValueParser for the -t discriminator.
+ * Resolves a target string to its level. Side-effect: sets ctxRef.
+ * Delegates suggest() to the target completer for -t <TAB> completions.
  */
-export function deriveTarget(argv: readonly string[], cwd: string): DerivedTarget {
-  const flags = extractTargetFlags(argv)
+export function createLevelResolver(
+  globalMax: GlobalMax,
+  cwd: string,
+  ctxRef: { current: ResolvedContext },
+  completer: { suggest?(prefix: string): AsyncIterable<Suggestion> },
+): ValueParser<'async', MaxUrlLevel> {
+  return {
+    $mode: 'async',
+    metavar: 'TARGET',
 
-  // -t with absolute URL → use directly
-  if (flags.target?.startsWith('max://'))
-    return { target: MaxUrl.parse(flags.target), argv: flags.argv }
+    async parse(input: string): Promise<ValueParserResult<MaxUrlLevel>> {
+      const url = input.startsWith('max://') ? MaxUrl.parse(input)
+               : input === '~'               ? MaxUrl.global()
+               :                                cwdToMaxUrl(detectCwdContext(cwd)).child(input)
+      const target = globalMax.maxUrlResolver().resolve(url)
+      ctxRef.current = toContext(target, url)
+      return { success: true, value: ctxRef.current.level }
+    },
 
-  // -g → global
-  if (flags.global)
-    return { target: MaxUrl.global(), argv: flags.argv }
+    format: (v) => v,
 
-  // MAX_TARGET env
-  const envTarget = process.env.MAX_TARGET
-  if (envTarget?.startsWith('max://'))
-    return { target: MaxUrl.parse(envTarget), argv: flags.argv }
-  if (envTarget === '~')
-    return { target: MaxUrl.global(), argv: flags.argv }
-
-  // Walk cwd to get base context
-  const cwdCtx = detectCwdContext(cwd)
-  const baseUrl =
-    cwdCtx.level === 'global'       ? MaxUrl.global() :
-    cwdCtx.level === 'workspace'    ? MaxUrl.forWorkspace(cwdCtx.workspaceName) :
-    /* installation */                MaxUrl.forInstallation(cwdCtx.workspaceName, cwdCtx.installationName)
-
-  // -t with relative name → child of base
-  if (flags.target)
-    return { target: baseUrl.child(flags.target), argv: flags.argv }
-
-  // MAX_TARGET relative
-  if (envTarget)
-    return { target: baseUrl.child(envTarget), argv: flags.argv }
-
-  // No flag → base context IS the target
-  return { target: baseUrl, argv: flags.argv }
+    async *suggest(prefix: string) {
+      if (completer.suggest) yield* completer.suggest(prefix)
+    },
+  }
 }

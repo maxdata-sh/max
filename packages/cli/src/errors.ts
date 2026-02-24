@@ -28,3 +28,17 @@ export const ErrUnknownCommand = CliBoundary.define('unknown_command', {
   facets: [BadInput],
   message: (d) => `Unknown command "${d.command}"`,
 })
+
+/** Entity type not found in schema. */
+export const ErrUnknownEntityType = CliBoundary.define('unknown_entity_type', {
+  customProps: ErrFacet.props<{ entityType: string; available: string[] }>(),
+  facets: [BadInput],
+  message: (d) => `Unknown entity type "${d.entityType}". Available: ${d.available.join(', ')}`,
+})
+
+/** Filter expression could not be parsed. */
+export const ErrFilterParse = CliBoundary.define('filter_parse', {
+  customProps: ErrFacet.props<{ expression: string; reason: string }>(),
+  facets: [BadInput],
+  message: (d) => `Invalid filter "${d.expression}" — ${d.reason}`,
+})

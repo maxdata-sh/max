@@ -34,6 +34,7 @@ import { CmdSyncInstallation, CmdSyncWorkspace } from './commands/sync-command.j
 import { CmdDaemon } from './commands/daemon-command.js'
 import { CmdLsGlobal, CmdLsWorkspace } from './commands/ls-command.js'
 import { CmdStatusGlobal, CmdStatusWorkspace, CmdStatusInstallation } from './commands/status-command.js'
+import { CmdSearchInstallation } from './commands/search-command.js'
 import { Command } from './command.js'
 import * as util from "node:util";
 
@@ -115,11 +116,13 @@ class InstallationCommands implements CommandBlock {
   all = makeLazy({
     schema: () => new CmdSchemaInstallation(this.services),
     sync: () => new CmdSyncInstallation(this.services),
+    search: () => new CmdSearchInstallation(this.services),
     status: () => new CmdStatusInstallation(this.services),
   })
   program = LazyX.once(() => or(
     this.all.schema.parser.get,
     this.all.sync.parser.get,
+    this.all.search.parser.get,
     this.all.status.parser.get,
   ))
 }

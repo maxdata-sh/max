@@ -189,7 +189,6 @@
         "@max/execution-local": "workspace:*",
       },
       "devDependencies": {
-        "@max/platform-bun": "workspace:",
         "@types/bun": "latest",
         "typescript": "catalog:",
       },

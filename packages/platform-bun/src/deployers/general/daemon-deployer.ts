@@ -14,7 +14,8 @@ export class DaemonDeployer<C extends Supervised> implements Deployer<
   DaemonDeploymentConfig,
   DaemonLocator
 > {
-  readonly deployerKind = DeployerKind.create<DaemonDeploymentConfig>('daemon')
+  static readonly deployerKind = DeployerKind.create<DaemonDeploymentConfig>('daemon')
+  deployerKind = DaemonDeployer.deployerKind
 
   constructor(
     private buildProxy: (transport: Transport) => C,

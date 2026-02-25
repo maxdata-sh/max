@@ -33,7 +33,9 @@ export interface WorkspaceClient extends Supervised {
   installation(id: InstallationId): InstallationClient
 
   /** Create a new installation from spec + optional hosting config. */
-  createInstallation<K extends DeployerKind>(config: CreateInstallationConfig<K>): Promise<InstallationId>
+  createInstallation<K extends DeployerKind>(
+    config: CreateInstallationConfig<K>
+  ): Promise<InstallationId>
 
   /** Connect to a pre-existing remote installation. */
   connectInstallation(id: InstallationId): Promise<InstallationId>

@@ -9,9 +9,10 @@
  */
 
 import { type ConfigOf, type DeployerKind, HealthStatus, ISODateString, Supervised, WorkspaceId } from '@max/core'
-import {  WorkspaceClient } from './workspace-client.js'
-import {DeploymentConfig} from "../deployers/index.js";
-import {WorkspaceSpec} from "../config/index.js";
+import { WorkspaceClient } from './workspace-client.js'
+import { DeploymentConfig } from "../deployers/index.js"
+import { WorkspaceSpec } from "../config/index.js"
+import { WorkspaceClientWithIdentity } from './with-client-identity.js'
 
 export interface WorkspaceInfo {
   readonly id: WorkspaceId
@@ -39,7 +40,9 @@ export interface GlobalClient extends Supervised {
   listWorkspacesFull(): Promise<WorkspaceListEntry[]>
 
   /** Synchronous lookup of a single workspace by its parent-assigned ID. */
-  workspace(id: WorkspaceId): WorkspaceClient | undefined
+  workspace(id: WorkspaceId): WorkspaceClientWithIdentity | undefined
+  workspaceByNameOrId(id: WorkspaceId | string): WorkspaceClientWithIdentity | undefined
+  // TODO: Pull these into a single workspace namespace, e.g. workspace: {  create, getById, getByNameOrId ... }
 
   /** Create a new workspace from serializable config. */
   createWorkspace<K extends DeployerKind>(

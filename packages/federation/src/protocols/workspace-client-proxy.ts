@@ -25,7 +25,6 @@ import type { InstallationClient } from "./installation-client.js"
 import type { CreateInstallationConfig, ConnectInstallationConfig, WorkspaceClient } from "./workspace-client.js"
 import { InstallationClientProxy } from "./installation-client-proxy.js"
 import { ScopedTransport } from "./scoped-transport.js"
-
 export class WorkspaceClientProxy implements WorkspaceClient {
   private readonly supervised: SupervisedProxy
 

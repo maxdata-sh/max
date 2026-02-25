@@ -18,7 +18,6 @@ export type { WorkspaceSupervisor, InstallationSupervisor } from './supervisors.
 
 export { WorkspaceMax } from './workspace-max.js'
 export type { MaxUrlResolver, ResolvedTarget } from './max-url-resolver.js'
-export { hasInstallationNameLookup } from './max-url-resolver.js'
 export {
   type WorkspaceRegistry,
   type WorkspaceRegistryEntry,
@@ -37,4 +36,8 @@ export {
   type InstallationInfo,
   InMemoryInstallationRegistry,
 } from './installation-registry.js'
+
+export {DefaultMaxUrlResolver} from './default-max-url-resolver.js'
+export {type MaxClientResolver} from './max-client-resolver.js'
+
 

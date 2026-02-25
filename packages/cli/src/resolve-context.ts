@@ -3,14 +3,14 @@
  *
  * The conditional parser handles -t natively. This module provides:
  * 1. detectCwdContext() — filesystem walk to determine default level
- * 2. normalizeGlobalFlag() — argv rewrite: -g → -t ~
+ * 2. normalizeGlobalFlag() — argv rewrite: -g → -t @
  * 3. cwdToMaxUrl() — convert CwdContext to a MaxUrl
  * 4. createLevelResolver() — ValueParser for -t that resolves to MaxUrlLevel
  */
 
-import { MaxUrl, MaxUrlLevel } from '@max/core'
+import {MaxConstants, MaxUrl, MaxUrlLevel } from '@max/core'
 import { findProjectRoot } from '@max/platform-bun'
-import type { GlobalMax } from '@max/federation'
+import type { MaxUrlResolver } from '@max/federation'
 import type { Suggestion } from '@optique/core/parser'
 import type { ValueParser, ValueParserResult } from '@optique/core/valueparser'
 import { toContext, ResolvedContext } from './resolved-context.js'
@@ -56,13 +56,13 @@ export function detectCwdContext(cwd: string): CwdContext {
 // -g normalization
 // ============================================================================
 
-/** Rewrite -g → -t ~ so optique handles both as one option. */
+/** Rewrite -g → -t @ so optique handles both as one option. */
 export function normalizeGlobalFlag(argv: readonly string[]): string[] {
   const hasTarget = argv.some((a) => a === '-t' || a === '--target')
   const result: string[] = []
   for (const arg of argv) {
     if ((arg === '-g' || arg === '--global') && !hasTarget) {
-      result.push('-t', '~')
+      result.push('-t', MaxConstants.GLOBAL_HOME)
     } else if (arg !== '-g' && arg !== '--global') {
       result.push(arg)
     }
@@ -96,7 +96,7 @@ export function cwdToMaxUrl(ctx: CwdContext): MaxUrl {
  * Delegates suggest() to the target completer for -t <TAB> completions.
  */
 export function createLevelResolver(
-  globalMax: GlobalMax,
+  resolver: MaxUrlResolver,
   cwd: string,
   ctxRef: { current: ResolvedContext },
   completer: { suggest?(prefix: string): AsyncIterable<Suggestion> }
@@ -108,13 +108,13 @@ export function createLevelResolver(
     async parse(input: string): Promise<ValueParserResult<MaxUrlLevel>> {
       const url = input.startsWith('max://')
         ? MaxUrl.parse(input)
-        : input === '~'
+        : input === MaxConstants.GLOBAL_HOME
           ? MaxUrl.global()
-          :  input.split('/').filter(Boolean).reduce(
-            (u,seg) => u.child(seg),
-            cwdToMaxUrl(detectCwdContext(cwd))
-          )
-      const target = globalMax.maxUrlResolver().resolve(url)
+          : input
+              .split('/')
+              .filter(Boolean)
+              .reduce((u, seg) => u.child(seg), cwdToMaxUrl(detectCwdContext(cwd)))
+      const target = await resolver.resolve(url)
       ctxRef.current = toContext(target, url)
       return { success: true, value: ctxRef.current.level }
     },

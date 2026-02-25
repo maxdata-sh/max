@@ -102,6 +102,7 @@ export class WorkspaceMax implements WorkspaceClient {
     throw ErrInstallationHandleNotFound.create({ installation: id })
   }
 
+  /** Name-or-ID lookup — not on the WorkspaceClient interface (it's a resolver concern). */
   installationByNameOrId(nameOrId: string): { id: InstallationId; client: InstallationClient } | undefined {
     // Try name first: scan registry
     const byName = this.installationRegistry.list().find(e => e.name === nameOrId)

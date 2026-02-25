@@ -3,10 +3,13 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import type { ConnectorVersionIdentifier, InstallationId, ISODateString } from '@max/core'
-import { FsInstallationRegistry } from '@max/platform-bun'
-import { InMemoryInstallationRegistry } from '../installation-registry.js'
-import type { InstallationRegistryEntry } from '../installation-registry.js'
-import { ErrRegistryEntryNotFound, ErrRegistryEntryAlreadyExists } from '../errors.js'
+import {FsInstallationRegistry} from "../services/fs-installation-registry.js";
+import {
+  ErrRegistryEntryAlreadyExists,
+  ErrRegistryEntryNotFound,
+  InMemoryInstallationRegistry,
+  InstallationRegistryEntry,
+} from '@max/federation'
 
 let tmpDir: string
 let maxJsonPath: string

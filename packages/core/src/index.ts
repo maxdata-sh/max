@@ -190,3 +190,4 @@ export { ResolverGraph } from './resolver-graph.js'
 export type { ResolverFactories } from './resolver-graph.js'
 
 export * from "./core-id-types.js";
+export * as MaxConstants from './constants.js'

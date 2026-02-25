@@ -14,7 +14,9 @@ export class InProcessDeployer<
   C extends Supervised,
   TSpec extends DeployableSpec,
 > implements Deployer<C, InProcessDeploymentConfig, InProcessLocator, TSpec> {
-  readonly deployerKind = DeployerKind.create<InProcessDeploymentConfig>('in-process')
+  static readonly deployerKind = DeployerKind.create<InProcessDeploymentConfig>('in-process')
+  deployerKind = InProcessDeployer.deployerKind
+
 
   constructor(private bootstrap: (config: InProcessDeploymentConfig, spec: TSpec) => Promise<C>) {}
 

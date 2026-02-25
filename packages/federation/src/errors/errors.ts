@@ -31,7 +31,7 @@ export const ErrConnectorNotInstalled = AppBoundary.define('connector_not_instal
 export const ErrWorkspaceHandleNotFound = AppBoundary.define('workspace_handle_not_found', {
   customProps: ErrFacet.props<{ workspace: string }>(),
   facets: [NotFound],
-  message: (d) => `Unknown workspace`,
+  message: (d) => `Unknown workspace "${d.workspace}"`,
 })
 
 export const ErrInstallationHandleNotFound = AppBoundary.define('installation_handle_not_found', {
@@ -102,7 +102,7 @@ export const ErrPlatformNotAvailable = AppBoundary.define('platform_not_availabl
 export const ErrDeployerNotAvailable = AppBoundary.define('deployer_not_available', {
   customProps: ErrFacet.props<{ deployerKind: DeployerKind }>(),
   facets: [HasPlatform, NotAvailable],
-  message: (d) => `Platform "${d.platform} does not support deployer "${d.deployerKind}".`,
+  message: (d) => `Platform "${d.platform}" does not support deployer "${d.deployerKind}".`,
 })
 
 // ============================================================================

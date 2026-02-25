@@ -18,7 +18,8 @@ export class DockerDeployer<C extends Supervised> implements Deployer<
   DockerDeploymentConfig,
   DockerLocator
 > {
-  readonly deployerKind = DeployerKind.create<DockerDeploymentConfig>('docker')
+  static readonly deployerKind = DeployerKind.create<DockerDeploymentConfig>('docker')
+  deployerKind = DockerDeployer.deployerKind
 
   constructor(private buildProxy: (transport: Transport) => C) {
     throw ErrNotImplemented.create({}, 'Docker support not yet added')

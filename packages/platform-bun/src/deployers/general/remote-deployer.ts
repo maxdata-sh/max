@@ -10,7 +10,8 @@ export interface RemoteLocator extends Locator {
 
 /** FIXME Pretty platform-agnostic - can probably go in @max/federation. Needs an http transport supplied to it */
 export class RemoteDeployer<C extends Supervised> implements Deployer<C, RemoteDeploymentConfig> {
-  readonly deployerKind = DeployerKind.create<RemoteDeploymentConfig>('remote')
+  static readonly deployerKind = DeployerKind.create<RemoteDeploymentConfig>('remote')
+  deployerKind = RemoteDeployer.deployerKind
 
   constructor(private buildProxy: (transport: Transport) => C) {}
 

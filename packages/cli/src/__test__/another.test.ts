@@ -14,7 +14,7 @@ describe('arg', () => {
      target: optional(flag('-t'))
    })
 
-   const result = await cli.run('max://~/test-project', ["schema","linear"])
+   const result = await cli.run('max://@/test-project', ["schema","linear"])
    console.log({result})
  })
 });

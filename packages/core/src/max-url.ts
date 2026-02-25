@@ -51,15 +51,15 @@ export class MaxUrl implements ScopeUpgradeable {
     return new MaxUrl(segments[0], segments[1], segments[2], Scope.installation())
   }
 
-  static global(host = '~'): MaxUrl {
+  static global(host = '@'): MaxUrl {
     return new MaxUrl(host, undefined, undefined, Scope.installation())
   }
 
-  static forWorkspace(workspace: string, host = '~'): MaxUrl {
+  static forWorkspace(workspace: string, host = '@'): MaxUrl {
     return new MaxUrl(host, workspace, undefined, Scope.installation())
   }
 
-  static forInstallation(workspace: string, installation: string, host = '~'): MaxUrl {
+  static forInstallation(workspace: string, installation: string, host = '@'): MaxUrl {
     return new MaxUrl(host, workspace, installation, Scope.installation())
   }
 
@@ -72,7 +72,7 @@ export class MaxUrl implements ScopeUpgradeable {
   }
 
   get isLocal(): boolean {
-    return this.host === '~'
+    return this.host === '@'
   }
 
   parent(): MaxUrl | undefined {

@@ -62,7 +62,7 @@ describe('CLI smoke', () => {
 
   test('bogus input', async () => {
     const { run } = await createTestCli()
-    const res = await run('max://~', ['bogus'])
+    const res = await run('max://@', ['bogus'])
     expect(res.exitCode).toBe(1)
     expect(res.stderr).toContain('Usage: max')
   })
@@ -70,7 +70,7 @@ describe('CLI smoke', () => {
   describe('schema', () => {
     test('workspace level — schema acme', async () => {
       const { run } = await createTestCli()
-      const res = await run('max://~/test-project', ['schema', 'acme'])
+      const res = await run('max://@/test-project', ['schema', 'acme'])
 
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('AcmeUser')
@@ -78,7 +78,7 @@ describe('CLI smoke', () => {
 
     test('installation level — schema (no source needed)', async () => {
       const { run } = await createTestCli()
-      const res = await run('max://~/test-project/default', ['schema'])
+      const res = await run('max://@/test-project/default', ['schema'])
 
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('AcmeUser')
@@ -88,7 +88,7 @@ describe('CLI smoke', () => {
   describe('sync', () => {
     test('workspace level — sync <installation>', async () => {
       const { run } = await createTestCli()
-      const res = await run('max://~/test-project', ['sync', 'default'])
+      const res = await run('max://@/test-project', ['sync', 'default'])
 
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('Sync')
@@ -97,7 +97,7 @@ describe('CLI smoke', () => {
 
     test('installation level — sync (no args)', async () => {
       const { run } = await createTestCli()
-      const res = await run('max://~/test-project/default', ['sync'])
+      const res = await run('max://@/test-project/default', ['sync'])
 
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('Sync')
@@ -107,13 +107,13 @@ describe('CLI smoke', () => {
   describe('level gating', () => {
     test('sync at global level → throws', async () => {
       const { run } = await createTestCli()
-      const result = await run('max://~', ['sync'])
+      const result = await run('max://@', ['sync'])
       expect(result.exitCode).toBe(1)
     })
 
     test('connect at global level → throws', async () => {
       const { run } = await createTestCli()
-      const result = await run('max://~', ['connect', 'acme'])
+      const result = await run('max://@', ['connect', 'acme'])
       expect(result.exitCode).toBe(1)
     })
   })
@@ -121,37 +121,37 @@ describe('CLI smoke', () => {
   describe('target resolution', () => {
     test('nonexistent workspace → throws', async () => {
       const { run } = await createTestCli()
-      await expectError(run('max://~/nonexistent', ['schema', 'acme']))
+      await expectError(run('max://@/nonexistent', ['schema', 'acme']))
     })
 
     test('nonexistent installation → throws', async () => {
       const { run } = await createTestCli()
-      await expectError(run('max://~/test-project/nonexistent', ['schema']))
+      await expectError(run('max://@/test-project/nonexistent', ['schema']))
     })
   })
 
   describe('ls', () => {
     test('global level — lists workspaces', async () => {
       const { run } = await createTestCli()
-      const res = await run('max://~', ['ls'])
+      const res = await run('max://@', ['ls'])
 
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('test-project')
-      expect(res.stdout).toContain('max://~/test-project')
+      expect(res.stdout).toContain('max://@/test-project')
     })
 
     test('workspace level — lists installations', async () => {
       const { run } = await createTestCli()
-      const res = await run('max://~/test-project', ['ls'])
+      const res = await run('max://@/test-project', ['ls'])
 
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('default')
-      expect(res.stdout).toContain('max://~/test-project/default')
+      expect(res.stdout).toContain('max://@/test-project/default')
     })
 
     test('installation level → not available', async () => {
       const { run } = await createTestCli()
-      const res = await run('max://~/test-project/default', ['ls'])
+      const res = await run('max://@/test-project/default', ['ls'])
       expect(res.exitCode).toBe(1)
     })
   })
@@ -159,17 +159,17 @@ describe('CLI smoke', () => {
   describe('status', () => {
     test('global level', async () => {
       const { run } = await createTestCli()
-      const res = await run('max://~', ['status'])
+      const res = await run('max://@', ['status'])
 
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('Global:')
-      expect(res.stdout).toContain('max://~')
+      expect(res.stdout).toContain('max://@')
       expect(res.stdout).toContain('Status:')
     })
 
     test('workspace level', async () => {
       const { run } = await createTestCli()
-      const res = await run('max://~/test-project', ['status'])
+      const res = await run('max://@/test-project', ['status'])
 
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('test-project')
@@ -179,7 +179,7 @@ describe('CLI smoke', () => {
 
     test('installation level', async () => {
       const { run } = await createTestCli()
-      const res = await run('max://~/test-project/default', ['status'])
+      const res = await run('max://@/test-project/default', ['status'])
 
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('default')
@@ -191,7 +191,7 @@ describe('CLI smoke', () => {
       const { cli } = await createTestCli()
       const res = await cli.execute({
         kind: 'run',
-        argv: ['-t', 'max://~/test-project'],
+        argv: ['-t', 'max://@/test-project'],
         color: false,
       })
 
@@ -218,28 +218,28 @@ describe('CLI smoke', () => {
       const { complete } = await createTestCli()
       const res = await complete(['-t', ''])
 
-      expect(res.completions).toContain('~')
+      expect(res.completions).toContain('@')
       expect(res.completions).toContain('test-project')
     })
 
-    test('-t max://~/ suggests workspace URLs', async () => {
+    test('-t max://@/ suggests workspace URLs', async () => {
       const { complete } = await createTestCli()
-      const res = await complete(['-t', 'max://~/'])
+      const res = await complete(['-t', 'max://@/'])
 
-      expect(res.completions).toContain('~')
-      expect(res.completions).toContain('max://~/test-project')
+      expect(res.completions).toContain('@')
+      expect(res.completions).toContain('max://@/test-project')
     })
 
-    test('-t max://~/test-project/ suggests installation URLs', async () => {
+    test('-t max://@/test-project/ suggests installation URLs', async () => {
       const { complete } = await createTestCli()
-      const res = await complete(['-t', 'max://~/test-project/'])
+      const res = await complete(['-t', 'max://@/test-project/'])
 
-      expect(res.completions).toContain('max://~/test-project/default')
+      expect(res.completions).toContain('max://@/test-project/default')
     })
 
     test('command completion still works after -t', async () => {
       const { complete } = await createTestCli()
-      const res = await complete(['-t', 'max://~/test-project', ''])
+      const res = await complete(['-t', 'max://@/test-project', ''])
 
       // Should suggest command names, not target values
       expect(res.completions).toBeDefined()
@@ -250,7 +250,7 @@ describe('CLI smoke', () => {
   describe('daemon', () => {
     test('list at global level', async () => {
       const { run } = await createTestCli()
-      const res = await run('max://~', ['daemon', 'list'])
+      const res = await run('max://@', ['daemon', 'list'])
 
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('test-project')
@@ -258,7 +258,7 @@ describe('CLI smoke', () => {
 
     test('list at workspace level (uses ctx.global)', async () => {
       const { run } = await createTestCli()
-      const res = await run('max://~/test-project', ['daemon', 'list'])
+      const res = await run('max://@/test-project', ['daemon', 'list'])
 
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('test-project')

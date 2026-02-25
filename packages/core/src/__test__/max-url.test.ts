@@ -4,25 +4,25 @@ import { Scope } from "../scope.js"
 
 describe('MaxUrl', () => {
   describe('parse', () => {
-    test('max://~ → global, host ~', () => {
-      const url = MaxUrl.parse('max://~')
-      expect(url.host).toBe('~')
+    test('max://@ → global, host @', () => {
+      const url = MaxUrl.parse('max://@')
+      expect(url.host).toBe('@')
       expect(url.workspace).toBeUndefined()
       expect(url.installation).toBeUndefined()
       expect(url.level).toBe('global')
     })
 
-    test('max://~/my-project → workspace level', () => {
-      const url = MaxUrl.parse('max://~/my-project')
-      expect(url.host).toBe('~')
+    test('max://@/my-project → workspace level', () => {
+      const url = MaxUrl.parse('max://@/my-project')
+      expect(url.host).toBe('@')
       expect(url.workspace).toBe('my-project')
       expect(url.installation).toBeUndefined()
       expect(url.level).toBe('workspace')
     })
 
-    test('max://~/my-project/linear → installation level', () => {
-      const url = MaxUrl.parse('max://~/my-project/linear')
-      expect(url.host).toBe('~')
+    test('max://@/my-project/linear → installation level', () => {
+      const url = MaxUrl.parse('max://@/my-project/linear')
+      expect(url.host).toBe('@')
       expect(url.workspace).toBe('my-project')
       expect(url.installation).toBe('linear')
       expect(url.level).toBe('installation')
@@ -37,7 +37,7 @@ describe('MaxUrl', () => {
     })
 
     test('rejects missing prefix', () => {
-      expect(() => MaxUrl.parse('http://~')).toThrow('Must start with max://')
+      expect(() => MaxUrl.parse('http://@')).toThrow('Must start with max://')
     })
 
     test('rejects empty path', () => {
@@ -45,13 +45,13 @@ describe('MaxUrl', () => {
     })
 
     test('rejects >3 segments', () => {
-      expect(() => MaxUrl.parse('max://~/a/b/c')).toThrow('Max 3 segments')
+      expect(() => MaxUrl.parse('max://@/a/b/c')).toThrow('Max 3 segments')
     })
   })
 
   describe('isLocal', () => {
-    test('~ is local', () => {
-      expect(MaxUrl.parse('max://~').isLocal).toBe(true)
+    test('@ is local', () => {
+      expect(MaxUrl.parse('max://@').isLocal).toBe(true)
     })
 
     test('hostname is not local', () => {
@@ -62,9 +62,9 @@ describe('MaxUrl', () => {
   describe('round-trip', () => {
     test('parse(url.toString()) preserves all fields', () => {
       const urls = [
-        'max://~',
-        'max://~/my-team',
-        'max://~/my-team/hubspot-prod',
+        'max://@',
+        'max://@/my-team',
+        'max://@/my-team/hubspot-prod',
         'max://example.com/ws/inst',
       ]
       for (const str of urls) {
@@ -80,7 +80,7 @@ describe('MaxUrl', () => {
 
   describe('navigation', () => {
     test('parent() from installation → workspace', () => {
-      const url = MaxUrl.parse('max://~/team/inst')
+      const url = MaxUrl.parse('max://@/team/inst')
       const parent = url.parent()!
       expect(parent.level).toBe('workspace')
       expect(parent.workspace).toBe('team')
@@ -88,15 +88,15 @@ describe('MaxUrl', () => {
     })
 
     test('parent() from workspace → global', () => {
-      const url = MaxUrl.parse('max://~/team')
+      const url = MaxUrl.parse('max://@/team')
       const parent = url.parent()!
       expect(parent.level).toBe('global')
-      expect(parent.host).toBe('~')
+      expect(parent.host).toBe('@')
       expect(parent.workspace).toBeUndefined()
     })
 
     test('parent() from global → undefined', () => {
-      const url = MaxUrl.parse('max://~')
+      const url = MaxUrl.parse('max://@')
       expect(url.parent()).toBeUndefined()
     })
 
@@ -121,29 +121,29 @@ describe('MaxUrl', () => {
   })
 
   describe('static factories', () => {
-    test('global() defaults to ~', () => {
+    test('global() defaults to @', () => {
       const url = MaxUrl.global()
-      expect(url.toString()).toBe('max://~')
+      expect(url.toString()).toBe('max://@')
     })
 
     test('forWorkspace()', () => {
       const url = MaxUrl.forWorkspace('my-team')
-      expect(url.toString()).toBe('max://~/my-team')
+      expect(url.toString()).toBe('max://@/my-team')
     })
 
     test('forInstallation()', () => {
       const url = MaxUrl.forInstallation('my-team', 'hubspot')
-      expect(url.toString()).toBe('max://~/my-team/hubspot')
+      expect(url.toString()).toBe('max://@/my-team/hubspot')
     })
   })
 
   describe('ScopeUpgradeable', () => {
     test('upgradeScope preserves URL segments, changes only scope', () => {
-      const url = MaxUrl.parse('max://~/team/inst')
+      const url = MaxUrl.parse('max://@/team/inst')
       const wsScope = Scope.workspace('inst-1')
       const upgraded = url.upgradeScope(wsScope)
 
-      expect(upgraded.host).toBe('~')
+      expect(upgraded.host).toBe('@')
       expect(upgraded.workspace).toBe('team')
       expect(upgraded.installation).toBe('inst')
       expect(upgraded.scope).toEqual(wsScope)

@@ -10,17 +10,29 @@
  *   4. Start the workspace
  */
 
-import { MaxUrl, type DeployerKind, HealthStatus, ISODateString, StartResult, StopResult, type WorkspaceId } from '@max/core'
-import type { WorkspaceClient } from '../protocols/index.js'
-import type { GlobalClient, WorkspaceInfo, WorkspaceListEntry } from '../protocols/global-client.js'
+import {
+  type DeployerKind,
+  HealthStatus,
+  ISODateString,
+  StartResult,
+  StopResult,
+  type WorkspaceId,
+} from '@max/core'
+import type { WorkspaceClient, InstallationClient } from '../protocols/index.js'
+import type { WorkspaceInfo, WorkspaceListEntry } from '../protocols/global-client.js'
 import { CreateWorkspaceArgs } from '../protocols/global-client.js'
 import { WorkspaceSupervisor } from './supervisors.js'
 
 import { WorkspaceRegistry } from './workspace-registry.js'
 
-import { ErrWorkspaceHandleNotFound, ErrRemoteUrlNotSupported, ErrWorkspaceNotResolved, ErrInstallationNotResolved } from '../errors/errors.js'
+import { ErrWorkspaceHandleNotFound } from '../errors/errors.js'
 import { DeployerRegistry, DeploymentConfig, WorkspaceDeployer } from '../deployers/index.js'
-import { type MaxUrlResolver, type ResolvedTarget, hasInstallationNameLookup } from './max-url-resolver.js'
+import { DefaultMaxUrlResolver } from './default-max-url-resolver.js'
+import {
+  GlobalClientWithIdentity,
+  WorkspaceClientWithIdentity,
+} from '../protocols/with-client-identity.js'
+import { stampClientWithIdentity } from './stamp-client-with-identity.js'
 
 export type GlobalMaxConstructable = {
   workspaceSupervisor: WorkspaceSupervisor
@@ -28,7 +40,10 @@ export type GlobalMaxConstructable = {
   workspaceDeployer: DeployerRegistry<WorkspaceDeployer>
 }
 
-export class GlobalMax implements GlobalClient {
+
+export class GlobalMax implements GlobalClientWithIdentity {
+  id = "@" as const
+
   private readonly workspaceSupervisor: WorkspaceSupervisor
   private readonly workspaceRegistry: WorkspaceRegistry
   private readonly workspaceDeployer: DeployerRegistry<WorkspaceDeployer>
@@ -39,69 +54,41 @@ export class GlobalMax implements GlobalClient {
     this.workspaceRegistry = args.workspaceRegistry
   }
 
-  workspace(id: WorkspaceId): WorkspaceClient {
+  workspace(id: WorkspaceId): WorkspaceClientWithIdentity {
     const ws = this.workspaceSupervisor.get(id)
     if (!ws) {
       throw ErrWorkspaceHandleNotFound.create({ workspace: id })
     }
-    return ws.client
+    return stampClientWithIdentity<'workspace', WorkspaceClient>(ws.client,ws.id)
   }
 
-  workspaceByNameOrId(nameOrId: string): { id: WorkspaceId; client: WorkspaceClient } | undefined {
+  workspaceByNameOrId(nameOrId: string): WorkspaceClientWithIdentity | undefined {
     // Try name first: scan registry
     const byName = this.workspaceRegistry.list().find(e => e.name === nameOrId)
     if (byName) {
       const handle = this.workspaceSupervisor.get(byName.id)
-      if (handle) return { id: byName.id, client: handle.client }
+      if (handle) return stampClientWithIdentity<'workspace', WorkspaceClient>(handle.client, handle.id)
     }
 
     // Fall back to ID
     const handle = this.workspaceSupervisor.get(nameOrId as WorkspaceId)
-    if (handle) return { id: nameOrId as WorkspaceId, client: handle.client }
+    if (handle) return stampClientWithIdentity<'workspace', WorkspaceClient>(handle.client, handle.id)
 
     return undefined
   }
 
-  maxUrlResolver(): MaxUrlResolver {
-    return {
-      resolve: (url: MaxUrl): ResolvedTarget => {
-        if (!url.isLocal) {
-          throw ErrRemoteUrlNotSupported.create({ url: url.toString() })
-        }
-
-        // Level 0: Global
-        if (url.level === 'global') {
-          return { level: 'global', global: this }
-        }
-
-        // Level 1: Workspace
-        const ws = this.workspaceByNameOrId(url.workspace!)
-        if (!ws) {
-          throw ErrWorkspaceNotResolved.create({ segment: url.workspace!, url: url.toString() })
-        }
-
-        if (url.level === 'workspace') {
-          return { level: 'workspace', global: this, workspace: ws.client, id: ws.id }
-        }
-
-        // Level 2: Installation (delegate to workspace's name lookup)
-        if (!hasInstallationNameLookup(ws.client)) {
-          throw ErrRemoteUrlNotSupported.create({ url: url.toString() })
-        }
-
-        const inst = ws.client.installationByNameOrId(url.installation!)
-        if (!inst) {
-          throw ErrInstallationNotResolved.create({
-            segment: url.installation!,
-            workspace: url.workspace!,
-            url: url.toString(),
-          })
-        }
-
-        return { level: 'installation', global: this, workspace: ws.client, installation: inst.client, id: inst.id, workspaceId: ws.id }
-      },
-    }
-  }
+  maxUrlResolver = new DefaultMaxUrlResolver({
+    global: () => this,
+    workspace: (nameOrId) => this.workspaceByNameOrId(nameOrId),
+    installation: async (nameOrId, workspace) => {
+      const list = await workspace.listInstallations()
+      const match = list.find(e => e.name === nameOrId || e.id === nameOrId)
+      if (!match) return undefined
+      return stampClientWithIdentity<'installation', InstallationClient>(
+        workspace.installation(match.id), match.id
+      )
+    },
+  })
 
   async createWorkspace<K extends DeployerKind>(
     name: string,

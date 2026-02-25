@@ -192,7 +192,7 @@ export class CLI {
     const cwd = req.cwd ?? this.cfg.cwd
     const globalMax = await this.lazy.globalStarted
 
-    // Normalize: -g → -t ~, bare `max` → `max status`
+    // Normalize: -g → -t @, bare `max` → `max status`
     let argv = normalizeGlobalFlag(req.argv)
     if (!hasCommand(argv)) {
       // Insert `status` after -t <value> (conditional expects discriminator first)
@@ -204,13 +204,13 @@ export class CLI {
     // Resolve cwd as default context (always available, overridden by -t)
     const cwdCtx = detectCwdContext(cwd)
     const cwdUrl = cwdToMaxUrl(cwdCtx)
-    const cwdResolved = globalMax.maxUrlResolver().resolve(cwdUrl)
+    const cwdResolved = await globalMax.maxUrlResolver.resolve(cwdUrl)
     const ctxRef = { current: toContext(cwdResolved, cwdUrl) }
 
     // Level resolver — overrides ctxRef.current when -t is parsed
     // Delegates suggest() to target completer for -t <TAB> completions
     const completer = createTargetCompleter(globalMax, cwd)
-    const levelResolver = createLevelResolver(globalMax, cwd, ctxRef, completer)
+    const levelResolver = createLevelResolver(globalMax.maxUrlResolver, cwd, ctxRef, completer)
 
     // Lazy services — reads from ctxRef.current (always valid)
     const services = new CliServices(() => ctxRef.current as ContextAt<any>, color)

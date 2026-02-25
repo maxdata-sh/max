@@ -2,7 +2,7 @@ import { describe, test, expect } from 'bun:test'
 import { parseFilter } from '../grammar.js'
 import { lowerToFilters } from '../lower.js'
 import { coerceValue } from '../coerce.js'
-import type { ValueLiteral } from '../ast.js'
+import type { ValueLiteral, ComparisonOp } from '../ast.js'
 
 // Quick smoke test to validate arcsecond grammar works
 describe('parseFilter (grammar)', () => {
@@ -65,7 +65,8 @@ describe('parseFilter (grammar)', () => {
   })
 
   test('all operators', () => {
-    for (const op of ['=', '!=', '>', '>=', '<', '<=', '~=']) {
+    const ops: ComparisonOp[] = ['=', '!=', '>', '>=', '<', '<=', '~=']
+    for (const op of ops) {
       const ast = parseFilter(`priority ${op} 5`)
       expect(ast.type).toBe('comparison')
       if (ast.type === 'comparison') {

@@ -22,6 +22,7 @@ import {
   optionalWhitespace,
   whitespace,
   regex,
+  type Parser,
 } from 'arcsecond'
 
 import type { FilterNode, ComparisonOp, ValueLiteral } from './ast.js'
@@ -75,8 +76,11 @@ const operator = choice([
   str('='), str('>'), str('<'),
 ])
 
-/** Logical connectives — must be followed by whitespace to avoid matching field names. */
-const logicalOp = choice([str('AND'), str('OR')])
+/** Logical connectives (case-insensitive). Normalised to uppercase in the AST. */
+const logicalOp = choice([
+  str('AND'), str('and'),
+  str('OR'), str('or'),
+]).map(s => s.toUpperCase())
 
 // ============================================================================
 // Grammar
@@ -98,22 +102,17 @@ const comparison = coroutine(run => {
   }
 })
 
+
 /** A factor: parenthesised expression or a comparison. */
-const factor = recursiveParser<FilterNode, string, any>(() =>
-  choice([
-    between(char('('))(char(')'))(
-      sequenceOf([optionalWhitespace, expression, optionalWhitespace])
-        .map(([, expr]) => expr)
-    ),
-    comparison,
-  ])
+const factor: Parser<FilterNode> = recursiveParser(() =>
+  choice([parenthetical, comparison])
 )
 
 /**
  * Full expression: factors joined by AND/OR, left-associative.
  * Uses sequenceOf + many for the tail rather than a coroutine loop.
  */
-const expression = recursiveParser<FilterNode, string, any>(() =>
+const expression: Parser<FilterNode> = recursiveParser(() =>
   sequenceOf([
     factor,
     many(
@@ -124,19 +123,29 @@ const expression = recursiveParser<FilterNode, string, any>(() =>
         factor,
       ])
     ),
-  ]).map(([first, rest]) => {
-    let left: FilterNode = first
+  ]).map(([first, rest]): FilterNode => {
+    let left: FilterNode = first as FilterNode
     for (const [, op, , right] of rest) {
       left = {
         type: 'logical' as const,
         operator: op as 'AND' | 'OR',
         left,
-        right,
+        right: right as FilterNode,
       }
     }
     return left
   })
 )
+
+const parenthetical = coroutine<FilterNode>(run => {
+  run(char('('))
+  run(optionalWhitespace)
+  const r = run(expression)
+  run(optionalWhitespace)
+  run(char(')'))
+  return r
+})
+
 
 // ============================================================================
 // Public API

@@ -47,6 +47,8 @@ export class CmdConnect implements Command {
     const ownedPrompter = opts.prompter ? null : new DirectPrompter()
     const resolved = opts.prompter ?? ownedPrompter!
     try {
+      resolved.write(`Creating new installation: ${installationName} ...\n`)
+
       const config = await runOnboarding(flow, { credentialStore: memStore }, resolved)
 
       const credentialKeys = await memStore.keys()

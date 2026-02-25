@@ -42,3 +42,10 @@ export const ErrFilterParse = CliBoundary.define('filter_parse', {
   facets: [BadInput],
   message: (d) => `Invalid filter "${d.expression}" — ${d.reason}`,
 })
+
+/** Onboarding validation step failed (e.g. bad credentials, unreachable API). */
+export const ErrOnboardingValidationFailed = CliBoundary.define('onboarding_validation_failed', {
+  customProps: ErrFacet.props<{ step: string; reason: string }>(),
+  facets: [BadInput],
+  message: (d) => `${d.step} — ${d.reason}`,
+})

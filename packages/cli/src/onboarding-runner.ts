@@ -10,6 +10,7 @@
 
 import type { OnboardingFlow, OnboardingContext, OnboardingStep } from "@max/connector";
 import type { Prompter } from "./prompter.js";
+import { ErrOnboardingValidationFailed } from "./errors.js";
 
 export async function runOnboarding<TConfig>(
   flow: OnboardingFlow<TConfig>,
@@ -69,7 +70,7 @@ async function handleInput(
 
   if (step.credentials) {
     for (const [_key, credential] of Object.entries(step.credentials)) {
-      const value = await prompter.ask(`${step.label}: `, { secret: true });
+      const value = await prompter.ask(`${credential.name}: `, { secret: true });
       await ctx.credentialStore.set(credential.name, value);
     }
   }
@@ -88,8 +89,8 @@ async function handleValidation(
     prompter.write(" done\n");
   } catch (err) {
     prompter.write(" failed\n");
-    const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Validation failed: ${message}`);
+    const reason = err instanceof Error ? err.message : String(err);
+    throw ErrOnboardingValidationFailed.create({ step: step.label, reason }, undefined, err as Error);
   }
 }
 

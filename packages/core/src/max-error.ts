@@ -164,7 +164,8 @@ function stackFrames(stack: string | undefined): string {
 function asMaxError(thrown: unknown): MaxError {
   if (thrown instanceof MaxErrorImpl) return thrown as MaxError;
   const message = thrown instanceof Error ? thrown.message : typeof thrown === "string" ? thrown : String(thrown);
-  const wrapped = new MaxErrorImpl("unknown", "unknown", message, Object.freeze(new Set<string>()), {});
+  const code = thrown instanceof Error ? thrown.constructor.name : "uncaught";
+  const wrapped = new MaxErrorImpl(code, "uncaught", message, Object.freeze(new Set<string>()), {});
   if (thrown instanceof Error && thrown.stack) wrapped.stack = thrown.stack;
   return wrapped as MaxError;
 }

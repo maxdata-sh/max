@@ -277,23 +277,32 @@ describe("MaxError.wrap()", () => {
     expect(wrapped).toBe(err);
   });
 
-  test("wraps plain Error preserving stack", () => {
+  test("wraps plain Error preserving stack and constructor name", () => {
     const original = new Error("boom");
     const wrapped = MaxError.wrap(original);
 
     expect(MaxError.isMaxError(wrapped)).toBe(true);
-    expect(wrapped.code).toBe("unknown");
-    expect(wrapped.domain).toBe("unknown");
+    expect(wrapped.code).toBe("Error");
+    expect(wrapped.domain).toBe("uncaught");
     expect(wrapped.message).toBe("boom");
     expect(wrapped.stack).toBe(original.stack);
   });
 
-  test("wraps strings", () => {
+  test("wraps TypeError with constructor name", () => {
+    const original = new TypeError("bad arg");
+    const wrapped = MaxError.wrap(original);
+
+    expect(wrapped.code).toBe("TypeError");
+    expect(wrapped.domain).toBe("uncaught");
+    expect(wrapped.message).toBe("bad arg");
+  });
+
+  test("wraps strings as uncaught", () => {
     const wrapped = MaxError.wrap("something broke");
 
     expect(MaxError.isMaxError(wrapped)).toBe(true);
     expect(wrapped.message).toBe("something broke");
-    expect(wrapped.code).toBe("unknown");
+    expect(wrapped.code).toBe("uncaught");
   });
 });
 
@@ -323,14 +332,14 @@ describe("ErrorDef.wrap()", () => {
     throw new Error("Should have thrown");
   });
 
-  test("wraps plain errors as unknown cause", () => {
+  test("wraps plain errors with constructor name as cause code", () => {
     try {
       ErrSyncFailed.wrap(() => { throw new Error("raw"); });
     } catch (err) {
       if (!MaxError.isMaxError(err)) throw new Error("Expected MaxError");
       expect(err.code).toBe("execution.sync_failed");
       expect(err.cause).toBeDefined();
-      expect(err.cause!.code).toBe("unknown");
+      expect(err.cause!.code).toBe("Error");
       expect(err.cause!.message).toBe("raw");
       return;
     }

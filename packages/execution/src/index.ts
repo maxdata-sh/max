@@ -48,5 +48,8 @@ export { PlanExpander } from "./plan-expander.js";
 export { SyncExecutor } from "./sync-executor.js";
 export type { SyncExecutorConfig } from "./sync-executor.js";
 
+// SyncObserver
+export type { SyncObserver, SyncProgressEvent } from "./sync-observer.js";
+
 // Errors
 export { Execution, ErrUnknownEntityType, ErrNoResolver, ErrNoCollectionLoader, ErrTaskNotFound, ErrLoaderDepsNotSupported, ErrNoDepsAvailable } from "./errors.js";

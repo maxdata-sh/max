@@ -17,10 +17,11 @@
 
 import { Lifecycle, LifecycleManager, SyncPlan } from '@max/core'
 
-import type {Task, TaskId} from "./task.js";
+import type {Task, TaskId, TaskPayload} from "./task.js";
 import type {TaskStore} from "./task-store.js";
 import type {TaskRunner} from "./task-runner.js";
 import type {SyncHandle, SyncResult, SyncStatus, SyncRegistry, SyncId} from "./sync-handle.js";
+import type {SyncObserver, SyncProgressEvent} from "./sync-observer.js";
 import {PlanExpander} from "./plan-expander.js";
 
 // ============================================================================
@@ -61,9 +62,9 @@ export class SyncExecutor implements Lifecycle {
   }
 
   /** Execute a sync plan. Returns a handle immediately. */
-  execute(plan: SyncPlan, options?: { syncId?: SyncId }): SyncHandle {
+  execute(plan: SyncPlan, options?: { syncId?: SyncId; observer?: SyncObserver }): SyncHandle {
     const syncId = options?.syncId ?? this.nextSyncId();
-    const handle = new SyncHandleImpl(syncId, plan);
+    const handle = new SyncHandleImpl(syncId, plan, options?.observer);
     this.activeSyncs.set(syncId, handle);
 
     this.runSync(handle).catch((err) => {
@@ -80,6 +81,8 @@ export class SyncExecutor implements Lifecycle {
   private async runSync(handle: SyncHandleImpl): Promise<void> {
     // 1. Expand full plan into task graph
     const templates = this.expander.expandPlan(handle.plan, handle.id);
+
+    handle.emit({ kind: "sync-started", stepCount: templates.length });
 
     // 2. Enqueue all tasks with dependency resolution
     await this.taskStore.enqueueGraph(templates);
@@ -114,12 +117,14 @@ export class SyncExecutor implements Lifecycle {
         } else {
           const completed = await this.taskStore.complete(task.id);
           handle.tasksCompleted++;
+          emitTaskCompleted(handle, task.payload);
           await this.onTaskCompleted(completed);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         await this.taskStore.fail(task.id, message);
         handle.tasksFailed++;
+        emitTaskFailed(handle, task.payload, message);
       }
     }
   }
@@ -182,6 +187,7 @@ class SyncHandleImpl implements SyncHandle {
   private _status: SyncStatus = "running";
   private resolveCompletion!: (result: SyncResult) => void;
   private completionPromise: Promise<SyncResult>;
+  private observer?: SyncObserver;
 
   tasksCompleted = 0;
   tasksFailed = 0;
@@ -189,10 +195,16 @@ class SyncHandleImpl implements SyncHandle {
   constructor(
     readonly id: SyncId,
     readonly plan: SyncPlan,
+    observer?: SyncObserver,
   ) {
+    this.observer = observer;
     this.completionPromise = new Promise((resolve) => {
       this.resolveCompletion = resolve;
     });
+  }
+
+  emit(event: SyncProgressEvent): void {
+    this.observer?.onEvent(event);
   }
 
   async status(): Promise<SyncStatus> { return this._status; }
@@ -214,12 +226,16 @@ class SyncHandleImpl implements SyncHandle {
     this.tasksCompleted = completed;
     this.tasksFailed = failed;
     this._status = "completed";
-    this.resolveCompletion(this.buildResult());
+    const result = this.buildResult();
+    this.emit({ kind: "sync-completed", result });
+    this.resolveCompletion(result);
   }
 
   markFailed(err: unknown): void {
     this._status = "failed";
-    this.resolveCompletion(this.buildResult());
+    const result = this.buildResult();
+    this.emit({ kind: "sync-completed", result });
+    this.resolveCompletion(result);
   }
 
   private buildResult(): SyncResult {
@@ -241,6 +257,36 @@ class SyncRegistryImpl implements SyncRegistry {
   async list(): Promise<SyncHandle[]> { return Array.from(this.syncs.values()); }
   async get(id: SyncId): Promise<SyncHandle | null> { return this.syncs.get(id) ?? null; }
   async findDuplicate(plan: SyncPlan): Promise<SyncHandle | null> { return null; }
+}
+
+// ============================================================================
+// Progress event helpers
+// ============================================================================
+
+/** Only leaf tasks that call loaders are worth reporting. */
+function isProgressWorthy(payload: TaskPayload): payload is TaskPayload & { kind: "load-fields" | "load-collection" } {
+  return payload.kind === "load-fields" || payload.kind === "load-collection";
+}
+
+function emitTaskCompleted(handle: SyncHandleImpl, payload: TaskPayload): void {
+  if (isProgressWorthy(payload)) {
+    handle.emit({
+      kind: "task-completed",
+      entityType: payload.entityType,
+      operation: payload.kind,
+    });
+  }
+}
+
+function emitTaskFailed(handle: SyncHandleImpl, payload: TaskPayload, error: string): void {
+  if (isProgressWorthy(payload)) {
+    handle.emit({
+      kind: "task-failed",
+      entityType: payload.entityType,
+      operation: payload.kind,
+      error,
+    });
+  }
 }
 
 // ============================================================================

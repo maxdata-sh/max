@@ -21,7 +21,7 @@ import {
   type StartResult,
   type StopResult,
 } from "@max/core"
-import type { SyncHandle } from "@max/execution"
+import type { SyncHandle, SyncObserver } from "@max/execution"
 import type { InstallationClient, InstallationDescription } from "./installation-client.js"
 import { RemoteSyncHandle } from "./remote-sync-handle.js"
 
@@ -54,7 +54,7 @@ export class InstallationClientProxy implements InstallationClient {
     return this.supervised.stop()
   }
 
-  async sync(): Promise<SyncHandle> {
+  async sync(_options?: { observer?: SyncObserver }): Promise<SyncHandle> {
     const info : {
       id: any
       plan: any

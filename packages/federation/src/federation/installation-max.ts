@@ -16,7 +16,7 @@ import {
   StopResult
 } from "@max/core";
 import {type Installation} from "@max/connector";
-import {SyncExecutor, type SyncHandle} from "@max/execution";
+import {SyncExecutor, type SyncHandle, type SyncObserver} from "@max/execution";
 import type {InstallationClient, InstallationDescription} from "../protocols/installation-client.js";
 
 // ============================================================================
@@ -63,12 +63,12 @@ export class InstallationMax implements InstallationClient {
     return this.config.engine
   }
 
-  async sync(): Promise<SyncHandle> {
+  async sync(options?: { observer?: SyncObserver }): Promise<SyncHandle> {
     const plan = await this.config.seeder.seed(
       this.config.installation.context as never,
       this.engine
     );
-    return this.config.syncExecutor.execute(plan);
+    return this.config.syncExecutor.execute(plan, { observer: options?.observer });
   }
 
   // --------------------------------------------------------------------------

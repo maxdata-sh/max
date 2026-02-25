@@ -9,7 +9,7 @@
  */
 
 import type { ConnectorVersionIdentifier, Engine, InstallationScope, Schema, Supervised } from "@max/core"
-import type { SyncHandle } from "@max/execution"
+import type { SyncHandle, SyncObserver } from "@max/execution"
 
 /**
  * Self-reported metadata from a running installation node.
@@ -32,5 +32,5 @@ export interface InstallationClient extends Supervised {
   readonly engine: Engine<InstallationScope>
 
   /** Kick off a sync. Seeds on first run, re-seeds on subsequent. */
-  sync(): Promise<SyncHandle>
+  sync(options?: { observer?: SyncObserver }): Promise<SyncHandle>
 }

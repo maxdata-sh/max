@@ -1,0 +1,30 @@
+diff --git a/dist/primitives.cjs b/dist/primitives.cjs
+index e17287ee99632e6552be25735dbe679d4a2f1d3d..4991ffd36c433dbfedf57aaa666b81499e1b2cc3 100644
+--- a/dist/primitives.cjs
++++ b/dist/primitives.cjs
+@@ -785,6 +785,10 @@ function argument(valueParser, options = {}) {
+ 			};
+ 		},
+ 		suggest(context, prefix) {
++			if (context.state != null) {
++				if (isAsync) return (async function*() {})();
++				return (function*() {})();
++			}
+ 			if (isAsync) return suggestArgumentAsync(valueParser, options.hidden ?? false, prefix, context.dependencyRegistry);
+ 			return suggestArgumentSync(valueParser, options.hidden ?? false, prefix, context.dependencyRegistry);
+ 		},
+diff --git a/dist/primitives.js b/dist/primitives.js
+index 5b49d6ab75a0acf4e83674878d1576455abf6e5c..8760205cf767ec681fd3d712ec129344af63d428 100644
+--- a/dist/primitives.js
++++ b/dist/primitives.js
+@@ -785,6 +785,10 @@ function argument(valueParser, options = {}) {
+ 			};
+ 		},
+ 		suggest(context, prefix) {
++			if (context.state != null) {
++				if (isAsync) return (async function*() {})();
++				return (function*() {})();
++			}
+ 			if (isAsync) return suggestArgumentAsync(valueParser, options.hidden ?? false, prefix, context.dependencyRegistry);
+ 			return suggestArgumentSync(valueParser, options.hidden ?? false, prefix, context.dependencyRegistry);
+ 		},

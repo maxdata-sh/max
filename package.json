@@ -29,5 +29,8 @@
   "catalog": {
     "typescript": "5.9.3"
   },
-  "packageManager": "bun@1.3.9"
+  "packageManager": "bun@1.3.9",
+  "patchedDependencies": {
+    "@optique/core@0.10.6": "patches/@optique%2Fcore@0.10.6.patch"
+  }
 }

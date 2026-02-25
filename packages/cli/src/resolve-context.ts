@@ -1,19 +1,13 @@
 /**
- * Context resolution — cwd detection, -g normalization, and -t level resolver.
+ * Context resolution - cwd detection, -g normalization, and cwd-to-MaxUrl.
  *
- * The conditional parser handles -t natively. This module provides:
- * 1. detectCwdContext() — filesystem walk to determine default level
- * 2. normalizeGlobalFlag() — argv rewrite: -g → -t @
- * 3. cwdToMaxUrl() — convert CwdContext to a MaxUrl
- * 4. createLevelResolver() — ValueParser for -t that resolves to MaxUrlLevel
+ * 1. detectCwdContext() - filesystem walk to determine default level
+ * 2. normalizeGlobalFlag() - argv rewrite: -g -> -t @
+ * 3. cwdToMaxUrl() - convert CwdContext to a MaxUrl
  */
 
-import {MaxConstants, MaxUrl, MaxUrlLevel } from '@max/core'
+import { MaxConstants, MaxUrl } from '@max/core'
 import { findProjectRoot } from '@max/platform-bun'
-import type { MaxUrlResolver } from '@max/federation'
-import type { Suggestion } from '@optique/core/parser'
-import type { ValueParser, ValueParserResult } from '@optique/core/valueparser'
-import { toContext, ResolvedContext } from './resolved-context.js'
 import * as path from 'node:path'
 
 // ============================================================================
@@ -86,43 +80,3 @@ export function cwdToMaxUrl(ctx: CwdContext): MaxUrl {
   }
 }
 
-// ============================================================================
-// Level resolver for -t discriminator
-// ============================================================================
-
-/**
- * ValueParser for the -t discriminator.
- * Resolves a target string to its level. Side-effect: sets ctxRef.
- * Delegates suggest() to the target completer for -t <TAB> completions.
- */
-export function createLevelResolver(
-  resolver: MaxUrlResolver,
-  cwd: string,
-  ctxRef: { current: ResolvedContext },
-  completer: { suggest?(prefix: string): AsyncIterable<Suggestion> }
-): ValueParser<'async', MaxUrlLevel> {
-  return {
-    $mode: 'async',
-    metavar: 'TARGET',
-
-    async parse(input: string): Promise<ValueParserResult<MaxUrlLevel>> {
-      const url = input.startsWith('max://')
-        ? MaxUrl.parse(input)
-        : input === MaxConstants.GLOBAL_HOME
-          ? MaxUrl.global()
-          : input
-              .split('/')
-              .filter(Boolean)
-              .reduce((u, seg) => u.child(seg), cwdToMaxUrl(detectCwdContext(cwd)))
-      const target = await resolver.resolve(url)
-      ctxRef.current = toContext(target, url)
-      return { success: true, value: ctxRef.current.level }
-    },
-
-    format: (v) => v,
-
-    async *suggest(prefix: string) {
-      if (completer.suggest) yield* completer.suggest(prefix)
-    },
-  }
-}

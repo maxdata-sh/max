@@ -10,7 +10,7 @@
  */
 
 import { ErrInvariant } from '@max/federation'
-import  {LazyX, makeLazy, MaxUrlLevel } from '@max/core'
+import  { makeLazy, MaxUrlLevel } from '@max/core'
 import { Fmt, PrintFormatter, Schema } from '@max/core'
 import { BunPlatform } from '@max/platform-bun'
 import { SchemaPrinters } from './printers/schema-printers.js'
@@ -21,12 +21,10 @@ export class CliServices<L extends MaxUrlLevel = MaxUrlLevel> {
   private colorPrinter: PrintFormatter
   private plainPrinter: PrintFormatter
 
-  constructor(private ctxProvider: () => ContextAt<L>, readonly useColor: boolean) {
+  constructor(readonly ctx: ContextAt<L>, readonly useColor: boolean) {
     this.colorPrinter = new PrintFormatter(Fmt.ansi, BunPlatform.printers)
     this.plainPrinter = new PrintFormatter(Fmt.plain, BunPlatform.printers)
   }
-
-  get ctx(): ContextAt<L> { return this.ctxProvider() }
 
   lazy = makeLazy({
     completers: () => {

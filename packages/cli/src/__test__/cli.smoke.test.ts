@@ -119,14 +119,16 @@ describe('CLI smoke', () => {
   })
 
   describe('target resolution', () => {
-    test('nonexistent workspace → throws', async () => {
+    test('nonexistent workspace → error response', async () => {
       const { run } = await createTestCli()
-      await expectError(run('max://@/nonexistent', ['schema', 'acme']))
+      const result = await run('max://@/nonexistent', ['schema', 'acme'])
+      expect(result.exitCode).toBe(1)
     })
 
-    test('nonexistent installation → throws', async () => {
+    test('nonexistent installation → error response', async () => {
       const { run } = await createTestCli()
-      await expectError(run('max://@/test-project/nonexistent', ['schema']))
+      const result = await run('max://@/test-project/nonexistent', ['schema'])
+      expect(result.exitCode).toBe(1)
     })
   })
 

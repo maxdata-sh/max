@@ -1,9 +1,9 @@
 /**
- * CLI — The dispatch engine.
+ * CLI - The dispatch engine.
  *
- * Uses optique's `conditional` combinator to route commands based on the
- * resolved target level. The cwd context is pre-populated as the default
- * branch; -t overrides it via the level resolver discriminator.
+ * Uses a two-phase gate pattern: peekTarget() resolves the target level
+ * from -t before optique runs, then buildParser() constructs a parser
+ * with only the commands available at that level.
  *
  * The harness (process argv parsing, daemon mode, socket server) lives
  * in main.ts. This file is pure logic, no process-level side effects.
@@ -14,23 +14,19 @@ import { BunPlatform, GlobalConfig } from '@max/platform-bun'
 
 import * as Completion from '@optique/core/completion'
 import { ShellCompletion } from '@optique/core/completion'
-import { conditional, or } from '@optique/core/constructs'
+import { or, object } from '@optique/core/constructs'
 import { option } from '@optique/core/primitives'
 import { Mode, Parser, suggestAsync, type Suggestion } from '@optique/core/parser'
 
-import { LazyX, LazyOne, makeLazy, MaxUrlLevel, MaxError } from '@max/core'
+import { makeLazy, MaxError } from '@max/core'
 import { CliRequest, CliResponse } from './types.js'
 import { parseAndValidateArgs } from './argv-parser.js'
 import { type Prompter } from './prompter.js'
-import { toContext, ContextAt } from './resolved-context.js'
-import {
-  detectCwdContext,
-  cwdToMaxUrl,
-  normalizeGlobalFlag,
-  createLevelResolver,
-} from './resolve-context.js'
+import { type ContextAt, type ResolvedContext } from './resolved-context.js'
+import { normalizeGlobalFlag } from './resolve-context.js'
+import { peekTarget } from './gate.js'
 import { CliServices } from './cli-services.js'
-import { createTargetCompleter } from './parsers/target-completer.js'
+import { createTargetValueParser } from './parsers/target-value-parser.js'
 
 import { CmdInit } from './commands/init-command.js'
 import { CmdConnect } from './commands/connect-command.js'
@@ -41,7 +37,6 @@ import { CmdLsGlobal, CmdLsWorkspace } from './commands/ls-command.js'
 import { CmdStatusGlobal, CmdStatusWorkspace, CmdStatusInstallation } from './commands/status-command.js'
 import { CmdSearchInstallation } from './commands/search-command.js'
 import { Command } from './command.js'
-import * as util from "node:util";
 
 // ============================================================================
 // Shell completion codecs
@@ -54,7 +49,7 @@ const shells: Record<string, ShellCompletion> = {
 }
 
 // ============================================================================
-// Command blocks — level-grouped command factories
+// Helpers
 // ============================================================================
 
 /** suggestAsync expects a non-empty tuple; this bridges the length guard. */
@@ -71,73 +66,12 @@ function hasCommand(argv: readonly string[]): boolean {
   return false
 }
 
-interface CommandBlock {
-  level: MaxUrlLevel
-  all: { [key: string]: Command }
-  program: LazyOne<Parser<Mode>>
-}
-
-class GlobalCommands implements CommandBlock {
-  level = 'global' as const
-  constructor(private services: CliServices<'global'>) {}
-  all = makeLazy({
-    init: () => new CmdInit(this.services),
-    daemon: () => new CmdDaemon(this.services),
-    ls: () => new CmdLsGlobal(this.services),
-    status: () => new CmdStatusGlobal(this.services),
-  })
-  program = LazyX.once(() => or(
-    this.all.init.parser.get,
-    this.all.daemon.parser.get,
-    this.all.ls.parser.get,
-    this.all.status.parser.get,
-  ))
-}
-
-class WorkspaceCommands implements CommandBlock {
-  level = 'workspace' as const
-  constructor(private services: CliServices<'workspace'>) {}
-  all = makeLazy({
-    daemon: () => new CmdDaemon(this.services),
-    connect: () => new CmdConnect(this.services),
-    schema: () => new CmdSchemaWorkspace(this.services),
-    sync: () => new CmdSyncWorkspace(this.services),
-    ls: () => new CmdLsWorkspace(this.services),
-    status: () => new CmdStatusWorkspace(this.services),
-  })
-  program = LazyX.once(() => or(
-    this.all.connect.parser.get,
-    this.all.schema.parser.get,
-    this.all.sync.parser.get,
-    this.all.daemon.parser.get,
-    this.all.ls.parser.get,
-    this.all.status.parser.get,
-  ))
-}
-
-class InstallationCommands implements CommandBlock {
-  level = 'installation' as const
-  constructor(private services: CliServices<'installation'>) {}
-  all = makeLazy({
-    schema: () => new CmdSchemaInstallation(this.services),
-    sync: () => new CmdSyncInstallation(this.services),
-    search: () => new CmdSearchInstallation(this.services),
-    status: () => new CmdStatusInstallation(this.services),
-  })
-  program = LazyX.once(() => or(
-    this.all.schema.parser.get,
-    this.all.sync.parser.get,
-    this.all.search.parser.get,
-    this.all.status.parser.get,
-  ))
-}
-
 // ============================================================================
 // CLI
 // ============================================================================
 
 export interface CliOptions {
-  /** Pre-built GlobalMax — skips creation and start. Used for testing. */
+  /** Pre-built GlobalMax - skips creation and start. Used for testing. */
   globalMax?: GlobalMax
 }
 
@@ -185,6 +119,79 @@ export class CLI {
     }
   }
 
+  // -- Parser builder --------------------------------------------------------
+
+  private buildParser(
+    ctx: ResolvedContext,
+    globalMax: GlobalMax,
+    cwd: string,
+    color: boolean,
+  ): { program: Parser<Mode>; commands: Record<string, Command> } {
+    const targetVP = createTargetValueParser(globalMax, cwd)
+    const services = new CliServices(ctx as ContextAt<any>, color)
+
+    const buildProgram = (commandParser: Parser<Mode>) =>
+      object({ target: option('-t', '--target', targetVP), command: commandParser })
+
+    switch (ctx.level) {
+      case 'global': {
+        const cmds = {
+          init: new CmdInit(services),
+          daemon: new CmdDaemon(services),
+          ls: new CmdLsGlobal(services),
+          status: new CmdStatusGlobal(services),
+        }
+        return {
+          commands: cmds,
+          program: buildProgram(or(
+            cmds.init.parser.get,
+            cmds.daemon.parser.get,
+            cmds.ls.parser.get,
+            cmds.status.parser.get,
+          )),
+        }
+      }
+      case 'workspace': {
+        const cmds = {
+          daemon: new CmdDaemon(services),
+          connect: new CmdConnect(services),
+          schema: new CmdSchemaWorkspace(services),
+          sync: new CmdSyncWorkspace(services),
+          ls: new CmdLsWorkspace(services),
+          status: new CmdStatusWorkspace(services),
+        }
+        return {
+          commands: cmds,
+          program: buildProgram(or(
+            cmds.connect.parser.get,
+            cmds.schema.parser.get,
+            cmds.sync.parser.get,
+            cmds.daemon.parser.get,
+            cmds.ls.parser.get,
+            cmds.status.parser.get,
+          )),
+        }
+      }
+      case 'installation': {
+        const cmds = {
+          schema: new CmdSchemaInstallation(services),
+          sync: new CmdSyncInstallation(services),
+          search: new CmdSearchInstallation(services),
+          status: new CmdStatusInstallation(services),
+        }
+        return {
+          commands: cmds,
+          program: buildProgram(or(
+            cmds.schema.parser.get,
+            cmds.sync.parser.get,
+            cmds.search.parser.get,
+            cmds.status.parser.get,
+          )),
+        }
+      }
+    }
+  }
+
   // -- Dispatch --------------------------------------------------------------
 
   async execute(req: CliRequest, prompter?: Prompter): Promise<CliResponse> {
@@ -192,69 +199,37 @@ export class CLI {
     const cwd = req.cwd ?? this.cfg.cwd
     const globalMax = await this.lazy.globalStarted
 
-    // Normalize: -g → -t @, bare `max` → `max status`
+    // Normalize: -g -> -t @, bare `max` -> `max status`
     let argv = normalizeGlobalFlag(req.argv)
     if (!hasCommand(argv)) {
-      // Insert `status` after -t <value> (conditional expects discriminator first)
       const tIdx = argv.indexOf('-t')
       const insertAt = (tIdx >= 0 && tIdx + 1 < argv.length) ? tIdx + 2 : 0
       argv = [...argv.slice(0, insertAt), 'status', ...argv.slice(insertAt)]
     }
 
-    // Resolve cwd as default context (always available, overridden by -t)
-    const cwdCtx = detectCwdContext(cwd)
-    const cwdUrl = cwdToMaxUrl(cwdCtx)
-    const cwdResolved = await globalMax.maxUrlResolver.resolve(cwdUrl)
-    const ctxRef = { current: toContext(cwdResolved, cwdUrl) }
+    // Phase 1: Gate - resolve target before parser runs
+    const ctx = await peekTarget(globalMax.maxUrlResolver, cwd, argv)
 
-    // Level resolver — overrides ctxRef.current when -t is parsed
-    // Delegates suggest() to target completer for -t <TAB> completions
-    const completer = createTargetCompleter(globalMax, cwd)
-    const levelResolver = createLevelResolver(globalMax.maxUrlResolver, cwd, ctxRef, completer)
-
-    // Lazy services — reads from ctxRef.current (always valid)
-    const services = new CliServices(() => ctxRef.current as ContextAt<any>, color)
-
-    // Command blocks
-    const global       = new GlobalCommands(services)
-    const workspace    = new WorkspaceCommands(services)
-    const installation = new InstallationCommands(services)
-    const blocks = { global, workspace, installation } as const
-
-    // Lazy branches — parser only constructed when conditional selects that level
-    const branches = {
-      global:       global.program.get,
-      workspace:    workspace.program.get,
-      installation: installation.program.get,
-    }
-
-    // The parser — one tree, handles everything
-    const program = conditional(
-      option('-t', '--target', levelResolver),
-      branches,
-      branches[cwdCtx.level],
-    )
+    // Phase 2: Build parser for this target level
+    const { program, commands } = this.buildParser(ctx, globalMax, cwd, color)
 
     if (req.kind === 'complete') {
       return this.suggest(req, program)
     }
 
-    // Parse
+    // Phase 3: Parse
     const parsed = await parseAndValidateArgs(program, 'max', argv, color)
     if (!parsed.ok) return parsed.response
 
-    const [, cmdResult] = parsed.value
+    const { command: cmdResult } = parsed.value as { command: { cmd: string } }
 
-    // Execute
-    const cmdName = (cmdResult as { cmd: string }).cmd
-    const block = blocks[ctxRef.current.level] as CommandBlock
-    const command = block.all[cmdName]
+    // Phase 4: Execute
+    const command = commands[cmdResult.cmd]
     try {
       const result = await command.run(cmdResult, { color, prompter })
       return { exitCode: 0, stdout: result + '\n' }
-    }catch (e){
-      return { exitCode: 1, stderr: MaxError.wrap(e).prettyPrint({color})}
+    } catch (e) {
+      return { exitCode: 1, stderr: MaxError.wrap(e).prettyPrint({ color }) }
     }
-
   }
 }

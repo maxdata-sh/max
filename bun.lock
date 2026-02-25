@@ -212,6 +212,18 @@
         "typescript": "catalog:",
       },
     },
+    "packages/query-parser": {
+      "name": "@max/query-parser",
+      "version": "0.1.0",
+      "dependencies": {
+        "@max/core": "workspace:*",
+        "arcsecond": "^5.0.0",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+        "typescript": "catalog:",
+      },
+    },
     "packages/storage-sqlite": {
       "name": "@max/storage-sqlite",
       "version": "0.1.0",
@@ -262,6 +274,8 @@
 
     "@max/platform-bun": ["@max/platform-bun@workspace:packages/platform-bun"],
 
+    "@max/query-parser": ["@max/query-parser@workspace:packages/query-parser"],
+
     "@max/storage-sqlite": ["@max/storage-sqlite@workspace:packages/storage-sqlite"],
 
     "@optique/core": ["@optique/core@0.10.6", "", {}, "sha512-H/E0oqLm1FVFoAp4a4LH1w0P7hG1LSXRC2kpYqxmHy1rv8pypTjs0il8joK+/GFXRIFCyoEw3Cj0YClw7mZ7RQ=="],
@@ -275,6 +289,8 @@
     "@types/yargs-parser": ["@types/yargs-parser@21.0.3", "", {}, "sha512-I4q9QU9MQv4oEOz4tAHJtNz1cwuLxn2F3xcc2iV5WdqLPpUnj30aUuxt1mAxYTG+oe8CZMV/+6rU4S4gRDzqtQ=="],
 
     "agent-base": ["agent-base@7.1.4", "", {}, "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ=="],
+
+    "arcsecond": ["arcsecond@5.0.0", "", {}, "sha512-J/fHdyadnsIencRsM6oUSsraCKG+Ni9Udcgr/eusxjTzX3SEQtCUQSpP0YtImFPfIK6DdT1nqwN0ng4FqNmwgA=="],
 
     "base64-js": ["base64-js@1.5.1", "", {}, "sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA=="],
 
@@ -420,6 +436,8 @@
 
     "@max/platform-bun/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
 
+    "@max/query-parser/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
+
     "@max/storage-sqlite/@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
 
     "@max/acme/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
@@ -449,6 +467,8 @@
     "@max/federation/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
 
     "@max/platform-bun/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
+
+    "@max/query-parser/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
 
     "@max/storage-sqlite/@types/bun/bun-types": ["bun-types@1.3.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-+UBWWOakIP4Tswh0Bt0QD0alpTY8cb5hvgiYeWCMet9YukHbzuruIEeXC2D7nMJPB12kbh8C7XJykSexEqGKJg=="],
   }

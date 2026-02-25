@@ -16,6 +16,7 @@ import * as Completion from '@optique/core/completion'
 import { ShellCompletion } from '@optique/core/completion'
 import { or, object } from '@optique/core/constructs'
 import { option } from '@optique/core/primitives'
+import { optional } from '@optique/core/modifiers'
 import { Mode, Parser, suggestAsync, type Suggestion } from '@optique/core/parser'
 
 import { makeLazy, MaxError } from '@max/core'
@@ -131,7 +132,7 @@ export class CLI {
     const services = new CliServices(ctx as ContextAt<any>, color)
 
     const buildProgram = (commandParser: Parser<Mode>) =>
-      object({ target: option('-t', '--target', targetVP), command: commandParser })
+      object({ target: optional(option('-t', '--target', targetVP)), command: commandParser })
 
     switch (ctx.level) {
       case 'global': {
@@ -207,23 +208,23 @@ export class CLI {
       argv = [...argv.slice(0, insertAt), 'status', ...argv.slice(insertAt)]
     }
 
-    // Phase 1: Gate - resolve target before parser runs
+    // Resolve target (global/workspace/installation) before parser runs
     const ctx = await peekTarget(globalMax.maxUrlResolver, cwd, argv)
 
-    // Phase 2: Build parser for this target level
+    // Build parser for this target level
     const { program, commands } = this.buildParser(ctx, globalMax, cwd, color)
 
     if (req.kind === 'complete') {
       return this.suggest(req, program)
     }
 
-    // Phase 3: Parse
+    // Parse
     const parsed = await parseAndValidateArgs(program, 'max', argv, color)
     if (!parsed.ok) return parsed.response
 
     const { command: cmdResult } = parsed.value as { command: { cmd: string } }
 
-    // Phase 4: Execute
+    // Execute
     const command = commands[cmdResult.cmd]
     try {
       const result = await command.run(cmdResult, { color, prompter })

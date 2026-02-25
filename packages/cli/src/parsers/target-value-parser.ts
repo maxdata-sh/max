@@ -47,37 +47,52 @@ export function createTargetValueParser(
 
     async *suggest(prefix: string): AsyncGenerator<Suggestion> {
       yield { kind: 'literal', text: '@', description: message`Global` }
-      yield { kind: 'literal', text: 'max://', description: message`Full URL` }
+      yield { kind: 'literal', text: slashEscape('max://'), description: message`Full URL` }
 
       // ---- Absolute max:// URL ----
 
       if (prefix.startsWith('max://')) {
-        const afterHost = prefix.slice('max://@/'.length)
-        const segments = afterHost.split('/').filter(Boolean)
+        // Progressive: max:// -> max://@/ -> max://@/ws -> max://@/ws/ -> max://@/ws/inst
+        if (!prefix.startsWith('max://@/')) {
+          // Typed max:// or max://@  but not yet max://@/ — offer the next step
+          yield { kind: 'literal', text: slashEscape('max://@/'), description: message`Local (browse workspaces)` }
+          return
+        }
 
-        if (segments.length === 0) {
+        const afterHost = prefix.slice('max://@/'.length)
+        const slashIdx = afterHost.indexOf('/')
+
+        if (slashIdx === -1) {
+          // max://@/ or max://@/partial — suggest workspaces
           const workspaces = await globalMax.listWorkspaces()
           for (const ws of workspaces) {
-            yield {
-              kind: 'literal',
-              text: `max://@/${ws.name}`,
-              description: message`Workspace`,
-            }
-            yield {
-              kind: 'literal',
-              text: `max://@/${ws.name}/`,
-              description: message`Workspace (installations)`,
+            if (ws.name.startsWith(afterHost)) {
+              yield {
+                kind: 'literal',
+                text: slashEscape(`max://@/${ws.name}`),
+                description: message`Workspace`,
+              }
+              yield {
+                kind: 'literal',
+                text: slashEscape(`max://@/${ws.name}/`),
+                description: message`Workspace (installations)`,
+              }
             }
           }
-        } else if (segments.length === 1) {
-          const ws = globalMax.workspaceByNameOrId(segments[0])
+        } else {
+          // max://@/workspace/ or max://@/workspace/partial — suggest installations
+          const wsName = afterHost.slice(0, slashIdx)
+          const installPrefix = afterHost.slice(slashIdx + 1)
+          const ws = globalMax.workspaceByNameOrId(wsName)
           if (ws) {
             const installations = await ws.listInstallations()
             for (const inst of installations) {
-              yield {
-                kind: 'literal',
-                text: `max://@/${segments[0]}/${inst.name}`,
-                description: message`Installation`,
+              if (inst.name.startsWith(installPrefix)) {
+                yield {
+                  kind: 'literal',
+                  text: slashEscape(`max://@/${wsName}/${inst.name}`),
+                  description: message`Installation`,
+                }
               }
             }
           }
@@ -125,3 +140,5 @@ export function createTargetValueParser(
     },
   }
 }
+
+const slashEscape = (str:string) => str.replaceAll(/[:/]/g, c => `\\${c}`)

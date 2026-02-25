@@ -35,8 +35,7 @@ export class ConnectingInstallationClient implements InstallationClient {
   // -- Supervised -------------------------------------------------------
 
   async health(): Promise<HealthStatus> {
-    if (!this._connected) return HealthStatus.unhealthy('not connected')
-    return (await this._connected).health()
+    return (await this.ensure()).health()
   }
 
   async start(): Promise<StartResult> {

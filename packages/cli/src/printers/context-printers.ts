@@ -21,21 +21,24 @@ function contextHeader(url: MaxUrl, fmt: Fmt): string {
   return `${levelLabel}: ${fmt.bold(name)} ${fmt.dim(`(${url})`)}`
 }
 
-function healthIndicator(health: HealthStatus, fmt: Fmt): string {
-  switch (health.status) {
-    case 'healthy':  return fmt.green('●')
-    case 'degraded':  return fmt.yellow('●')
-    case 'unhealthy': return fmt.red('●')
-  }
-}
-
 function healthLabel(health: HealthStatus, fmt: Fmt): string {
-  const indicator = healthIndicator(health, fmt)
-  const label = health.status === 'healthy' ? fmt.green(health.status) :
-                health.status === 'degraded' ? fmt.yellow(health.status) :
-                fmt.red(health.status)
-  const reason = health.reason ? fmt.dim(` (${health.reason})`) : ''
-  return `${indicator} ${label}${reason}`
+  // Not connected / unreachable — distinct from a running-but-unhealthy state
+  if (health.status === 'unhealthy' && (health.reason === 'not connected' || health.reason === 'unreachable')) {
+    return `${fmt.yellow('○')} ${fmt.yellow(health.reason)}`
+  }
+
+  switch (health.status) {
+    case 'healthy':
+      return `${fmt.green('●')} ${fmt.green(health.status)}`
+    case 'degraded': {
+      const reason = health.reason ? fmt.dim(` (${health.reason})`) : ''
+      return `${fmt.yellow('●')} ${fmt.yellow(health.status)}${reason}`
+    }
+    case 'unhealthy': {
+      const reason = health.reason ? fmt.dim(` (${health.reason})`) : ''
+      return `${fmt.red('●')} ${fmt.red(health.status)}${reason}`
+    }
+  }
 }
 
 function formatTable(headers: string[], rows: string[][], fmt: Fmt): string {

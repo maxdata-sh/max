@@ -69,7 +69,7 @@ async function handleInput(
 
   if (step.credentials) {
     for (const [_key, credential] of Object.entries(step.credentials)) {
-      const value = await prompter.ask(`${step.label}: `);
+      const value = await prompter.ask(`${step.label}: `, { secret: true });
       await ctx.credentialStore.set(credential.name, value);
     }
   }

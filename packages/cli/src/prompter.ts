@@ -10,14 +10,20 @@
  */
 
 import { createInterface } from "node:readline";
+import { Writable } from "node:stream";
 
 // ============================================================================
 // Interface
 // ============================================================================
 
+export interface AskOptions {
+  /** When true, input is not echoed to the terminal. */
+  secret?: boolean;
+}
+
 export interface Prompter {
   /** Display a message and wait for user input. */
-  ask(message: string): Promise<string>;
+  ask(message: string, options?: AskOptions): Promise<string>;
   /** Write output text to the user (no input expected). */
   write(text: string): void;
   /** Clean up resources. */
@@ -28,10 +34,16 @@ export interface Prompter {
 // DirectPrompter — real readline
 // ============================================================================
 
+/** A writable stream that discards all output (used to suppress echo). */
+const silentOutput = new Writable({ write(_chunk, _encoding, cb) { cb(); } });
+
 export class DirectPrompter implements Prompter {
   private rl = createInterface({ input: process.stdin, output: process.stdout });
 
-  ask(message: string): Promise<string> {
+  ask(message: string, options?: AskOptions): Promise<string> {
+    if (options?.secret) {
+      return this.askSecret(message);
+    }
     return new Promise((resolve) => {
       this.rl.question(message, (answer) => resolve(answer.trim()));
     });
@@ -44,6 +56,19 @@ export class DirectPrompter implements Prompter {
   close(): void {
     this.rl.close();
   }
+
+  private askSecret(message: string): Promise<string> {
+    // Print the prompt ourselves, then read with a silent readline
+    process.stdout.write(message);
+    const secretRl = createInterface({ input: process.stdin, output: silentOutput });
+    return new Promise((resolve) => {
+      secretRl.question("", (answer) => {
+        secretRl.close();
+        process.stdout.write("\n");
+        resolve(answer.trim());
+      });
+    });
+  }
 }
 
 // ============================================================================
@@ -52,7 +77,7 @@ export class DirectPrompter implements Prompter {
 
 /** Messages sent from daemon to shim. */
 export type DaemonMessage =
-  | { kind: "prompt"; message: string }
+  | { kind: "prompt"; message: string; secret?: boolean }
   | { kind: "write"; text: string }
   | { kind: "response"; stdout?: string; stderr?: string; exitCode: number; completions?: string[]; completionOutput?: string }
 
@@ -73,8 +98,8 @@ export interface PromptableSocket {
 export class SocketPrompter implements Prompter {
   constructor(private socket: PromptableSocket) {}
 
-  async ask(message: string): Promise<string> {
-    this.socket.send({ kind: "prompt", message });
+  async ask(message: string, options?: AskOptions): Promise<string> {
+    this.socket.send({ kind: "prompt", message, secret: options?.secret });
     const input = await this.socket.receive();
     return input.value.trim();
   }

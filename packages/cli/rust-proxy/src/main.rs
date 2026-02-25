@@ -4,6 +4,24 @@ use std::env;
 use std::io::{self, BufRead, IsTerminal, Write};
 use std::process::{Command, Stdio};
 
+// ---------------------------------------------------------------------------
+// Terminal echo control — used for secret/credential prompts
+// ---------------------------------------------------------------------------
+
+fn set_echo(enabled: bool) {
+    unsafe {
+        let mut termios: libc::termios = std::mem::zeroed();
+        if libc::tcgetattr(libc::STDIN_FILENO, &mut termios) == 0 {
+            if enabled {
+                termios.c_lflag |= libc::ECHO;
+            } else {
+                termios.c_lflag &= !libc::ECHO;
+            }
+            libc::tcsetattr(libc::STDIN_FILENO, libc::TCSANOW, &termios);
+        }
+    }
+}
+
 fn run_direct(args: &[String]) {
     let script = match daemon::find_daemon_script() {
         Ok(s) => s,
@@ -128,13 +146,23 @@ fn main() {
 
         match msg["kind"].as_str() {
             Some("prompt") => {
+                let secret = msg["secret"].as_bool().unwrap_or(false);
+
                 // Display the prompt message and read input from the real terminal
                 if let Some(message) = msg["message"].as_str() {
                     print!("{}", message);
                     let _ = io::stdout().flush();
                 }
+
+                if secret { set_echo(false); }
                 let mut input = String::new();
-                if let Err(e) = io::stdin().read_line(&mut input) {
+                let read_result = io::stdin().read_line(&mut input);
+                if secret {
+                    set_echo(true);
+                    println!(); // newline after hidden input
+                }
+
+                if let Err(e) = read_result {
                     eprintln!("Error reading input: {}", e);
                     std::process::exit(1);
                 }

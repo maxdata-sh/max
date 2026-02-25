@@ -38,6 +38,7 @@ import {
 import {DeployerRegistry, DeploymentConfig} from "../deployers/index.js";
 import { ConnectingInstallationClient } from '../protocols/connecting-installation-client.js'
 import type { InstallationRegistryEntry } from './installation-registry.js'
+import { deriveInstallationSlug } from './installation-naming.js'
 
 export type WorkspaceMaxConstructable = {
   installationSupervisor: InstallationSupervisor
@@ -137,14 +138,25 @@ export class WorkspaceMax implements WorkspaceClient {
     })
   }
 
+  resolveInstallationName(connector: string, explicitName?: string): string {
+    const existingNames = this.installationRegistry.list().map(e => e.name)
+
+    if (explicitName) {
+      if (existingNames.includes(explicitName)) {
+        throw ErrInstallationAlreadyExists.create({ connector, name: explicitName })
+      }
+      return explicitName
+    }
+
+    return deriveInstallationSlug(connector, existingNames)
+  }
+
   async createInstallation<K extends DeployerKind>(config: CreateInstallationConfig<K>): Promise<InstallationId> {
     const { spec } = config
-    const name = spec.name ?? spec.connector
+    const name = spec.name ?? this.resolveInstallationName(spec.connector)
 
-    // Deduplicate on natural key (connector + name)
-    const existing = this.installationRegistry
-      .list()
-      .find((e) => e.connector === spec.connector && e.name === name)
+    // Deduplicate on natural key (name)
+    const existing = this.installationRegistry.list().find((e) => e.name === name)
     if (existing) {
       throw ErrInstallationAlreadyExists.create({ connector: spec.connector, name })
     }
@@ -156,6 +168,10 @@ export class WorkspaceMax implements WorkspaceClient {
     // Supervisor assigns identity, returns NodeHandle
     const handle = this.supervisor.register(unlabelled)
 
+    // Strip credentials from persisted spec - they're already in the credential store
+    // (seeded by the deployer's bootstrap).
+    const { initialCredentials: _, ...cleanSpec } = spec
+
     // Persist to registry
     this.installationRegistry.add({
       id: handle.id,
@@ -164,7 +180,7 @@ export class WorkspaceMax implements WorkspaceClient {
       connectedAt: ISODateString.now(),
       locator: Locator.toURI(unlabelled.locator),
       deployment: config.config,
-      spec: config.spec
+      spec: cleanSpec,
     })
 
     // Start!
@@ -186,7 +202,7 @@ export class WorkspaceMax implements WorkspaceClient {
 
     const unlabelled = await deployer.connect(meta.deployment, meta.spec)
 
-    // Ask the node to describe itself — connector, name, schema
+    // Ask the node to describe itself - connector, name, schema
     const description = await unlabelled.client.describe()
 
     // Supervisor assigns identity
@@ -222,8 +238,7 @@ export class WorkspaceMax implements WorkspaceClient {
 
   async start(): Promise<StartResult> {
     // Start any installations already in the supervisor (e.g. created this session).
-    // Persisted installations are NOT eagerly reconciled — they connect lazily
-    // on first use via ConnectingInstallationClient.
+    // Persisted installations are connected lazily on first use via ConnectingInstallationClient.
     const handles = this.supervisor.list()
     for (const handle of handles) {
       const result = await handle.client.start()

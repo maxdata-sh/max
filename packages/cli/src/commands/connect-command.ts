@@ -1,8 +1,11 @@
 import { LazyX } from '@max/core'
-import { argument, command, constant } from '@optique/core/primitives'
+import { argument, command, constant, option } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
+import { optional } from '@optique/core/modifiers'
 import { message } from '@optique/core/message'
+import { string } from '@optique/core/valueparser'
 import { InMemoryCredentialStore } from '@max/connector'
+import { deriveInstallationSlug } from '@max/federation'
 import { BunPlatform } from '@max/platform-bun'
 import type { Command, Inferred, CommandOptions } from '../command.js'
 import type { CliServices } from '../cli-services.js'
@@ -23,6 +26,9 @@ export class CmdConnect implements Command {
       source: argument(this.services.completers.connectorSource, {
         description: message`Connector to set up`,
       }),
+      name: optional(option('-n', '--name', string(), {
+        description: message`Installation name (auto-generated if omitted)`,
+      })),
     }),
     { description: message`Connect a new data source` }
   ))
@@ -32,6 +38,10 @@ export class CmdConnect implements Command {
     const flow = await ws.connectorOnboarding(args.source)
 
     const wsDataDir = await this.services.getWorkspaceDataDir()
+
+    // Resolve installation name: user-supplied or auto-derived slug
+    const existingNames = (await ws.listInstallations()).map(i => i.name)
+    const installationName = args.name ?? deriveInstallationSlug(args.source, existingNames)
 
     const memStore = new InMemoryCredentialStore()
     const ownedPrompter = opts.prompter ? null : new DirectPrompter()
@@ -49,16 +59,17 @@ export class CmdConnect implements Command {
         via: BunPlatform.installation.deploy.inProcess,
         config: {
           strategy: 'in-process',
-          dataDir: path.join(wsDataDir, 'installations', args.source),
+          dataDir: path.join(wsDataDir, 'installations', installationName),
         },
         spec: {
           connector: args.source,
+          name: installationName,
           connectorConfig: config,
           initialCredentials: credentialKeys.length > 0 ? initialCredentials : undefined,
         },
       })
 
-      return `Connected ${args.source} as installation ${id}`
+      return `Connected ${args.source} as installation ${installationName} (${id})`
     } finally {
       ownedPrompter?.close()
     }

@@ -12,6 +12,7 @@ Items are grouped by area. Within each group, items near the top are more pressi
 - Credentials need to be written / accessed through a CredentialStore
   - This now happens but - `initialCredentials` will be persisted to max.json; they need routing through a store.
 - **Daemon file logger** - background nodes need a place to write logs. Currently stderr is blackholed...
+- registries should have a lookup by id/name/field - we're frequently listing then filtering
 
 ---
 

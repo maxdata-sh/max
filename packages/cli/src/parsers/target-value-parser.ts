@@ -11,13 +11,13 @@
  *   max -t hub<TAB>          -> children of cwd context matching "hub"
  */
 
-import type { GlobalMax } from '@max/federation'
-import type { ValueParser, ValueParserResult } from '@optique/core/valueparser'
-import type { Suggestion } from '@optique/core/parser'
-import { message } from '@optique/core/message'
-import { detectCwdContext } from '../resolve-context.js'
-import { parseTargetInput } from '../gate.js'
-import { toContext, type ResolvedContext } from '../resolved-context.js'
+import type {GlobalMax} from '@max/federation'
+import type {ValueParser, ValueParserResult} from '@optique/core/valueparser'
+import type {Suggestion} from '@optique/core/parser'
+import {message} from '@optique/core/message'
+import {detectCwdContext} from '../resolve-context.js'
+import {parseTargetInput} from '../gate.js'
+import {type ResolvedContext, toContext} from '../resolved-context.js'
 
 export function createTargetValueParser(
   globalMax: GlobalMax,
@@ -47,7 +47,7 @@ export function createTargetValueParser(
 
     async *suggest(prefix: string): AsyncGenerator<Suggestion> {
       yield { kind: 'literal', text: '@', description: message`Global` }
-      yield { kind: 'literal', text: slashEscape('max://'), description: message`Full URL` }
+      yield { kind: 'literal', text: 'max://', description: message`Full URL` }
 
       // ---- Absolute max:// URL ----
 
@@ -55,7 +55,7 @@ export function createTargetValueParser(
         // Progressive: max:// -> max://@/ -> max://@/ws -> max://@/ws/ -> max://@/ws/inst
         if (!prefix.startsWith('max://@/')) {
           // Typed max:// or max://@  but not yet max://@/ — offer the next step
-          yield { kind: 'literal', text: slashEscape('max://@/'), description: message`Local (browse workspaces)` }
+          yield { kind: 'literal', text: 'max://@/', description: message`Local (browse workspaces)` }
           return
         }
 
@@ -69,12 +69,12 @@ export function createTargetValueParser(
             if (ws.name.startsWith(afterHost)) {
               yield {
                 kind: 'literal',
-                text: slashEscape(`max://@/${ws.name}`),
+                text: `max://@/${ws.name}`,
                 description: message`Workspace`,
               }
               yield {
                 kind: 'literal',
-                text: slashEscape(`max://@/${ws.name}/`),
+                text: `max://@/${ws.name}/`,
                 description: message`Workspace (installations)`,
               }
             }
@@ -90,7 +90,7 @@ export function createTargetValueParser(
               if (inst.name.startsWith(installPrefix)) {
                 yield {
                   kind: 'literal',
-                  text: slashEscape(`max://@/${wsName}/${inst.name}`),
+                  text: `max://@/${wsName}/${inst.name}`,
                   description: message`Installation`,
                 }
               }
@@ -140,5 +140,3 @@ export function createTargetValueParser(
     },
   }
 }
-
-const slashEscape = (str:string) => str.replaceAll(/[:/]/g, c => `\\${c}`)

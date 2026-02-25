@@ -97,13 +97,17 @@ export class CLI {
     const shell = req.shell && shells[req.shell]
     if (shell) {
       const chunks: string[] = []
-      for (const chunk of shell.encodeSuggestions(suggestions)) {
+      // There's a bug in the encoder that fails to treat max:// urls as atomic. Escaping the :// parts is necessary:
+      const preEncoded = suggestions.map(preEncodeSuggestion)
+      for (const chunk of shell.encodeSuggestions(preEncoded)) {
         chunks.push(chunk)
       }
       return { exitCode: 0, completionOutput: chunks.join('\n') }
+    }else{
+      const completions = suggestions.filter((s) => s.kind === 'literal').map((s) => s.text)
+      return { exitCode: 0, completions }
     }
-    const completions = suggestions.filter((s) => s.kind === 'literal').map((s) => s.text)
-    return { exitCode: 0, completions }
+
   }
 
   private async suggest(
@@ -234,3 +238,8 @@ export class CLI {
     }
   }
 }
+
+const slashEscape = (str:string) => str.replaceAll(/[:/]/g, c => `\\${c}`)
+const preEncodeSuggestion = (suggestion: Suggestion):Suggestion => suggestion.kind === 'literal'
+  ? {...suggestion, text: slashEscape(suggestion.text)}
+  : suggestion

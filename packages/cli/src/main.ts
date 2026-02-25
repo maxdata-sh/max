@@ -112,6 +112,7 @@ export async function main() {
       argv: parsed.value.maxCommand,
       cwd: process.cwd(),
       color: cfg.useColor,
+      shell: process.env.SHELL
     }
 
     await cli.execute(req).then(

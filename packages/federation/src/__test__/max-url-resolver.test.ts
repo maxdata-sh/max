@@ -1,37 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { MaxUrl } from '@max/core'
-import { InMemoryWorkspaceRegistry } from '../federation/workspace-registry.js'
-import {
-  DefaultSupervisor,
-  GlobalMax,
-  InMemoryInstallationRegistry,
-  WorkspaceMax,
-} from '../federation/index.js'
+import { GlobalMax } from '../federation/index.js'
 import { DeployerRegistry } from '../deployers/index.js'
-import { ISODateString } from '@max/core'
 import { InlineDeployer } from '../federation/deployer-common/inline-deployer.js'
-import { InMemoryConnectorRegistry } from '@max/connector'
 import type { InstallationClient } from '../protocols/index.js'
-import {AcmeSchema} from "@max/connector-acme";
-
-function idSequence(prefix: string) {
-  let n = 0
-  return () => `${prefix}-${++n}`
-}
+import { AcmeSchema } from '@max/connector-acme'
 
 // -- Helpers ------------------------------------------------------------------
 
 async function setup() {
-  const workspaceRegistry = new InMemoryWorkspaceRegistry()
-  workspaceRegistry.add({
-    name: 'my-team',
-    id: 'my-team-id',
-    spec: { name: 'my-team' },
-    config: { strategy: InlineDeployer.deployerKind },
-    connectedAt: ISODateString.now(),
-  })
-
-  // Real WorkspaceMax with in-memory registries — no dummy transport needed
   const stubInstallation: InstallationClient = {
     health: async () => ({ status: 'healthy' as const }),
     start: async () => ({ outcome: 'started' as const }),
@@ -46,31 +23,23 @@ async function setup() {
     sync: async () => ({ close: async () => {} }) as any,
   }
 
-  const installationDeployer = new DeployerRegistry('workspace', [
-    new InlineDeployer(async () => stubInstallation),
-  ])
-
-  const workspaceMax = new WorkspaceMax({
-    installationSupervisor: new DefaultSupervisor(idSequence('inst')),
-    installationRegistry: new InMemoryInstallationRegistry(),
-    connectorRegistry: new InMemoryConnectorRegistry(),
-    installationDeployer,
-  })
-
-  const max = new GlobalMax({
-    workspaceRegistry,
-    workspaceDeployer: new DeployerRegistry('max', [
-      new InlineDeployer(async () => workspaceMax),
+  const max = GlobalMax.ephemeral({
+    installationDeployer: new DeployerRegistry('test', [
+      new InlineDeployer(async () => stubInstallation),
     ]),
-    workspaceSupervisor: new DefaultSupervisor(idSequence('ws')),
   })
   await max.start()
 
-  const workspace = max.workspace('my-team-id')!
+  const wsId = await max.createWorkspace('my-team', {
+    via: InlineDeployer.deployerKind,
+    config: { strategy: 'inline' },
+    spec: { name: 'my-team' },
+  })
+  const workspace = max.workspace(wsId)!
   const instId = await workspace.createInstallation({
     via: InlineDeployer.deployerKind,
     config: { strategy: 'inline' },
-    spec: { connector: 'unused', name: 'hubspot-prod' },
+    spec: { connector: '@max/connector-acme', name: 'hubspot-prod' },
   })
 
   return {

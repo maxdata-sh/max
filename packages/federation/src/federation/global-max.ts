@@ -33,6 +33,7 @@ import {
   WorkspaceClientWithIdentity,
 } from '../protocols/with-client-identity.js'
 import { stampClientWithIdentity } from './stamp-client-with-identity.js'
+import { createEphemeralMax, type EphemeralOverrides } from './ephemeral.js'
 
 export type GlobalMaxConstructable = {
   workspaceSupervisor: WorkspaceSupervisor
@@ -42,6 +43,10 @@ export type GlobalMaxConstructable = {
 
 
 export class GlobalMax implements GlobalClientWithIdentity {
+  static ephemeral(overrides?: EphemeralOverrides): GlobalMax {
+    return createEphemeralMax(overrides)
+  }
+
   id = "@" as const
 
   private readonly workspaceSupervisor: WorkspaceSupervisor

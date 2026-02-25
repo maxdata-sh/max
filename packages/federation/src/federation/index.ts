@@ -39,5 +39,6 @@ export {
 
 export {DefaultMaxUrlResolver} from './default-max-url-resolver.js'
 export {type MaxClientResolver} from './max-client-resolver.js'
+export { createEphemeralMax, type EphemeralOverrides } from './ephemeral.js'
 
 

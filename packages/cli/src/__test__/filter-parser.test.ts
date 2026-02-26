@@ -1,37 +1,65 @@
 import { describe, test, expect } from 'bun:test'
+import { WhereClause } from '@max/core'
+import type { QueryFilter } from '@max/core'
 import { parseFilter } from '../parsers/filter-parser.js'
 
 const FIELDS = ['name', 'active', 'priority', 'status', 'email', 'count']
 
+/** Shorthand for a leaf QueryFilter. */
+const leaf = (field: string, op: QueryFilter['op'], value: unknown): QueryFilter => ({ field, op, value })
+
 describe('parseFilter', () => {
   // ---------------------------------------------------------------
-  // Basic parsing
+  // Basic parsing — single comparisons return a leaf QueryFilter
   // ---------------------------------------------------------------
 
   test('single equality', () => {
     const result = parseFilter('name=Acme', FIELDS)
-    expect(result).toEqual([{ field: 'name', op: '=', value: 'Acme' }])
+    expect(result).toEqual(leaf('name', '=', 'Acme'))
   })
 
   test('spaced equality', () => {
     const result = parseFilter('name = Acme', FIELDS)
-    expect(result).toEqual([{ field: 'name', op: '=', value: 'Acme' }])
+    expect(result).toEqual(leaf('name', '=', 'Acme'))
   })
 
   test('AND conjunction', () => {
     const result = parseFilter('name=Acme AND status=open', FIELDS)
-    expect(result).toEqual([
-      { field: 'name', op: '=', value: 'Acme' },
-      { field: 'status', op: '=', value: 'open' },
-    ])
+    expect(result).toEqual(WhereClause.and(
+      leaf('name', '=', 'Acme'),
+      leaf('status', '=', 'open'),
+    ))
   })
 
   test('lowercase and works', () => {
     const result = parseFilter('name=Acme and status=open', FIELDS)
-    expect(result).toEqual([
-      { field: 'name', op: '=', value: 'Acme' },
-      { field: 'status', op: '=', value: 'open' },
-    ])
+    expect(result).toEqual(WhereClause.and(
+      leaf('name', '=', 'Acme'),
+      leaf('status', '=', 'open'),
+    ))
+  })
+
+  // ---------------------------------------------------------------
+  // OR support
+  // ---------------------------------------------------------------
+
+  test('OR conjunction', () => {
+    const result = parseFilter('name=Acme OR name=Beta', FIELDS)
+    expect(result).toEqual(WhereClause.or(
+      leaf('name', '=', 'Acme'),
+      leaf('name', '=', 'Beta'),
+    ))
+  })
+
+  test('grouped OR with AND', () => {
+    const result = parseFilter('(name=Acme OR name=Beta) AND active=true', FIELDS)
+    expect(result).toEqual(WhereClause.and(
+      WhereClause.or(
+        leaf('name', '=', 'Acme'),
+        leaf('name', '=', 'Beta'),
+      ),
+      leaf('active', '=', true),
+    ))
   })
 
   // ---------------------------------------------------------------
@@ -39,33 +67,27 @@ describe('parseFilter', () => {
   // ---------------------------------------------------------------
 
   test('!= operator', () => {
-    const result = parseFilter('status!=closed', FIELDS)
-    expect(result).toEqual([{ field: 'status', op: '!=', value: 'closed' }])
+    expect(parseFilter('status!=closed', FIELDS)).toEqual(leaf('status', '!=', 'closed'))
   })
 
   test('>= operator', () => {
-    const result = parseFilter('priority>=2', FIELDS)
-    expect(result).toEqual([{ field: 'priority', op: '>=', value: 2 }])
+    expect(parseFilter('priority>=2', FIELDS)).toEqual(leaf('priority', '>=', 2))
   })
 
   test('<= operator', () => {
-    const result = parseFilter('count<=100', FIELDS)
-    expect(result).toEqual([{ field: 'count', op: '<=', value: 100 }])
+    expect(parseFilter('count<=100', FIELDS)).toEqual(leaf('count', '<=', 100))
   })
 
   test('> operator', () => {
-    const result = parseFilter('priority>3', FIELDS)
-    expect(result).toEqual([{ field: 'priority', op: '>', value: 3 }])
+    expect(parseFilter('priority>3', FIELDS)).toEqual(leaf('priority', '>', 3))
   })
 
   test('< operator', () => {
-    const result = parseFilter('priority<5', FIELDS)
-    expect(result).toEqual([{ field: 'priority', op: '<', value: 5 }])
+    expect(parseFilter('priority<5', FIELDS)).toEqual(leaf('priority', '<', 5))
   })
 
   test('~= maps to contains', () => {
-    const result = parseFilter('name~=Acme', FIELDS)
-    expect(result).toEqual([{ field: 'name', op: 'contains', value: 'Acme' }])
+    expect(parseFilter('name~=Acme', FIELDS)).toEqual(leaf('name', 'contains', 'Acme'))
   })
 
   // ---------------------------------------------------------------
@@ -73,23 +95,19 @@ describe('parseFilter', () => {
   // ---------------------------------------------------------------
 
   test('true is parsed as boolean true', () => {
-    const result = parseFilter('active=true', FIELDS)
-    expect(result).toEqual([{ field: 'active', op: '=', value: true }])
+    expect(parseFilter('active=true', FIELDS)).toEqual(leaf('active', '=', true))
   })
 
   test('false is parsed as boolean false', () => {
-    const result = parseFilter('active=false', FIELDS)
-    expect(result).toEqual([{ field: 'active', op: '=', value: false }])
+    expect(parseFilter('active=false', FIELDS)).toEqual(leaf('active', '=', false))
   })
 
   test('TRUE (uppercase) is parsed as boolean', () => {
-    const result = parseFilter('active=TRUE', FIELDS)
-    expect(result).toEqual([{ field: 'active', op: '=', value: true }])
+    expect(parseFilter('active=TRUE', FIELDS)).toEqual(leaf('active', '=', true))
   })
 
   test('FALSE (uppercase) is parsed as boolean', () => {
-    const result = parseFilter('active=FALSE', FIELDS)
-    expect(result).toEqual([{ field: 'active', op: '=', value: false }])
+    expect(parseFilter('active=FALSE', FIELDS)).toEqual(leaf('active', '=', false))
   })
 
   // ---------------------------------------------------------------
@@ -97,23 +115,19 @@ describe('parseFilter', () => {
   // ---------------------------------------------------------------
 
   test('integer value is parsed as number', () => {
-    const result = parseFilter('priority=3', FIELDS)
-    expect(result).toEqual([{ field: 'priority', op: '=', value: 3 }])
+    expect(parseFilter('priority=3', FIELDS)).toEqual(leaf('priority', '=', 3))
   })
 
   test('negative number is parsed as number', () => {
-    const result = parseFilter('priority=-1', FIELDS)
-    expect(result).toEqual([{ field: 'priority', op: '=', value: -1 }])
+    expect(parseFilter('priority=-1', FIELDS)).toEqual(leaf('priority', '=', -1))
   })
 
   test('decimal value is parsed as number', () => {
-    const result = parseFilter('priority=3.5', FIELDS)
-    expect(result).toEqual([{ field: 'priority', op: '=', value: 3.5 }])
+    expect(parseFilter('priority=3.5', FIELDS)).toEqual(leaf('priority', '=', 3.5))
   })
 
   test('zero is parsed as number', () => {
-    const result = parseFilter('count=0', FIELDS)
-    expect(result).toEqual([{ field: 'count', op: '=', value: 0 }])
+    expect(parseFilter('count=0', FIELDS)).toEqual(leaf('count', '=', 0))
   })
 
   // ---------------------------------------------------------------
@@ -121,18 +135,15 @@ describe('parseFilter', () => {
   // ---------------------------------------------------------------
 
   test('non-numeric string stays as string', () => {
-    const result = parseFilter('name=hello', FIELDS)
-    expect(result).toEqual([{ field: 'name', op: '=', value: 'hello' }])
+    expect(parseFilter('name=hello', FIELDS)).toEqual(leaf('name', '=', 'hello'))
   })
 
   test('quoted value stays as string even if numeric', () => {
-    const result = parseFilter('name="42"', FIELDS)
-    expect(result).toEqual([{ field: 'name', op: '=', value: '42' }])
+    expect(parseFilter('name="42"', FIELDS)).toEqual(leaf('name', '=', '42'))
   })
 
   test('quoted true stays as string', () => {
-    const result = parseFilter('name="true"', FIELDS)
-    expect(result).toEqual([{ field: 'name', op: '=', value: 'true' }])
+    expect(parseFilter('name="true"', FIELDS)).toEqual(leaf('name', '=', 'true'))
   })
 
   // ---------------------------------------------------------------
@@ -140,13 +151,11 @@ describe('parseFilter', () => {
   // ---------------------------------------------------------------
 
   test('double-quoted value with spaces', () => {
-    const result = parseFilter('name="John Doe"', FIELDS)
-    expect(result).toEqual([{ field: 'name', op: '=', value: 'John Doe' }])
+    expect(parseFilter('name="John Doe"', FIELDS)).toEqual(leaf('name', '=', 'John Doe'))
   })
 
   test('single-quoted value', () => {
-    const result = parseFilter("name='hello world'", FIELDS)
-    expect(result).toEqual([{ field: 'name', op: '=', value: 'hello world' }])
+    expect(parseFilter("name='hello world'", FIELDS)).toEqual(leaf('name', '=', 'hello world'))
   })
 
   // ---------------------------------------------------------------
@@ -155,23 +164,26 @@ describe('parseFilter', () => {
 
   test('three filters ANDed', () => {
     const result = parseFilter('name=Acme AND active=true AND priority>=2', FIELDS)
-    expect(result).toEqual([
-      { field: 'name', op: '=', value: 'Acme' },
-      { field: 'active', op: '=', value: true },
-      { field: 'priority', op: '>=', value: 2 },
-    ])
+    // Left-associative: (name AND active) AND priority
+    expect(result).toEqual(WhereClause.and(
+      WhereClause.and(
+        leaf('name', '=', 'Acme'),
+        leaf('active', '=', true),
+      ),
+      leaf('priority', '>=', 2),
+    ))
   })
 
   // ---------------------------------------------------------------
   // Empty input
   // ---------------------------------------------------------------
 
-  test('empty string returns empty array', () => {
-    expect(parseFilter('', FIELDS)).toEqual([])
+  test('empty string returns empty WhereClause', () => {
+    expect(parseFilter('', FIELDS)).toEqual(WhereClause.empty)
   })
 
-  test('whitespace-only returns empty array', () => {
-    expect(parseFilter('   ', FIELDS)).toEqual([])
+  test('whitespace-only returns empty WhereClause', () => {
+    expect(parseFilter('   ', FIELDS)).toEqual(WhereClause.empty)
   })
 
   // ---------------------------------------------------------------
@@ -180,6 +192,10 @@ describe('parseFilter', () => {
 
   test('unknown field throws', () => {
     expect(() => parseFilter('unknown=foo', FIELDS)).toThrow()
+  })
+
+  test('unknown field in OR throws', () => {
+    expect(() => parseFilter('name=Acme OR unknown=foo', FIELDS)).toThrow()
   })
 
   test('missing value throws', () => {
@@ -192,9 +208,5 @@ describe('parseFilter', () => {
 
   test('trailing AND throws', () => {
     expect(() => parseFilter('name=Acme AND', FIELDS)).toThrow()
-  })
-
-  test('OR is not supported (treated as unknown token)', () => {
-    expect(() => parseFilter('name=Acme OR status=open', FIELDS)).toThrow()
   })
 })

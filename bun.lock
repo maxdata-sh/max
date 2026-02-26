@@ -107,6 +107,7 @@
         "@max/core": "workspace:*",
         "@max/federation": "workspace:*",
         "@max/platform-bun": "workspace:*",
+        "@max/query-parser": "workspace:*",
         "@optique/core": "0.10.6",
         "@optique/run": "0.10.6",
         "yargs-parser": "^21.1.1",

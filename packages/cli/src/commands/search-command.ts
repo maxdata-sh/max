@@ -9,8 +9,8 @@
  * generic constraints don't help at this boundary.
  */
 
-import { LazyX, Projection } from '@max/core'
-import type { EntityQuery, AllProjection, QueryFilter, QueryOrdering } from '@max/core'
+import { LazyX, Projection, WhereClause } from '@max/core'
+import type { EntityQuery, AllProjection, QueryOrdering } from '@max/core'
 import { command, constant, argument, option } from '@optique/core/primitives'
 import { object } from '@optique/core/constructs'
 import { optional } from '@optique/core/modifiers'
@@ -63,10 +63,9 @@ export class CmdSearchInstallation implements Command {
     const validFields = Object.keys(def.fields)
 
     // Build filters from user input
-    let filters: QueryFilter[] = []
-    if (args.filter) {
-      filters = parseFilter(args.filter, validFields)
-    }
+    const filters = args.filter
+      ? parseFilter(args.filter, validFields)
+      : WhereClause.empty
 
     // Build ordering
     let ordering: QueryOrdering | undefined

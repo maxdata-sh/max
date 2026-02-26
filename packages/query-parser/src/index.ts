@@ -1,12 +1,12 @@
 /**
- * @max/query-parser — Parse filter expressions into ASTs.
+ * @max/query-parser — Parse filter expressions into ASTs and WhereClause trees.
  *
  * @example
  * ```ts
- * import { parseFilter, lowerToFilters } from '@max/query-parser'
+ * import { parseFilter, lowerToWhereClause } from '@max/query-parser'
  *
- * const ast = parseFilter('name = Acme AND active = true')
- * const filters = lowerToFilters(ast)
+ * const ast = parseFilter('(name = Acme OR name = Beta) AND active = true')
+ * const where = lowerToWhereClause(ast)
  * ```
  */
 
@@ -19,5 +19,5 @@ export type {
 } from './ast.js'
 
 export { parseFilter } from './grammar.js'
-export { lowerToFilters } from './lower.js'
+export { lowerToWhereClause, lowerToFilters } from './lower.js'
 export { coerceValue } from './coerce.js'

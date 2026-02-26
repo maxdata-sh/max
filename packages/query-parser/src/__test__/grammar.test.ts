@@ -1,6 +1,8 @@
 import { describe, test, expect } from 'bun:test'
+import { WhereClause } from '@max/core'
+import type { QueryFilter } from '@max/core'
 import { parseFilter } from '../grammar.js'
-import { lowerToFilters } from '../lower.js'
+import { lowerToWhereClause, lowerToFilters } from '../lower.js'
 import { coerceValue } from '../coerce.js'
 import type { ValueLiteral, ComparisonOp } from '../ast.js'
 
@@ -93,14 +95,64 @@ describe('parseFilter (grammar)', () => {
   })
 })
 
-describe('lowerToFilters', () => {
-  test('single comparison', () => {
-    const ast = parseFilter('name = Acme')
-    const filters = lowerToFilters(ast)
-    expect(filters).toEqual([{ field: 'name', op: '=', value: 'Acme' }])
+describe('lowerToWhereClause', () => {
+  const leaf = (field: string, op: QueryFilter['op'], value: unknown) => ({ field, op, value })
+
+  test('single comparison → leaf', () => {
+    const where = lowerToWhereClause(parseFilter('name = Acme'))
+    expect(where).toEqual(leaf('name', '=', 'Acme'))
   })
 
-  test('AND flattens to array', () => {
+  test('AND → and node', () => {
+    const where = lowerToWhereClause(parseFilter('name = Acme AND active = true'))
+    expect(where).toEqual(WhereClause.and(
+      leaf('name', '=', 'Acme'),
+      leaf('active', '=', true),
+    ))
+  })
+
+  test('OR → or node', () => {
+    const where = lowerToWhereClause(parseFilter('name = Acme OR name = Beta'))
+    expect(where).toEqual(WhereClause.or(
+      leaf('name', '=', 'Acme'),
+      leaf('name', '=', 'Beta'),
+    ))
+  })
+
+  test('grouped OR with AND', () => {
+    const where = lowerToWhereClause(parseFilter('(name = Acme OR name = Beta) AND active = true'))
+    expect(where).toEqual(WhereClause.and(
+      WhereClause.or(
+        leaf('name', '=', 'Acme'),
+        leaf('name', '=', 'Beta'),
+      ),
+      leaf('active', '=', true),
+    ))
+  })
+
+  test('~= maps to contains', () => {
+    const where = lowerToWhereClause(parseFilter('name ~= Acme'))
+    expect(where).toEqual(leaf('name', 'contains', 'Acme'))
+  })
+
+  test('boolean coercion', () => {
+    const where = lowerToWhereClause(parseFilter('active = true'))
+    expect(WhereClause.isLeaf(where) && where.value).toBe(true)
+  })
+
+  test('number coercion', () => {
+    const where = lowerToWhereClause(parseFilter('priority >= 5'))
+    expect(WhereClause.isLeaf(where) && where.value).toBe(5)
+  })
+
+  test('quoted value stays string', () => {
+    const where = lowerToWhereClause(parseFilter('name = "42"'))
+    expect(WhereClause.isLeaf(where) && where.value).toBe('42')
+  })
+})
+
+describe('lowerToFilters (deprecated)', () => {
+  test('AND-only still works', () => {
     const ast = parseFilter('name = Acme AND active = true')
     const filters = lowerToFilters(ast)
     expect(filters).toEqual([
@@ -109,33 +161,9 @@ describe('lowerToFilters', () => {
     ])
   })
 
-  test('~= maps to contains', () => {
-    const ast = parseFilter('name ~= Acme')
-    const filters = lowerToFilters(ast)
-    expect(filters).toEqual([{ field: 'name', op: 'contains', value: 'Acme' }])
-  })
-
-  test('OR throws', () => {
+  test('OR throws in legacy path', () => {
     const ast = parseFilter('name = Acme OR name = Beta')
-    expect(() => lowerToFilters(ast, 'name = Acme OR name = Beta')).toThrow()
-  })
-
-  test('boolean coercion', () => {
-    const ast = parseFilter('active = true')
-    const filters = lowerToFilters(ast)
-    expect(filters[0].value).toBe(true)
-  })
-
-  test('number coercion', () => {
-    const ast = parseFilter('priority >= 5')
-    const filters = lowerToFilters(ast)
-    expect(filters[0].value).toBe(5)
-  })
-
-  test('quoted value stays string', () => {
-    const ast = parseFilter('name = "42"')
-    const filters = lowerToFilters(ast)
-    expect(filters[0].value).toBe('42')
+    expect(() => lowerToFilters(ast)).toThrow()
   })
 })
 

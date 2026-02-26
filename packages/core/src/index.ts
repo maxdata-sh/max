@@ -73,7 +73,7 @@ export type { MaxPageAny } from "./max-page.js";
 export type { Engine } from "./engine.js";
 
 // Query (Query is both type and value)
-export { Query, Projection } from "./query.js";
+export { Query, Projection, WhereClause } from "./query.js";
 export type {
   EntityQuery,
   EntityQueryAny,

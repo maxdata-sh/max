@@ -13,6 +13,7 @@ Items are grouped by area. Within each group, items near the top are more pressi
   - This now happens but - `initialCredentials` will be persisted to max.json; they need routing through a store.
 - **Daemon file logger** - background nodes need a place to write logs. Currently stderr is blackholed...
 - registries should have a lookup by id/name/field - we're frequently listing then filtering
+- Not happy with SQL parameter binding approach - fragile
 
 ---
 
@@ -49,7 +50,7 @@ Codec-based strategy for serialising/deserialising types across boundaries (Temp
 
 ### Opportunities
 
-- **SQLite storage uses single column, switch to multi**
+- **SQLite storage (for sync state) uses single column, switch to multi**
   N rows rather than K*N rows
 
 - **Schedule loader calls as tasks**

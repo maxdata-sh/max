@@ -28,6 +28,7 @@ import {
   type EntityFieldsPick,
   RefKey,
   EntityFieldsKeys,
+  type WhereClause,
 } from '@max/core'
 import { SqliteSchema } from "./schema.js";
 import type { TableDef, ColumnDef } from "./table-def.js";
@@ -308,16 +309,10 @@ export class SqliteEngine implements Engine<InstallationScope> {
     const params: SQLQueryBindings[] = [];
     const conditions: string[] = [];
 
-    // User-defined filters
-    for (const f of query.filters) {
-      const col = this.getColumn(tableDef, query.def, f.field);
-      const sqlOp = f.op === "contains" ? "LIKE" : f.op;
-      const sqlValue = f.op === "contains"
-        ? `%${f.value}%`
-        : this.toSqlValue(f.value, col);
-      params.push(sqlValue as SQLQueryBindings);
-      conditions.push(`${col.columnName} ${sqlOp} ?`);
-    }
+    // User-defined filters → recursive WHERE clause
+    // Must come before cursor so params are in the same order as SQL placeholders.
+    const userWhere = this.buildWhereSql(query.filters, tableDef, query.def, params);
+    if (userWhere) conditions.push(userWhere);
 
     // Cursor-based pagination: WHERE id > cursor (cursor is a RefKey)
     if (query.cursor) {
@@ -361,6 +356,42 @@ export class SqliteEngine implements Engine<InstallationScope> {
       ? getCursor(pageItems[pageItems.length - 1])
       : undefined;
     return Page.from(pageItems, hasMore, cursor);
+  }
+
+  /**
+   * Recursively build a SQL WHERE fragment from a WhereClause tree.
+   * Returns null for empty clauses (no filtering).
+   * Mutates `params` by appending bound values.
+   */
+  private buildWhereSql(
+    clause: WhereClause,
+    tableDef: TableDef,
+    entityDef: EntityDefAny,
+    params: SQLQueryBindings[],
+  ): string | null {
+    // Leaf: single comparison
+    if (!('kind' in clause)) {
+      const col = this.getColumn(tableDef, entityDef, clause.field);
+      const sqlOp = clause.op === "contains" ? "LIKE" : clause.op;
+      const sqlValue = clause.op === "contains"
+        ? `%${clause.value}%`
+        : this.toSqlValue(clause.value, col);
+      params.push(sqlValue as SQLQueryBindings);
+      return `${col.columnName} ${sqlOp} ?`;
+    }
+
+    // AND/OR: recurse into children
+    const parts: string[] = [];
+    for (const child of clause.clauses) {
+      const childSql = this.buildWhereSql(child, tableDef, entityDef, params);
+      if (childSql) parts.push(childSql);
+    }
+
+    if (parts.length === 0) return null;
+    if (parts.length === 1) return parts[0];
+
+    const joiner = clause.kind === 'and' ? ' AND ' : ' OR ';
+    return `(${parts.join(joiner)})`;
   }
 
   /** Look up a ColumnDef by field name, throwing if not found. */

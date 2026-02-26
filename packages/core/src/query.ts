@@ -45,7 +45,7 @@ export interface EntityQuery<
   P extends Projection = Projection,
 > {
   readonly def: E;
-  readonly filters: QueryFilter[];
+  readonly filters: WhereClause;
   readonly ordering?: QueryOrdering;
   readonly limit?: number;
   readonly cursor?: string;
@@ -59,6 +59,30 @@ export type QueryFilter = {
   readonly op: "=" | "!=" | ">" | "<" | ">=" | "<=" | "contains";
   readonly value: unknown;
 };
+
+/** Recursive filter tree - AND/OR grouping over leaf comparisons. */
+export type WhereClause =
+  | QueryFilter
+  | { readonly kind: 'and'; readonly clauses: WhereClause[] }
+  | { readonly kind: 'or';  readonly clauses: WhereClause[] }
+
+/** Type + companion for WhereClause. */
+export const WhereClause = StaticTypeCompanion({
+  /** Create an AND group. */
+  and(...clauses: WhereClause[]): WhereClause {
+    return { kind: 'and', clauses }
+  },
+  /** Create an OR group. */
+  or(...clauses: WhereClause[]): WhereClause {
+    return { kind: 'or', clauses }
+  },
+  /** Type guard: is this a leaf QueryFilter (not an and/or node)? */
+  isLeaf(w: WhereClause): w is QueryFilter {
+    return !('kind' in w)
+  },
+  /** Empty where clause (matches everything). */
+  empty: { kind: 'and', clauses: [] } as WhereClause,
+})
 
 export type QueryOrdering = {
   readonly field: string;
@@ -149,7 +173,7 @@ class QueryBuilderImpl<E extends EntityDefAny> implements QueryBuilder<E> {
   private build<P extends Projection>(projection: P): EntityQuery<E, P> {
     return {
       def: this._def,
-      filters: [...this._filters],
+      filters: WhereClause.and(...this._filters),
       ordering: this._ordering,
       limit: this._limit,
       cursor: this._cursor,

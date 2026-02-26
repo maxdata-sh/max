@@ -36,7 +36,7 @@ import { CmdSyncInstallation, CmdSyncWorkspace } from './commands/sync-command/s
 import { CmdDaemon } from './commands/daemon-command.js'
 import { CmdLsGlobal, CmdLsWorkspace } from './commands/ls-command.js'
 import { CmdStatusGlobal, CmdStatusWorkspace, CmdStatusInstallation } from './commands/status-command.js'
-import { CmdSearchInstallation } from './commands/search-command.js'
+import { CmdSearchGlobal, CmdSearchInstallation, CmdSearchWorkspace } from './commands/search-command.js'
 import { Command } from './command.js'
 
 // ============================================================================
@@ -143,6 +143,7 @@ export class CLI {
         const cmds = {
           init: new CmdInit(services),
           daemon: new CmdDaemon(services),
+          search: new CmdSearchGlobal(services, targetVP),
           ls: new CmdLsGlobal(services),
           status: new CmdStatusGlobal(services),
         }
@@ -151,6 +152,7 @@ export class CLI {
           program: buildProgram(or(
             cmds.init.parser.get,
             cmds.daemon.parser.get,
+            cmds.search.parser.get,
             cmds.ls.parser.get,
             cmds.status.parser.get,
           )),
@@ -162,6 +164,7 @@ export class CLI {
           connect: new CmdConnect(services),
           schema: new CmdSchemaWorkspace(services),
           sync: new CmdSyncWorkspace(services),
+          search: new CmdSearchWorkspace(services),
           ls: new CmdLsWorkspace(services),
           status: new CmdStatusWorkspace(services),
         }
@@ -171,6 +174,7 @@ export class CLI {
             cmds.connect.parser.get,
             cmds.schema.parser.get,
             cmds.sync.parser.get,
+            cmds.search.parser.get,
             cmds.daemon.parser.get,
             cmds.ls.parser.get,
             cmds.status.parser.get,

@@ -1,32 +1,12 @@
 {
   "installations": {
-    "default": {
-      "id": "eea5041a-6399-4d4e-9e30-89d7fad0c489",
-      "connector": "@max/connector-acme",
-      "connectedAt": "2026-02-22T12:32:13.557Z",
-      "deployment": {
-        "strategy": "in-process",
-        "dataDir": "/var/folders/0v/yjhlxxnn39nchgk8gq3ghx_m0000gn/T"
-      },
-      "locator": {
-        "strategy": "in-process"
-      },
-      "spec": {
-        "connector": "acme",
-        "name": "default",
-        "connectorConfig": {
-          "workspaceId": "1",
-          "baseUrl": "none"
-        }
-      }
-    },
     "acme-1": {
       "id": "e9a15a5c-58f4-41c7-98b1-06bd014dd346",
       "connector": "@max/connector-acme",
       "connectedAt": "2026-02-24T08:35:45.300Z",
       "deployment": {
         "strategy": "in-process",
-        "dataDir": "/Users/ben/projects/playground/max/max/bun-test-project/.max/installations/acme-1"
+        "dataDir": ".max/installations/acme-1"
       },
       "locator": "{\"strategy\":\"in-process\"}",
       "spec": {
@@ -43,7 +23,7 @@
       "connectedAt": "2026-02-24T11:42:47.548Z",
       "deployment": {
         "strategy": "in-process",
-        "dataDir": "/Users/ben/projects/playground/max/max/bun-test-project/.max/installations/gabe"
+        "dataDir": ".max/installations/gabe"
       },
       "locator": "{\"strategy\":\"in-process\"}",
       "spec": {
@@ -51,6 +31,56 @@
         "connectorConfig": {
           "baseUrl": "http://localhost:49441/",
           "workspaceId": "ws_d9686c0a7c01467d8cdb370b91c213ef"
+        }
+      }
+    },
+    "linear-1": {
+      "id": "aa0eee30-1821-46b2-98b3-61fff863b626",
+      "connector": "@max/connector-linear",
+      "connectedAt": "2026-02-25T19:31:29.111Z",
+      "deployment": {
+        "strategy": "in-process",
+        "dataDir": ".max/installations/linear-1"
+      },
+      "locator": "{\"strategy\":\"in-process\"}",
+      "spec": {
+        "connector": "@max/connector-linear",
+        "connectorConfig": {}
+      }
+    },
+    "acme-2": {
+      "id": "bbc8ab87-4ddd-4177-8c3c-d8fd6fa990a1",
+      "connector": "@max/connector-acme",
+      "connectedAt": "2026-02-25T23:37:53.599Z",
+      "deployment": {
+        "strategy": "in-process",
+        "dataDir": ".max/installations/acme-2"
+      },
+      "locator": "{\"strategy\":\"in-process\"}",
+      "spec": {
+        "connector": "@max/connector-acme",
+        "name": "acme-2",
+        "connectorConfig": {
+          "baseUrl": "http://localhost:9090",
+          "workspaceId": "ws_590ed5ff4cad431a8dfc7c1cd92a792f"
+        }
+      }
+    },
+    "acme-3": {
+      "id": "6095a778-6d37-49dc-8c83-c25111a719ce",
+      "connector": "@max/connector-acme",
+      "connectedAt": "2026-02-26T00:27:09.825Z",
+      "deployment": {
+        "strategy": "in-process",
+        "dataDir": ".max/installations/acme-3"
+      },
+      "locator": "{\"strategy\":\"in-process\"}",
+      "spec": {
+        "connector": "@max/connector-acme",
+        "name": "acme-3",
+        "connectorConfig": {
+          "baseUrl": "http://localhost:4571",
+          "workspaceId": "ws_be153996d70a4eaab94bb4c0f6f999a9"
         }
       }
     }

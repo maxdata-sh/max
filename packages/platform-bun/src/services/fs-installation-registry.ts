@@ -18,7 +18,11 @@ import type { MaxJsonFile, MaxJsonInstallation } from '@max/federation'
 import { ErrRegistryEntryAlreadyExists, ErrRegistryEntryNotFound } from '@max/federation'
 
 export class FsInstallationRegistry implements InstallationRegistry {
-  constructor(private readonly maxJsonPath: string) {}
+  private readonly baseDir: string
+
+  constructor(private readonly maxJsonPath: string) {
+    this.baseDir = path.dirname(maxJsonPath)
+  }
 
   add(entry: InstallationRegistryEntry): void {
     const file = this.read()
@@ -28,7 +32,7 @@ export class FsInstallationRegistry implements InstallationRegistry {
       throw ErrRegistryEntryAlreadyExists.create({ name: entry.name })
     }
 
-    installations[entry.name] = toJsonInstallation(entry)
+    installations[entry.name] = toJsonInstallation(entry, this.baseDir)
     this.write({ ...file, installations })
   }
 
@@ -51,7 +55,7 @@ export class FsInstallationRegistry implements InstallationRegistry {
 
     for (const [name, entry] of Object.entries(installations)) {
       if (entry.id === id) {
-        return toRegistryEntry(name, entry)
+        return toRegistryEntry(name, entry, this.baseDir)
       }
     }
 
@@ -63,7 +67,7 @@ export class FsInstallationRegistry implements InstallationRegistry {
     const installations = file.installations ?? {}
 
     return Object.entries(installations)
-      .map(([name, entry]) => toRegistryEntry(name, entry))
+      .map(([name, entry]) => toRegistryEntry(name, entry, this.baseDir))
       .sort((a, b) => a.name.localeCompare(b.name))
   }
 
@@ -92,18 +96,18 @@ export class FsInstallationRegistry implements InstallationRegistry {
 // Mapping helpers
 // --------------------------------------------------------------------------
 
-function toJsonInstallation(entry: InstallationRegistryEntry): MaxJsonInstallation {
+function toJsonInstallation(entry: InstallationRegistryEntry, baseDir: string): MaxJsonInstallation {
   return {
     id: entry.id,
     connector: entry.connector,
     connectedAt: entry.connectedAt,
-    deployment: entry.deployment,
+    deployment: relativizeDataDir(entry.deployment, baseDir),
     locator: entry.locator,
     spec: entry.spec,
   }
 }
 
-function toRegistryEntry(name: string, json: MaxJsonInstallation): InstallationRegistryEntry {
+function toRegistryEntry(name: string, json: MaxJsonInstallation, baseDir: string): InstallationRegistryEntry {
   // FIXME: We only have one customer (me!). Let's just fix our max.json files so we can sunset this.
   // Backward compat: old max.json files have `provider` + `location` instead of `hosting`
 
@@ -118,8 +122,28 @@ function toRegistryEntry(name: string, json: MaxJsonInstallation): InstallationR
     connectedAt: json.connectedAt,
     locator: json.locator,
     spec: json.spec,
-    deployment: json.deployment,
+    deployment: resolveDataDir(json.deployment, baseDir),
   }
+}
+
+// --------------------------------------------------------------------------
+// Path portability — store relative in max.json, resolve on read
+// --------------------------------------------------------------------------
+
+function relativizeDataDir(deployment: DeploymentConfig, baseDir: string): DeploymentConfig {
+  const d = deployment as Record<string, unknown>
+  if (typeof d.dataDir === 'string' && path.isAbsolute(d.dataDir)) {
+    return { ...deployment, dataDir: path.relative(baseDir, d.dataDir) }
+  }
+  return deployment
+}
+
+function resolveDataDir(deployment: DeploymentConfig, baseDir: string): DeploymentConfig {
+  const d = deployment as Record<string, unknown>
+  if (typeof d.dataDir === 'string' && !path.isAbsolute(d.dataDir)) {
+    return { ...deployment, dataDir: path.resolve(baseDir, d.dataDir) }
+  }
+  return deployment
 }
 
 function findNameById(

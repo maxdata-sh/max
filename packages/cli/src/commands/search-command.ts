@@ -109,7 +109,7 @@ export class CmdSearchWorkspace implements Command {
       installation: argument(this.services.completers.installationName, {
         description: message`Installation to search`,
       }),
-      entityType: argument(string(), {
+      entityType: argument(this.services.completers.entityTypeName, {
         description: message`Entity type to search`,
       }),
       ...searchOptions,
@@ -142,7 +142,7 @@ export class CmdSearchInstallation implements Command {
     'search',
     object({
       cmd: constant('search'),
-      entityType: argument(string(), {
+      entityType: argument(this.services.completers.entityTypeName, {
         description: message`Entity type to search`,
       }),
       ...searchOptions,

@@ -109,6 +109,31 @@ export class ProjectCompleters {
         },
       }
     },
+
+    /** Completer for entity type names (across all installations) */
+    entityTypeName: (): ValueParser<'async', string> => {
+      const self = this
+      return {
+        $mode: 'async',
+        metavar: 'ENTITY',
+        async parse(input: string): Promise<ValueParserResult<string>> {
+          return { success: true, value: input }
+        },
+        format(value: string): string {
+          return value
+        },
+        async *suggest(): AsyncGenerator<Suggestion> {
+          const installations = await self.workspace.listInstallations()
+          const connectors = new Set(installations.map(i => i.connector))
+          for (const connector of connectors) {
+            const schema = await self.workspace.connectorSchema(connector)
+            for (const entityType of schema.entityTypes) {
+              yield { kind: 'literal', text: entityType, description: message`${connector}` }
+            }
+          }
+        },
+      }
+    },
   })
 
   get workspace(){
@@ -126,6 +151,10 @@ export class ProjectCompleters {
 
   get installationName() {
     return this.lazy.installationName
+  }
+
+  get entityTypeName() {
+    return this.lazy.entityTypeName
   }
 
   constructor(

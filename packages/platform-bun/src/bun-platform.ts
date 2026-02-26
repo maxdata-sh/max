@@ -104,8 +104,6 @@ import {InstallationInfoPrinter} from "./printers/installation-printers.js";
 
 // FIXME: No hardcoded module map
 const DEFAULT_MODULE_MAP: Record<string, string> = {
-  acme: '@max/connector-acme',
-  linear: '@max/connector-linear',
   '@max/connector-acme': '@max/connector-acme',
   '@max/connector-linear': '@max/connector-linear',
 }

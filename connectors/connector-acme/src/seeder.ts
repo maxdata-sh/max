@@ -5,7 +5,7 @@
  */
 
 import { Seeder, SyncPlan, Step, EntityInput } from "@max/core";
-import { AcmeRoot, AcmeWorkspace, AcmeUser, AcmeProject } from "./entities.js";
+import { AcmeRoot, AcmeWorkspace, AcmeUser, AcmeProject, AcmeTask } from "./entities.js";
 import { AcmeAppContext } from "./context.js";
 
 export const AcmeSeeder = Seeder.create({
@@ -26,6 +26,8 @@ export const AcmeSeeder = Seeder.create({
       // 4. Load user and project details
       Step.forAll(AcmeUser).loadFields("displayName", "email", "role", "active"),
       Step.forAll(AcmeProject).loadFields("name", "description", "status", "owner"),
+      // 5. Discover tasks per project
+      Step.forAll(AcmeProject).loadCollection("tasks"),
     ]);
   },
 });

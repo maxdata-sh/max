@@ -4,7 +4,8 @@ import { object } from '@optique/core/constructs'
 import { withDefault } from '@optique/core/modifiers'
 import { flag } from '@optique/core'
 import { message } from '@optique/core/message'
-import { path } from '@optique/run'
+import { string } from '@optique/core/valueparser'
+import { Fmt } from '@max/core'
 import { BunPlatform, ErrCannotInitialiseProject, findProjectRoot } from '@max/platform-bun'
 import type { Command, Inferred, CommandOptions } from '../command.js'
 import type { CliServices } from '../cli-services.js'
@@ -24,15 +25,16 @@ export class CmdInit implements Command {
         flag('-f', '--force', { description: message`Force creation of project` }),
         false
       ),
-      directory: argument(path({ mustExist: true, type: 'directory' }), {
-        description: message`Directory to initialize`,
-      }),
+      directory: withDefault(
+        argument(string(), { description: message`Directory to initialize` }),
+        '.'
+      ),
     }),
     { description: message`Initialize a new Max project` }
   ))
 
   async run(args: Inferred<this>, opts: CommandOptions) {
-    const dir = nodePath.resolve(args.directory)
+    const dir = nodePath.resolve(opts.cwd, args.directory)
     const existingRoot = findProjectRoot(dir)
 
     if (existingRoot && !args.force) {
@@ -47,6 +49,7 @@ export class CmdInit implements Command {
       config: { strategy: 'in-process', dataDir: nodePath.join(dir, '.max') },
       spec: { name: nodePath.basename(dir) },
     })
-    return ''
+    const fmt = Fmt.usingColor(opts.color)
+    return `${fmt.green('✓')} Initialized Max project in ${dir}\n`
   }
 }

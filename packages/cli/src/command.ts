@@ -18,6 +18,7 @@ export type Inferred<T extends Command> = InferValue<T['parser']['get']>
 
 /** Per-request options passed to command handlers. */
 export interface CommandOptions {
+  cwd: string
   color: boolean
   prompter?: Prompter
 }

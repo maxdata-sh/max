@@ -235,7 +235,7 @@ export class CLI {
     // Execute
     const command = commands[cmdResult.cmd]
     try {
-      const result = await command.run(cmdResult, { color, prompter })
+      const result = await command.run(cmdResult, { cwd, color, prompter })
       return { exitCode: 0, stdout: result + '\n' }
     } catch (e) {
       return { exitCode: 1, stderr: MaxError.wrap(e).prettyPrint({ color }) }

@@ -42,7 +42,8 @@ async function main() {
         tenant = Tenant.create({ name: tenantName, storage: "file", dataDir });
         console.log(`Created new tenant "${tenantName}"`);
       }
-      const { url } = startServer(tenant, { port });
+      const effectivePort = port ?? tenant.getPort();
+      const { url } = startServer(tenant, { port: effectivePort });
       console.log(`\nAcme server running at ${url}`);
       console.log(`API Key: ${tenant.getApiKey()}`);
       console.log(`Dashboard: ${url}/`);

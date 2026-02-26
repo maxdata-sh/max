@@ -224,6 +224,10 @@ export interface SeedOptions {
   filesPerProject?: number;
   globalSeed?: number;
   entitySeeds?: Partial<Record<EntityType, number>>;
+  /** If set, add projects to this workspace instead of creating new workspaces. */
+  workspaceId?: string;
+  /** If true, add tasks and files to all existing projects without creating new structures. */
+  existingOnly?: boolean;
 }
 
 export interface SeedResult {

@@ -82,8 +82,9 @@ function render() {
     <div class="card" style="margin-bottom:16px">
       <h2>Controls</h2>
       <div class="controls" style="margin-top:8px">
-        <button onclick="doSeed()">Seed Data</button>
-        <button class="secondary" onclick="doSeed({tasksPerProject:100})">Seed (100 tasks/project)</button>
+        <button onclick="doSeed()">New Workspace</button>
+        <button class="secondary" onclick="addProject()">New Project</button>
+        <button class="secondary" onclick="seedExisting()">Seed Data</button>
         <button class="secondary" onclick="startGen()">Start Generation</button>
         <button class="danger" onclick="stopGen()">Stop Generation</button>
         <span id="gen-status"></span>
@@ -135,6 +136,32 @@ async function refreshChangelog() {
 
 async function doSeed(opts = {}) {
   await api('/api/seed', { method: 'POST', body: JSON.stringify(opts) });
+  refresh();
+}
+
+async function seedExisting() {
+  const projects = await api('/api/projects').then(r => r.json());
+  if (!projects || projects.length === 0) {
+    alert('No projects yet. Create a workspace first.');
+    return;
+  }
+  await api('/api/seed', {
+    method: 'POST',
+    body: JSON.stringify({ existingOnly: true }),
+  });
+  refresh();
+}
+
+async function addProject() {
+  const workspaces = await api('/api/workspaces').then(r => r.json());
+  if (!workspaces || workspaces.length === 0) {
+    alert('No workspaces yet. Create a workspace first.');
+    return;
+  }
+  await api('/api/seed', {
+    method: 'POST',
+    body: JSON.stringify({ workspaceId: workspaces[0].id, workspaces: 0, projectsPerWorkspace: 1 }),
+  });
   refresh();
 }
 

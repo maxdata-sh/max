@@ -107,7 +107,14 @@ export function seedTenant(tenant: Tenant, options?: SeedOptions): SeedResult {
   };
 
   const globalSeed = options?.globalSeed ?? 42;
-  const root = new Generator(globalSeed);
+
+  // Track seed batches to avoid duplicate data across repeated seed calls.
+  // Each batch gets a different effective seed so Faker produces unique output.
+  const batch = parseInt(tenant.getMeta("seed_batch") ?? "0", 10);
+  const effectiveSeed = globalSeed + batch * 10000;
+  tenant.setMeta("seed_batch", String(batch + 1));
+
+  const root = new Generator(effectiveSeed);
 
   const counts: SeedResult = { workspaces: 0, users: 0, projects: 0, tasks: 0, files: 0 };
 
@@ -116,6 +123,98 @@ export function seedTenant(tenant: Tenant, options?: SeedOptions): SeedResult {
   const projGen = root.forEntity("project", options?.entitySeeds?.project);
   const taskGen = root.forEntity("task", options?.entitySeeds?.task);
   const fileGen = root.forEntity("file", options?.entitySeeds?.file);
+
+  // If existingOnly, add tasks and files to all existing projects
+  // without creating any new workspaces, users, or projects.
+  if (options?.existingOnly) {
+    const projects = tenant.listProjects(options?.workspaceId ?? undefined);
+    if (projects.length === 0) throw new Error("No existing projects to seed into");
+
+    for (const project of projects) {
+      const users = tenant.listUsers(project.workspaceId);
+      if (users.length === 0) continue;
+      const userIds = users.map((u) => u.id);
+
+      for (let t = 0; t < opts.tasksPerProject; t++) {
+        tenant.createTask({
+          projectId: project.id,
+          title: taskGen.taskTitle(),
+          description: taskGen.taskDescription(),
+          status: taskGen.taskStatus(),
+          priority: taskGen.taskPriority(),
+          assigneeId: taskGen.pick(userIds),
+          createdById: taskGen.pick(userIds),
+          dueDate: taskGen.dueDate(),
+          tags: taskGen.taskTags(),
+        });
+        counts.tasks++;
+      }
+
+      for (let f = 0; f < opts.filesPerProject; f++) {
+        const name = fileGen.fileName();
+        tenant.createFile({
+          projectId: project.id,
+          name,
+          mimeType: fileGen.fileMimeType(name),
+          sizeBytes: fileGen.fileSize(),
+          createdById: fileGen.pick(userIds),
+        });
+        counts.files++;
+      }
+    }
+
+    return counts;
+  }
+
+  // If workspaceId is provided, seed projects into that existing workspace
+  // using its existing users instead of creating new workspaces.
+  if (options?.workspaceId) {
+    const ws = tenant.getWorkspace(options.workspaceId);
+    if (!ws) throw new Error(`Workspace "${options.workspaceId}" not found`);
+
+    const existingUsers = tenant.listUsers(options.workspaceId);
+    if (existingUsers.length === 0) throw new Error("Workspace has no users");
+    const userIds = existingUsers.map((u) => u.id);
+
+    for (let p = 0; p < opts.projectsPerWorkspace; p++) {
+      const project = tenant.createProject({
+        workspaceId: options.workspaceId,
+        name: projGen.projectName(),
+        description: projGen.projectDescription(),
+        ownerId: projGen.pick(userIds),
+      });
+      counts.projects++;
+
+      for (let t = 0; t < opts.tasksPerProject; t++) {
+        tenant.createTask({
+          projectId: project.id,
+          title: taskGen.taskTitle(),
+          description: taskGen.taskDescription(),
+          status: taskGen.taskStatus(),
+          priority: taskGen.taskPriority(),
+          assigneeId: taskGen.pick(userIds),
+          createdById: taskGen.pick(userIds),
+          dueDate: taskGen.dueDate(),
+          tags: taskGen.taskTags(),
+        });
+        counts.tasks++;
+      }
+
+      for (let f = 0; f < opts.filesPerProject; f++) {
+        const name = fileGen.fileName();
+        tenant.createFile({
+          projectId: project.id,
+          name,
+          mimeType: fileGen.fileMimeType(name),
+          sizeBytes: fileGen.fileSize(),
+          createdById: fileGen.pick(userIds),
+        });
+        counts.files++;
+      }
+    }
+
+    return counts;
+  }
 
   for (let w = 0; w < opts.workspaces; w++) {
     const workspace = tenant.createWorkspace({ name: wsGen.workspaceName() });

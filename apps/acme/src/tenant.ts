@@ -25,6 +25,8 @@ function now(): string {
   return new Date().toISOString();
 }
 
+const BASE_PORT = 4567;
+
 export class Tenant {
   readonly name: string;
   readonly db: Database;
@@ -34,6 +36,24 @@ export class Tenant {
   private constructor(name: string, db: Database) {
     this.name = name;
     this.db = db;
+  }
+
+  // -------------------------------------------------------------------------
+  // Metadata (key-value store for tenant settings)
+  // -------------------------------------------------------------------------
+
+  getMeta(key: string): string | null {
+    const row = this.db.prepare("SELECT value FROM tenant_meta WHERE key = ?").get(key) as { value: string } | null;
+    return row?.value ?? null;
+  }
+
+  setMeta(key: string, value: string): void {
+    this.db.prepare("INSERT OR REPLACE INTO tenant_meta (key, value) VALUES (?, ?)").run(key, value);
+  }
+
+  getPort(): number {
+    const stored = this.getMeta("port");
+    return stored ? parseInt(stored, 10) : BASE_PORT;
   }
 
   static create(config: TenantConfig): Tenant {
@@ -52,6 +72,14 @@ export class Tenant {
     // Generate initial API key
     const key = generateApiKey();
     storeApiKey(db, key);
+
+    // Assign an incremental port based on existing tenants
+    if (config.storage !== "memory") {
+      const existingCount = Tenant.list(config.dataDir).length;
+      // existingCount includes this tenant (dir already created), so subtract 1
+      const port = BASE_PORT + Math.max(0, existingCount - 1);
+      tenant.setMeta("port", String(port));
+    }
 
     return tenant;
   }

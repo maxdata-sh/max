@@ -43,8 +43,9 @@ export class SyncProgressRenderer {
 
       case 'task-completed': {
         const entry = this.getOrCreate(event.entityType)
-        entry.count++
-        entry.phase = (entry.phase + 1) % TOTAL_PHASES
+        const count = event.count ?? 1
+        entry.count += count
+        entry.phase = (entry.phase + count) % TOTAL_PHASES
         entry.recentTimestamps.push(Date.now())
         if (entry.recentTimestamps.length > RATE_WINDOW) {
           entry.recentTimestamps.shift()

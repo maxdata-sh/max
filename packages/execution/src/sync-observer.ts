@@ -17,7 +17,7 @@ import type { SyncResult } from "./sync-handle.js";
 
 export type SyncProgressEvent =
   | { kind: "sync-started"; stepCount: number }
-  | { kind: "task-completed"; entityType: EntityType; operation: "load-fields" | "load-collection" }
+  | { kind: "task-completed"; entityType: EntityType; operation: "load-fields" | "load-collection"; count?: number }
   | { kind: "task-failed"; entityType: EntityType; operation: string; error: string }
   | { kind: "sync-completed"; result: SyncResult }
 

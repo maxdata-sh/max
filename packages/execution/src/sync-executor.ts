@@ -15,11 +15,11 @@
  * This model survives restarts — all state is in the task store.
  */
 
-import { Lifecycle, LifecycleManager, SyncPlan } from '@max/core'
+import { Lifecycle, LifecycleManager, SyncPlan, type EntityType } from '@max/core'
 
 import type {Task, TaskId, TaskPayload} from "./task.js";
 import type {TaskStore} from "./task-store.js";
-import type {TaskRunner} from "./task-runner.js";
+import type {TaskRunner, TaskRunResult} from "./task-runner.js";
 import type {SyncHandle, SyncResult, SyncStatus, SyncRegistry, SyncId} from "./sync-handle.js";
 import type {SyncObserver, SyncProgressEvent} from "./sync-observer.js";
 import {PlanExpander} from "./plan-expander.js";
@@ -111,14 +111,24 @@ export class SyncExecutor implements Lifecycle {
       }
 
       try {
-        const spawnedChildren = await this.executeTask(task);
-        if (spawnedChildren) {
+        const result = await this.executeTask(task);
+        const hasChildren = (result.children?.length ?? 0) > 0;
+        if (hasChildren) {
           await this.taskStore.setAwaitingChildren(task.id);
         } else {
           const completed = await this.taskStore.complete(task.id);
           handle.tasksCompleted++;
           emitTaskCompleted(handle, task.payload);
           await this.onTaskCompleted(completed);
+        }
+        // Emit progress from inline work (e.g. batch field loading)
+        if (result.progress) {
+          handle.emit({
+            kind: "task-completed",
+            entityType: result.progress.entityType,
+            operation: result.progress.operation,
+            count: result.progress.count,
+          });
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -151,7 +161,7 @@ export class SyncExecutor implements Lifecycle {
   // Task execution — delegates to TaskRunner
   // ============================================================================
 
-  private async executeTask(task: Task): Promise<boolean> {
+  private async executeTask(task: Task): Promise<TaskRunResult> {
     const result = await this.taskRunner.execute(task);
 
     if (result.children?.length) {
@@ -163,10 +173,9 @@ export class SyncExecutor implements Lifecycle {
           payload: child.payload,
         });
       }
-      return true;
     }
 
-    return false;
+    return result;
   }
 
   // ============================================================================
@@ -268,11 +277,18 @@ function isProgressWorthy(payload: TaskPayload): payload is TaskPayload & { kind
   return payload.kind === "load-fields" || payload.kind === "load-collection";
 }
 
+function resolveEntityType(payload: TaskPayload & { kind: "load-fields" | "load-collection" }): EntityType {
+  if (payload.kind === "load-collection" && payload.targetEntityType) {
+    return payload.targetEntityType;
+  }
+  return payload.entityType;
+}
+
 function emitTaskCompleted(handle: SyncHandleImpl, payload: TaskPayload): void {
   if (isProgressWorthy(payload)) {
     handle.emit({
       kind: "task-completed",
-      entityType: payload.entityType,
+      entityType: resolveEntityType(payload),
       operation: payload.kind,
     });
   }
@@ -282,7 +298,7 @@ function emitTaskFailed(handle: SyncHandleImpl, payload: TaskPayload, error: str
   if (isProgressWorthy(payload)) {
     handle.emit({
       kind: "task-failed",
-      entityType: payload.entityType,
+      entityType: resolveEntityType(payload),
       operation: payload.kind,
       error,
     });

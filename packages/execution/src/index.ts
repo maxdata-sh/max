@@ -21,7 +21,7 @@ export type {
 export type { TaskStore, TaskTemplate } from "./task-store.js";
 
 // TaskRunner
-export type { TaskRunner, TaskRunResult, TaskChildTemplate } from "./task-runner.js";
+export type { TaskRunner, TaskRunResult, TaskChildTemplate, TaskProgress } from "./task-runner.js";
 
 // SyncQueryEngine
 export type { SyncQueryEngine } from "./sync-query-engine.js";

@@ -135,11 +135,18 @@ export class DefaultTaskRunner implements TaskRunner {
     const page = await this.engine.loadPage(entityDef, Projection.refs, PageRequest.from({ cursor, limit: PAGE_SIZE }));
     if (page.items.length === 0) return {};
 
-    // Process this page
+    // Process this page inline (preserves batching for batched loaders)
     await this.processLoadFieldsForRefs(entityDef, target, fields, page.items);
+
+    const progress = {
+      entityType: target.entityType,
+      operation: "load-fields" as const,
+      count: page.items.length,
+    };
 
     if (page.hasMore) {
       return {
+        progress,
         children: [{
           state: "pending",
           payload: {
@@ -154,7 +161,7 @@ export class DefaultTaskRunner implements TaskRunner {
       };
     }
 
-    return {};
+    return { progress };
   }
 
   /**
@@ -169,6 +176,15 @@ export class DefaultTaskRunner implements TaskRunner {
     const page = await this.engine.loadPage(entityDef, Projection.refs, PageRequest.from({ cursor, limit: PAGE_SIZE }));
     if (page.items.length === 0) return {};
 
+    // Resolve target entity type from the collection loader
+    const resolver = this.registry.getResolver(target.entityType);
+    if (!resolver) throw ErrNoResolver.create({ entityType: target.entityType });
+    const loader = resolver.getLoaderForField(field);
+    if (!loader || loader.kind !== "collection") {
+      throw ErrNoCollectionLoader.create({ entityType: target.entityType, field });
+    }
+    const targetEntityType = (loader as CollectionLoader).target.name as EntityType;
+
     const children: TaskChildTemplate[] = [];
 
     // One collection-load child per ref
@@ -178,6 +194,7 @@ export class DefaultTaskRunner implements TaskRunner {
         payload: {
           kind: "load-collection",
           entityType: target.entityType,
+          targetEntityType,
           refKey: ref.toKey(),
           field,
         },
@@ -329,12 +346,14 @@ export class DefaultTaskRunner implements TaskRunner {
       }
 
       if (page.hasMore && page.cursor) {
+        const targetEntityType = collectionLoader.target.name
         return {
           children: [{
             state: "pending",
             payload: {
               kind: "load-collection",
               entityType: entityDef.name,
+              targetEntityType,
               refKey,
               field,
               cursor: page.cursor,

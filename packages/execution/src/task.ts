@@ -55,6 +55,7 @@ export interface LoadFieldsPayload {
 export interface LoadCollectionPayload {
   readonly kind: "load-collection";
   readonly entityType: EntityType;
+  readonly targetEntityType?: EntityType;
   readonly refKey: RefKey;
   readonly field: string;
   readonly cursor?: string;

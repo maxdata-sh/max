@@ -12,6 +12,7 @@
 
 import { unlinkSync } from 'node:fs'
 import type { RpcRequest, RpcResponse } from '@max/core'
+import { BufferedSocket } from './util/buffered-socket.js'
 
 export type RpcDispatchFn = (request: RpcRequest) => Promise<RpcResponse>
 
@@ -37,6 +38,7 @@ export function createRpcSocketServer(opts: RpcSocketServerOptions): RpcSocketSe
 
   interface ConnectionState {
     buffer: Uint8Array
+    writer: BufferedSocket
   }
 
   const connections = new Map<object, ConnectionState>()
@@ -45,7 +47,10 @@ export function createRpcSocketServer(opts: RpcSocketServerOptions): RpcSocketSe
     unix: socketPath,
     socket: {
       open(socket) {
-        connections.set(socket, { buffer: new Uint8Array(0) })
+        connections.set(socket, { buffer: new Uint8Array(0), writer: new BufferedSocket(socket) })
+      },
+      drain(socket) {
+        connections.get(socket)?.writer.drain()
       },
 
       data(socket, data) {
@@ -59,11 +64,9 @@ export function createRpcSocketServer(opts: RpcSocketServerOptions): RpcSocketSe
         state.buffer = state.buffer.subarray(result.read)
 
         for (const msg of result.values) {
-          // Extension point: discriminate message types here
-          // For now, all incoming messages are RpcRequests
           const request = msg as RpcRequest
           dispatch(request).then((response) => {
-            socket.write(JSON.stringify(response) + '\n')
+            state.writer.write(JSON.stringify(response) + '\n')
           })
         }
       },

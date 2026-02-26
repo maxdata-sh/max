@@ -21,6 +21,19 @@ import { runSubprocess, subprocessParsers } from './subprocess-entry.js'
 import * as util from 'node:util'
 import { CLI } from './cli.js'
 
+/** Write data in 64 KB chunks, awaiting flush on each to avoid truncation when piped. */
+async function flushWrite(stream: NodeJS.WritableStream, data: string): Promise<void> {
+  const CHUNK = 65536
+  let offset = 0
+  while (offset < data.length) {
+    const chunk = data.slice(offset, offset + CHUNK)
+    offset += CHUNK
+    await new Promise<void>((resolve, reject) => {
+      stream.write(chunk, (err) => (err ? reject(err) : resolve()))
+    })
+  }
+}
+
 /** Global daemon paths — ~/.max/daemon.{sock,pid,log} */
 function globalDaemonPaths() {
   const dir = path.join(os.homedir(), '.max')
@@ -115,17 +128,17 @@ export async function main() {
       shell: process.env.SHELL
     }
 
-    await cli.execute(req).then(
-      (response) => {
-        if (response.completionOutput) process.stdout.write(response.completionOutput)
-        if (response.stdout) process.stdout.write(response.stdout)
-        if (response.stderr) process.stderr.write(response.stderr)
-        process.exit(response.exitCode)
-      },
-      (err) => {
-        console.error(err)
-        process.exit(1)
-      }
-    )
+    const response = await cli.execute(req).catch((err) => {
+      console.error(err)
+      process.exit(1)
+    })
+
+    const writes: Promise<void>[] = []
+    if (response.completionOutput) writes.push(flushWrite(process.stdout, response.completionOutput))
+    if (response.stdout) writes.push(flushWrite(process.stdout, response.stdout))
+    if (response.stderr) writes.push(flushWrite(process.stderr, response.stderr))
+    await Promise.all(writes)
+
+    process.exit(response.exitCode)
   }
 }

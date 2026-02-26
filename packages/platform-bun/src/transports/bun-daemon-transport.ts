@@ -10,6 +10,7 @@
  */
 
 import { MaxError, type RpcRequest, type RpcResponse, type Transport } from '@max/core'
+import { BufferedSocket } from '../util/buffered-socket.js'
 
 interface PendingRequest {
   resolve: (value: unknown) => void
@@ -18,12 +19,14 @@ interface PendingRequest {
 
 export class BunDaemonTransport implements Transport {
   private socket: ReturnType<typeof Bun.connect> extends Promise<infer T> ? T : never
+  private writer: BufferedSocket
   private readonly pending = new Map<string, PendingRequest>()
   private buffer = new Uint8Array(0)
   private requestCounter = 0
 
   private constructor(socket: BunDaemonTransport['socket']) {
     this.socket = socket
+    this.writer = new BufferedSocket(socket)
   }
 
   /**
@@ -37,6 +40,9 @@ export class BunDaemonTransport implements Transport {
       socket: {
         data(_socket, data) {
           transport!.onData(data)
+        },
+        drain() {
+          transport!.writer.drain()
         },
         close() {
           transport!.onClose()
@@ -58,7 +64,7 @@ export class BunDaemonTransport implements Transport {
 
     return new Promise<unknown>((resolve, reject) => {
       this.pending.set(id, { resolve, reject })
-      this.socket.write(JSON.stringify(wire) + '\n')
+      this.writer.write(JSON.stringify(wire) + '\n')
     })
   }
 

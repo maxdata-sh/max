@@ -2,3 +2,9 @@
 .private-journal
 .turbo
 .carl
+design-docs
+node_modules
+.idea
+.env
+dist
+.claude

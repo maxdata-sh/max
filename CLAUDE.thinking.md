@@ -1,9 +1,9 @@
 ## Workflow Orchestration
 
-### 1. Plan Mode Default
-- Enter plan mode for ANY non-trivial task that hasn't yet been discussed (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately — don't keep pushing
-- Use plan mode for verification steps, not just building
+### 1. Planning precedes implementation 
+- Any complex work requires confirmation from the user before writing the first line of code.
+- "plan mode" is not required. Simply have a conversation and ensure that both you and the user are in agreement about the approach.
+- If something goes sideways, STOP and engage with the user immediately — don't keep pushing
 - Write detailed specs upfront to reduce ambiguity
 
 ### 2. Subagent Strategy

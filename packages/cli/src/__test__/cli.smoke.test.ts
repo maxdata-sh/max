@@ -25,7 +25,7 @@ async function createTestCli() {
       credentials: { type: 'in-memory', initialSecrets: { api_token: 'test' } },
     },
     spec: {
-      connector: 'acme',
+      connector: '@max/connector-acme',
       name: 'default',
       connectorConfig: { workspaceId: 'test', baseUrl: '' } satisfies AcmeConfig,
     },
@@ -70,7 +70,7 @@ describe('CLI smoke', () => {
   describe('schema', () => {
     test('workspace level — schema acme', async () => {
       const { run } = await createTestCli()
-      const res = await run('max://@/test-project', ['schema', 'acme'])
+      const res = await run('max://@/test-project', ['schema', '@max/connector-acme'])
 
       expect(res.exitCode).toBe(0)
       expect(res.stdout).toContain('AcmeUser')
@@ -121,7 +121,7 @@ describe('CLI smoke', () => {
   describe('target resolution', () => {
     test('nonexistent workspace → error response', async () => {
       const { run } = await createTestCli()
-      const result = await run('max://@/nonexistent', ['schema', 'acme'])
+      const result = await run('max://@/nonexistent', ['schema', '_blah_'])
       expect(result.exitCode).toBe(1)
     })
 

@@ -1,7 +1,6 @@
-import { describe, test, expect } from 'bun:test'
-import { BunPlatform } from '../bun-platform.js'
-import { AcmeConfig, AcmeUser } from '@max/connector-acme'
-import { Projection } from '@max/core'
+import {describe, expect, test} from 'bun:test'
+import {BunPlatform} from '../bun-platform.js'
+import {AcmeConfig} from '@max/connector-acme'
 import * as fs from "node:fs";
 
 describe('in-process-provider', () => {
@@ -36,7 +35,7 @@ describe('in-process-provider', () => {
         credentials: { type: 'in-memory', initialSecrets: { api_token: '333' } },
       },
       spec: {
-        connector: 'acme',
+        connector: '@max/connector-acme',
         name: 'default',
         connectorConfig: { workspaceId: '123', baseUrl: "http://no" } satisfies AcmeConfig,
       },

@@ -151,7 +151,7 @@ Your agent now knows how to discover connectors, run queries, and work with Max'
 | **ACME** | Demo | Fictional connector for testing and learning |
 
 ### Creating a connector
-See [creating a connector](max/docs/developer/connectors/creating-a-new-connector.md)
+See [max developer guide](docs/developer/README.md)
 
 
 
